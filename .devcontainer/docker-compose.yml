@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  stormlit-app:
+    container_name: stormlit-app
+    build: 
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    networks:
+      - stormlit-network
+
+  stormlit-keycloak:
+    container_name: stormlit-keycloak
+    image: quay.io/keycloak/keycloak:26.0.6
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL_HOST: stormlit-postgres
+      KC_DB_URL_DATABASE: stormlit_keycloak_db
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    ports:
+      - "50080:8080"
+    command: start-dev
+    depends_on:
+      - stormlit-postgres
+    networks:
+      - stormlit-network
+
+  stormlit-postgres:
+    container_name: stormlit-postgres
+    image: postgres:16
+    environment:
+      POSTGRES_DB: stormlit_keycloak_db
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    ports:
+      - "55432:5432"
+    volumes:
+      - stormlit-postgres-data:/var/lib/postgresql/data
+    networks:
+      - stormlit-network
+
+  stormlit-pgadmin:
+      container_name: stormlit-pgadmin
+      image: dpage/pgadmin4
+      environment:
+        PGADMIN_DEFAULT_EMAIL: admin@example.com
+        PGADMIN_DEFAULT_PASSWORD: admin
+      ports:
+        - "55050:80"
+      networks:
+        - stormlit-network
+      depends_on:
+        - stormlit-postgres
+
+networks:
+  stormlit-network:
+    name: stormlit-network
+
+volumes:
+  stormlit-postgres-data:
+    name: stormlit-postgres-data
