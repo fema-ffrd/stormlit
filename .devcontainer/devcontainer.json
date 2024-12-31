@@ -18,8 +18,14 @@
 		},
 		"ghcr.io/joedmck/devcontainer-features/cdktf:1": {
 			"version": "0.20.10"
+		},
+		"ghcr.io/devcontainers/features/terraform:1": {
+			"version": "1.10.3"
 		}
 	},
+	"mounts": [
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
+	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
