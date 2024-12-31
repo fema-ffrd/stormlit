@@ -1,0 +1,8 @@
+{
+    "name": "streamlit-iac",
+    "version": "0.0.0",
+    "description": "IaC code for Stormlit app",
+    "scripts": {},
+    "devDependencies": {},
+    "dependencies": {}
+  }

@@ -144,3 +144,45 @@ cp .env.template .env
 2. Update `.env` with development values:
 
 The `.env.template` file in the project root contains all required environment variables with descriptions.
+
+## IaC
+
+The IaC for this repository is inside the `iac/` directory. This projects used the CDK for terraform with Python.
+
+```
+cd iac
+pipenv install
+```
+
+The `cdktf` command is available in the devcontainer. Once provider bindings have been installed, activate the pipenv inside the `iac` directory:
+
+```
+pipenv shell
+```
+
+In order for VSCode to properly run intellisense on this code, you must change your python interpreter to this environment. To change your Python interpreter:
+
+- Press `Ctrl+Shift+P` to open the command palette.
+- Type "Python: Select Interpreter" and select it.
+- VSCode will then display a list of available Python interpreters. Look for the one that corresponds to the virtual environment. It should be located within the virtual environment directory.
+- Select the interpreter associated with your virtual environment.
+
+If you need to manually specify the interpreter path, you can get the correct path by running the `which python` command with the pipenv environment activated.
+
+There is only a single environment defined. This is the test environment deployed in the PTS's shared AWS account in commercial cloud. The infrastructure is deploy with the following command from the `iac` directory (only in CI/CD):
+
+```
+cdktf deploy --auto-approve
+```
+
+You can also test a deployment with `synth` during development:
+
+```
+cdktf synth
+```
+
+And destroy the environment with `destroy`:
+
+```
+cdktf destroy
+```
