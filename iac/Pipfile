@@ -8,7 +8,11 @@ python_version = "3.12"
 
 [packages]
 cdktf = "~=0.20.10"
-pytest = "*"
 cdktf-cdktf-provider-aws = "~=19.21.0"
+pytest = "*"
+constructs = "~=10.3.0"
+typing-extensions = "*"
 
 [dev-packages]
+black = "*"
+pylint = "*"
