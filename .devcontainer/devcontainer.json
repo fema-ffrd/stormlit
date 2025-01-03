@@ -1,0 +1,47 @@
+{
+	"name": "stormlit-devcontainer",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "stormlit-app",
+	"workspaceFolder": "/workspace",
+	"features": {
+		"ghcr.io/mamba-org/devcontainer-features/micromamba:1": {
+			"envFile": "/tmp/env.yml",
+			"envName": "stormlit",
+			"autoActivate": true,
+			"version": "2.0.5"
+		},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/aws-cli:1": {
+			"version": "latest"
+		},
+		"ghcr.io/joedmck/devcontainer-features/cdktf:1": {
+			"version": "0.20.10"
+		},
+		"ghcr.io/devcontainers/features/terraform:1": {
+			"version": "1.10.3"
+		}
+	},
+	"mounts": [
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.pylint",
+				"GitHub.copilot",
+				"ms-python.black-formatter"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/opt/conda/envs/stormlit/bin/python"
+			}
+		}
+	},
+	// be sure to have the workspace folder owned by vscode user
+	"postCreateCommand": "sudo chown -R vscode:vscode ${containerWorkspaceFolder}",
+	// start the dev container with the stormlit environment activated
+	// avoid dubious ownership of the workspace folder https://www.kenmuse.com/blog/avoiding-dubious-ownership-in-dev-containers/
+	"postStartCommand": "micromamba shell init --shell=bash && echo 'micromamba activate stormlit' >> ~/.bashrc && git config --global --add safe.directory ${containerWorkspaceFolder}"
+}

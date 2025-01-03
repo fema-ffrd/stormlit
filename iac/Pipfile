@@ -1,0 +1,18 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[requires]
+python_version = "3.12"
+
+[packages]
+cdktf = "~=0.20.10"
+cdktf-cdktf-provider-aws = "~=19.21.0"
+pytest = "*"
+constructs = "~=10.3.0"
+typing-extensions = "*"
+
+[dev-packages]
+black = "*"
+pylint = "*"
