@@ -57,6 +57,8 @@ class ApplicationStack(BaseStack):
         private_subnet_ids: List[str],
         alb_security_group_id: str,
         rds_endpoint: str,
+        database_secret_arn: str,
+        keycloak_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -66,6 +68,7 @@ class ApplicationStack(BaseStack):
             "ecs-iam",
             project_prefix=config.project_prefix,
             environment=config.environment,
+            secret_arns=[database_secret_arn, keycloak_secret_arn],
             tags=config.tags,
         )
 
@@ -130,8 +133,8 @@ class ApplicationStack(BaseStack):
             keycloak_image=config.application.keycloak_image,
             streamlit_image=f"{ecr.streamlit_repository.repository_url}:{config.application.streamlit_image}",
             rds_endpoint=rds_endpoint,
-            keycloak_admin_user=config.application.keycloak_admin_user,
-            keycloak_admin_password=config.application.keycloak_admin_password,
+            database_secret_arn=database_secret_arn,
+            keycloak_secret_arn=keycloak_secret_arn,
             streamlit_container_count=config.ecs.streamlit_container_count,
             tags=config.tags,
         )

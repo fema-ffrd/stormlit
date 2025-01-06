@@ -28,6 +28,7 @@ class RdsConstruct(Construct):
         project_prefix (str): A prefix for naming resources to help differentiate between environments.
         environment (str): The environment name (e.g., `production`, `development`) for tagging purposes.
         private_subnets (List[Subnet]): A list of private subnets to associate with the RDS instance.
+        public_subnets (List[Subnet]): A list of public subnets to associate with the RDS instance.
         security_group (SecurityGroup): The security group to associate with the RDS instance.
         instance_class (str): The instance class/type for the RDS instance (e.g., `db.t2.micro`).
         allocated_storage (int): The amount of allocated storage for the RDS instance (in GB).
@@ -50,6 +51,7 @@ class RdsConstruct(Construct):
         project_prefix: str,
         environment: str,
         private_subnets: List[Subnet],
+        public_subnets: List[Subnet],
         security_group: SecurityGroup,
         instance_class: str,
         allocated_storage: int,
@@ -57,18 +59,27 @@ class RdsConstruct(Construct):
         multi_az: bool,
         deletion_protection: bool,
         backup_retention_period: int,
+        master_username: str,
+        master_password: str,
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
 
         resource_prefix = f"{project_prefix}-{environment}"
 
-        # Create DB subnet group
+        # Create DB subnet group with both public and private subnets for development
+        subnet_ids = (
+            [subnet.id for subnet in private_subnets + public_subnets]
+            if environment == "development"
+            else [subnet.id for subnet in private_subnets]
+        )
+    
         db_subnet_group = DbSubnetGroup(
             self,
             "db-subnet-group",
             name=f"{resource_prefix}-db-subnet",
-            subnet_ids=[subnet.id for subnet in private_subnets],
+            subnet_ids=subnet_ids,
+            description=f"Subnet group for {resource_prefix} RDS instances",
             tags={**tags, "Name": f"{resource_prefix}-db-subnet"},
         )
 
@@ -97,15 +108,15 @@ class RdsConstruct(Construct):
         self.db_instance = DbInstance(
             self,
             "db-instance",
-            identifier=f"{resource_prefix}-postgres",
+            identifier=f"{resource_prefix}-pg",
             engine="postgres",
             engine_version="15.5",
             instance_class=instance_class,
             allocated_storage=allocated_storage,
             max_allocated_storage=max_allocated_storage,
             db_name=f"{project_prefix}_{environment}_db",
-            username=f"{project_prefix}_admin",
-            password="temp_password_123",  # TODO: Use AWS Secrets Manager
+            username=master_username,
+            password=master_password,
             multi_az=multi_az,
             db_subnet_group_name=db_subnet_group.name,
             vpc_security_group_ids=[security_group.id],
@@ -114,5 +125,13 @@ class RdsConstruct(Construct):
             deletion_protection=deletion_protection,
             skip_final_snapshot=True if environment == "development" else False,
             final_snapshot_identifier=f"{resource_prefix}-final-snapshot",
+            publicly_accessible=True if environment == "development" else False,
+            apply_immediately=True if environment == "development" else False,
+            copy_tags_to_snapshot=True,
+            auto_minor_version_upgrade=True,
+            monitoring_interval=60 if environment == "production" else 0,
+            performance_insights_enabled=environment == "production",
+            storage_encrypted=True,
+            port=5432,
             tags=tags,
         )

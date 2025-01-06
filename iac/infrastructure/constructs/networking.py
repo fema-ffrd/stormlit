@@ -295,18 +295,32 @@ class NetworkingConstruct(Construct):
             tags={**tags, "Name": f"{resource_prefix}-rds-sg"},
         )
 
-        # RDS ingress rule - Allow access from ECS tasks
-        SecurityGroupRule(
-            self,
-            "rds-ingress",
-            type="ingress",
-            security_group_id=self.rds_security_group.id,
-            from_port=5432,
-            to_port=5432,
-            protocol="tcp",
-            source_security_group_id=self.ecs_security_group.id,
-            description="PostgreSQL access from ECS tasks",
-        )
+        # RDS ingress rules - Allow all traffic in development
+        if environment == "development":
+            SecurityGroupRule(
+                self,
+                "rds-public-ingress",
+                type="ingress",
+                security_group_id=self.rds_security_group.id,
+                from_port=5432,
+                to_port=5432,
+                protocol="tcp",
+                cidr_blocks=["0.0.0.0/0"],
+                description="Allow PostgreSQL access from anywhere (Development Only)",
+            )
+        else:
+            # Production rules - only allow from ECS
+            SecurityGroupRule(
+                self,
+                "rds-ecs-ingress",
+                type="ingress",
+                security_group_id=self.rds_security_group.id,
+                from_port=5432,
+                to_port=5432,
+                protocol="tcp",
+                source_security_group_id=self.ecs_security_group.id,
+                description="PostgreSQL access from ECS tasks",
+            )
 
         # RDS egress rule
         SecurityGroupRule(

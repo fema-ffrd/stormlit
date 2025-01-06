@@ -62,8 +62,8 @@ class EcsServicesConstruct(Construct):
         keycloak_image: str,
         streamlit_image: str,
         rds_endpoint: str,
-        keycloak_admin_user: str,
-        keycloak_admin_password: str,
+        database_secret_arn: str,
+        keycloak_secret_arn: str,
         streamlit_container_count: int,
         tags: dict,
     ) -> None:
@@ -72,37 +72,41 @@ class EcsServicesConstruct(Construct):
         resource_prefix = f"{project_prefix}-{environment}"
 
         # Keycloak Task Definition
-        # TODO: use optimized keycloak parameters in Production
         keycloak_container_definitions = [
             {
                 "name": "keycloak",
                 "image": keycloak_image,
-                "cpu": 1024,
+                "cpu": 512,
                 "memory": 1024,
                 "essential": True,
                 "portMappings": [
                     {"containerPort": 8080, "hostPort": 8080, "protocol": "tcp"}
                 ],
                 "entryPoint": ["/opt/keycloak/bin/kc.sh"],
-                "command": ["start-dev"],  # Using dev mode for initial setup
+                "command": ["start"],  # Using production mode
+                "secrets": [
+                    {
+                        "name": "KC_DB_USERNAME",
+                        "valueFrom": f"{keycloak_secret_arn}:username::",
+                    },
+                    {
+                        "name": "KC_DB_PASSWORD",
+                        "valueFrom": f"{keycloak_secret_arn}:password::",
+                    },
+                    {
+                        "name": "KEYCLOAK_ADMIN",
+                        "valueFrom": f"{keycloak_secret_arn}:admin_user::",
+                    },
+                    {
+                        "name": "KEYCLOAK_ADMIN_PASSWORD",
+                        "valueFrom": f"{keycloak_secret_arn}:admin_password::",
+                    },
+                ],
                 "environment": [
                     {"name": "KC_DB", "value": "postgres"},
                     {
                         "name": "KC_DB_URL",
                         "value": f"jdbc:postgresql://{rds_endpoint}/keycloak",
-                    },
-                    {
-                        "name": "KC_DB_USERNAME",
-                        "value": "keycloak",
-                    },  # TODO: Use Secrets Manager
-                    {
-                        "name": "KC_DB_PASSWORD",
-                        "value": "keycloak",
-                    },  # TODO: Use Secrets Manager
-                    {"name": "KC_BOOTSTRAP_ADMIN_USER", "value": keycloak_admin_user},
-                    {
-                        "name": "KC_BOOTSTRAP_ADMIN_PASSWORD",
-                        "value": keycloak_admin_password,
                     },
                     {"name": "KC_HEALTH_ENABLED", "value": "true"},
                     {"name": "KC_METRICS_ENABLED", "value": "true"},
@@ -111,7 +115,7 @@ class EcsServicesConstruct(Construct):
                     {"name": "KC_HOSTNAME_STRICT", "value": "false"},
                     {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "false"},
                     {
-                        "name": "JAVA_OPTS_KC_HEAP",
+                        "name": "JAVA_OPTS_APPEND",
                         "value": "-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50",
                     },
                 ],
@@ -186,11 +190,21 @@ class EcsServicesConstruct(Construct):
             {
                 "name": "streamlit",
                 "image": streamlit_image,
-                "cpu": 512,
-                "memory": 512,
+                "cpu": 1024,
+                "memory": 1500,
                 "essential": True,
                 "portMappings": [
                     {"containerPort": 8501, "hostPort": 8501, "protocol": "tcp"}
+                ],
+                "secrets": [
+                    {
+                        "name": "DB_USERNAME",
+                        "valueFrom": f"{database_secret_arn}:username::",
+                    },
+                    {
+                        "name": "DB_PASSWORD",
+                        "valueFrom": f"{database_secret_arn}:password::",
+                    },
                 ],
                 "environment": [
                     {
