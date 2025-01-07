@@ -105,7 +105,13 @@ class DatabaseStack(BaseStack):
             streamlit_password=self.random_passwords.database_password.result,
         )
 
+        self.secrets.node.add_dependency(self.random_passwords)
+        self.rds.node.add_dependency(self.networking)
+        self.rds.node.add_dependency(self.secrets)
         self.postgres_init.node.add_dependency(self.rds)
+        self.postgres_init.node.add_dependency(self.secrets)
+        self.postgres_init.node.add_dependency(self.random_passwords)
+        self.postgres_init.node.add_dependency(self.networking)
 
         # Create outputs
         TerraformOutput(
