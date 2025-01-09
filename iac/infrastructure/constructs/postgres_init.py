@@ -58,7 +58,7 @@ class PostgresInitConstruct(Construct):
             connect_timeout=60,
             max_connections=5,
             superuser=False,
-            expected_version="15.5",
+            expected_version="16.6",
         )
 
         # Create Keycloak Role

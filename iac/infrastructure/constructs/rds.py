@@ -67,9 +67,9 @@ class RdsConstruct(Construct):
 
         resource_prefix = f"{project_prefix}-{environment}"
 
-        # Create DB subnet group with both public and private subnets for development
+        # Create DB subnet group with both public subnets for development and private subnets for production
         subnet_ids = (
-            [subnet.id for subnet in private_subnets + public_subnets]
+            [subnet.id for subnet in public_subnets]
             if environment == "development"
             else [subnet.id for subnet in private_subnets]
         )
@@ -88,7 +88,7 @@ class RdsConstruct(Construct):
             self,
             "db-parameter-group",
             name=f"{resource_prefix}-db-params",
-            family="postgres15",
+            family="postgres16",
             parameter=[
                 DbParameterGroupParameter(
                     name="max_connections",
@@ -108,9 +108,9 @@ class RdsConstruct(Construct):
         self.db_instance = DbInstance(
             self,
             "db-instance",
-            identifier=f"{resource_prefix}-pg",
+            identifier=f"{resource_prefix}-postgres",
             engine="postgres",
-            engine_version="15.5",
+            engine_version="16.6",
             instance_class=instance_class,
             allocated_storage=allocated_storage,
             max_allocated_storage=max_allocated_storage,

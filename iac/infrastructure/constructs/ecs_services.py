@@ -23,6 +23,7 @@ class EcsServicesConstruct(Construct):
     Parameters:
         scope (Construct): The scope in which this construct is defined.
         id (str): The unique identifier of the construct.
+        alb_dns_name (str): The DNS name of the Application Load Balancer for routing traffic.
         project_prefix (str): A prefix for project-related resource names to ensure uniqueness.
         environment (str): The environment name (e.g., `production`, `staging`) to differentiate resources.
         cluster_id (str): The ECS cluster identifier where services will be deployed.
@@ -50,6 +51,7 @@ class EcsServicesConstruct(Construct):
         scope: Construct,
         id: str,
         *,
+        alb_dns_name: str,
         project_prefix: str,
         environment: str,
         cluster_id: str,
@@ -64,6 +66,7 @@ class EcsServicesConstruct(Construct):
         rds_endpoint: str,
         database_secret_arn: str,
         keycloak_secret_arn: str,
+        streamlit_secret_arn: str,
         streamlit_container_count: int,
         tags: dict,
     ) -> None:
@@ -211,19 +214,27 @@ class EcsServicesConstruct(Construct):
                 "secrets": [
                     {
                         "name": "DB_USERNAME",
-                        "valueFrom": f"{database_secret_arn}:username::",
+                        "valueFrom": f"{streamlit_secret_arn}:username::",
                     },
                     {
                         "name": "DB_PASSWORD",
-                        "valueFrom": f"{database_secret_arn}:password::",
+                        "valueFrom": f"{streamlit_secret_arn}:password::",
                     },
                 ],
                 "environment": [
                     {
-                        "name": "DATABASE_URL",
-                        "value": f"postgresql://streamlit:streamlit@{rds_endpoint}/streamlit",
+                        "name": "DB_HOST",
+                        "value": rds_endpoint,
                     },
-                    {"name": "KEYCLOAK_URL", "value": "https://auth.example.com"},
+                    {
+                        "name": "DB_NAME",
+                        "value": "streamlit",
+                    },
+                    {
+                        "name": "DATABASE_URL",
+                        "value": "postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}",
+                    },
+                    {"name": "KEYCLOAK_URL", "value": f"{alb_dns_name}/auth"},
                     {"name": "STREAMLIT_SERVER_PORT", "value": "8501"},
                     {"name": "STREAMLIT_SERVER_ADDRESS", "value": "0.0.0.0"},
                     {"name": "STREAMLIT_BROWSER_GATHER_USAGE_STATS", "value": "false"},

@@ -157,7 +157,7 @@ def get_development_config() -> EnvironmentConfig:
             dynamodb_table="cdktf-state-lock-fema-ffrd",
         ),
         database=DatabaseConfig(
-            instance_class="db.t3.micro",
+            instance_class="db.t4g.medium",
             allocated_storage=20,
             max_allocated_storage=100,
             deletion_protection=False,
@@ -170,7 +170,7 @@ def get_development_config() -> EnvironmentConfig:
             streamlit_image="latest",
         ),
         ecs=EcsConfig(
-            instance_type="t3.medium",
+            instance_type="t4g.medium",
             instance_count=1,
             streamlit_container_count=1,
         ),

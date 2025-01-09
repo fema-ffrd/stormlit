@@ -14,6 +14,7 @@ class RandomPasswordConstruct(Construct):
     Attributes:
         database_password (Password): The generated random password for database access.
         keycloak_password (Password): The generated random password for Keycloak admin.
+        streamlit_password (Password): The generated random password for Streamlit admin.
 
     Parameters:
         scope (Construct): The scope in which this construct is defined.
@@ -51,6 +52,15 @@ class RandomPasswordConstruct(Construct):
         self.keycloak_password = Password(
             self,
             "keycloak-password",
+            length=min_length,
+            special=special,
+            override_special="!#$%&*()-_=+[]{}<>:?",
+        )
+
+        # Generate Streamlit Password
+        self.streamlit_password = Password(
+            self,
+            "streamlit-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",

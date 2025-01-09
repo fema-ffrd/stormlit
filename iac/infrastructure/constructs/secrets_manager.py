@@ -17,6 +17,7 @@ class SecretsManagerConstruct(Construct):
     Attributes:
         database_secret (SecretsmanagerSecret): The secret containing database credentials.
         keycloak_secret (SecretsmanagerSecret): The secret containing Keycloak admin credentials.
+        streamlit_secret (SecretsmanagerSecret): The secret containing Streamlit admin credentials.
 
     Parameters:
         scope (Construct): The scope in which this construct is defined.
@@ -25,6 +26,7 @@ class SecretsManagerConstruct(Construct):
         environment (str): The environment name (e.g., `development`, `production`) for resource differentiation.
         database_credentials (Dict[str, str]): Dictionary containing database credentials (username, password).
         keycloak_credentials (Dict[str, str]): Dictionary containing Keycloak admin credentials.
+        streamlit_credentials (Dict[str, str]): Dictionary containing Streamlit admin credentials.
         tags (dict): A dictionary of tags to apply to all resources created by this construct.
 
     Methods:
@@ -43,6 +45,7 @@ class SecretsManagerConstruct(Construct):
         environment: str,
         database_credentials: Dict[str, str],
         keycloak_credentials: Dict[str, str],
+        streamlit_credentials: Dict[str, str],
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
@@ -52,7 +55,7 @@ class SecretsManagerConstruct(Construct):
         # Create database credentials secret
         self.database_secret = self._create_secret_with_version(
             "database-secret",
-            f"{resource_prefix}-database-credentials",
+            f"{resource_prefix}-database-creds",
             database_credentials,
             tags,
         )
@@ -60,8 +63,16 @@ class SecretsManagerConstruct(Construct):
         # Create Keycloak admin credentials secret
         self.keycloak_secret = self._create_secret_with_version(
             "keycloak-secret",
-            f"{resource_prefix}-keycloak-credentials",
+            f"{resource_prefix}-keycloak-creds",
             keycloak_credentials,
+            tags,
+        )
+
+        # Create streamlit admin credentials secret
+        self.streamlit_secret = self._create_secret_with_version(
+            "streamlit-secret",
+            f"{resource_prefix}-streamlit-creds",
+            streamlit_credentials,
             tags,
         )
 

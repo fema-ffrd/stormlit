@@ -1,6 +1,6 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput
+from cdktf import TerraformOutput, Token
 from config import EnvironmentConfig
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
@@ -59,6 +59,7 @@ class ApplicationStack(BaseStack):
         rds_endpoint: str,
         database_secret_arn: str,
         keycloak_secret_arn: str,
+        streamlit_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -121,6 +122,7 @@ class ApplicationStack(BaseStack):
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
+            alb_dns_name=Token.as_string(alb.alb.dns_name),
             project_prefix=config.project_prefix,
             environment=config.environment,
             cluster_id=ecs_cluster.cluster.id,
@@ -135,6 +137,7 @@ class ApplicationStack(BaseStack):
             rds_endpoint=rds_endpoint,
             database_secret_arn=database_secret_arn,
             keycloak_secret_arn=keycloak_secret_arn,
+            streamlit_secret_arn=streamlit_secret_arn,
             streamlit_container_count=config.ecs.streamlit_container_count,
             tags=config.tags,
         )

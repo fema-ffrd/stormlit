@@ -1,5 +1,5 @@
-# Use an official Python runtime as the base image
-FROM python:3.12-slim
+# Stage 0: Use BuildKit's multi-platform support
+FROM --platform=$BUILDPLATFORM python:3.12-slim as builder
 
 # Set the working directory in the container
 WORKDIR /app
@@ -7,8 +7,14 @@ WORKDIR /app
 # Install streamlit
 RUN pip install --no-cache-dir streamlit
 
-# Copy any necessary files into the container
-# In this case, we don't need to copy any files since we're using streamlit hello
+# Stage 1: Create the final multi-arch image
+FROM --platform=$TARGETPLATFORM python:3.12-slim
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
+COPY --from=builder /usr/local/bin/streamlit /usr/local/bin/
 
 # Expose the port Streamlit runs on
 EXPOSE 8501
