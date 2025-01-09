@@ -118,12 +118,24 @@ class EcsServicesConstruct(Construct):
                         "name": "JAVA_OPTS_APPEND",
                         "value": "-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50",
                     },
+                    {
+                        "name": "KC_HTTP_RELATIVE_PATH",
+                        "value": "/auth"
+                    },
+                    {
+                        "name": "KC_HOSTNAME_STRICT",
+                        "value": "false"
+                    },
+                    {
+                        "name": "KC_HOSTNAME_STRICT_HTTPS",
+                        "value": "false"
+                    },
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
                     "options": {
                         "awslogs-group": f"/ecs/{resource_prefix}-keycloak",
-                        "awslogs-region": tags.get("Region", "us-east-1"),
+                        "awslogs-region": tags.get("Region", "us-east-2"),
                         "awslogs-stream-prefix": "keycloak",
                         "awslogs-create-group": "true",
                     },
@@ -220,7 +232,7 @@ class EcsServicesConstruct(Construct):
                     "logDriver": "awslogs",
                     "options": {
                         "awslogs-group": f"/ecs/{resource_prefix}-streamlit",
-                        "awslogs-region": tags.get("Region", "us-east-1"),
+                        "awslogs-region": tags.get("Region", "us-east-2"),
                         "awslogs-stream-prefix": "streamlit",
                         "awslogs-create-group": "true",
                     },

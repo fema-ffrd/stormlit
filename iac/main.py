@@ -57,7 +57,7 @@ def main():
         alb_security_group_id=Token.as_string(
             database_stack.networking.alb_security_group.id
         ),
-        rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
+        rds_endpoint=Token.as_string(f"${{split(\":\", {database_stack.rds.db_instance.endpoint})[0]}}"),
         database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
         keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
     )

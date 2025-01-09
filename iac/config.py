@@ -150,11 +150,11 @@ def get_development_config() -> EnvironmentConfig:
     return EnvironmentConfig(
         project_prefix="stormlit",
         environment="development",
-        region="us-east-1",
+        region="us-east-2",
         vpc_cidr="10.0.0.0/16",
         backend=BackendConfig(
-            s3_bucket="mbi-dev-cdktf-backend-state",
-            dynamodb_table="mbi-dev-cdktf-backend-table",
+            s3_bucket="cdktf-state-fema-ffrd",
+            dynamodb_table="cdktf-state-lock-fema-ffrd",
         ),
         database=DatabaseConfig(
             instance_class="db.t3.micro",
@@ -203,8 +203,8 @@ def get_production_config() -> EnvironmentConfig:
         region="us-gov-east-1",
         vpc_cidr="10.1.0.0/16",
         backend=BackendConfig(
-            s3_bucket="mbi-prod-cdktf-backend-state",  # TODO: Change bucket name
-            dynamodb_table="mbi-prod-cdktf-backend-table",  # TODO: Change table name
+            s3_bucket="",  # TODO: Change bucket name
+            dynamodb_table="",  # TODO: Change table name
         ),
         database=DatabaseConfig(
             instance_class="db.t3.medium",

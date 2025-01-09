@@ -126,7 +126,7 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create HTTP listener: TODO: Add HTTPS listener
+        # Create HTTP listener that forwards to Streamlit by default
         self.http_listener = LbListener(
             self,
             "http-listener",
@@ -135,46 +135,30 @@ class AlbConstruct(Construct):
             protocol="HTTP",
             default_action=[
                 LbListenerDefaultAction(
-                    type="fixed-response",
-                    fixed_response={
-                        "content_type": "text/plain",
-                        "message_body": "Invalid request",
-                        "status_code": "400",
-                    },
+                    type="forward",
+                    target_group_arn=self.streamlit_target_group.arn,
                 )
             ],
             tags=tags,
         )
 
-        # Create listener rules for each service
+        # Create listener rule for Keycloak path
         LbListenerRule(
             self,
             "keycloak-rule",
             listener_arn=self.http_listener.arn,
             priority=1,
             condition=[
-                LbListenerRuleCondition(host_header={"values": [f"auth.{domain_name}"]})
+                LbListenerRuleCondition(
+                    path_pattern={
+                        "values": ["/auth/*"]
+                    }
+                )
             ],
             action=[
                 LbListenerRuleAction(
                     type="forward",
                     target_group_arn=self.keycloak_target_group.arn,
-                )
-            ],
-        )
-
-        LbListenerRule(
-            self,
-            "streamlit-rule",
-            listener_arn=self.http_listener.arn,
-            priority=2,
-            condition=[
-                LbListenerRuleCondition(host_header={"values": [f"app.{domain_name}"]})
-            ],
-            action=[
-                LbListenerRuleAction(
-                    type="forward",
-                    target_group_arn=self.streamlit_target_group.arn,
                 )
             ],
         )
