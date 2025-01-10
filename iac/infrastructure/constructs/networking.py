@@ -113,7 +113,8 @@ class NetworkingConstruct(Construct):
 
         # Create subnets based on environment
         azs = (
-            ["us-east-2a", "us-east-2b"] if environment == "development" 
+            ["us-east-2a", "us-east-2b"]
+            if environment == "development"
             else ["us-east-2a", "us-east-2b", "us-east-2c"]
         )
 

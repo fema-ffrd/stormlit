@@ -1,0 +1,67 @@
+name: Lint and Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  iac-lint-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./iac
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          
+      - name: Install pipenv
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          
+      - name: Install dependencies
+        run: pipenv install
+          
+      - name: Run Black
+        run: pipenv run black . --check
+        
+      - name: Run Pylint
+        run: pipenv run pylint --fail-under=9 --fail-on=E ./
+        
+      - name: Run Tests
+        run: pipenv run pytest main-test.py
+
+  streamlit-lint-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: app/env.yml
+          cache-environment-key: environment-dev
+          cache-downloads-key: downloads-dev
+          environment-name: ci
+          
+      - name: Run Black
+        shell: bash -el {0}
+        run: black . --check
+        
+      - name: Run Pylint
+        shell: bash -el {0}
+        run: pylint --fail-under=9 --fail-on=E ./
+        
+      - name: Run Tests
+        shell: bash -el {0}
+        run: pytest

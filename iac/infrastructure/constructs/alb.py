@@ -148,13 +148,7 @@ class AlbConstruct(Construct):
             "keycloak-rule",
             listener_arn=self.http_listener.arn,
             priority=1,
-            condition=[
-                LbListenerRuleCondition(
-                    path_pattern={
-                        "values": ["/auth/*"]
-                    }
-                )
-            ],
+            condition=[LbListenerRuleCondition(path_pattern={"values": ["/auth/*"]})],
             action=[
                 LbListenerRuleAction(
                     type="forward",

@@ -1,0 +1,74 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_run:
+    workflows: 
+      - "Run Database Migrations"
+      - "Build and Push Streamlit App"
+    types:
+      - completed
+    branches: [main]
+
+concurrency: 
+  group: development-environment
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2 # Must match region in config.py
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infrastructure:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        working-directory: ./iac
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+
+      - name: Get version from workflow that triggered this one
+        id: get-version
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id
+            });
+            const sha = run.data.head_sha;
+            return sha.substring(0, 7);
+
+      - name: Deploy with CDKTF
+        working-directory: ./iac
+        env:
+          TF_VAR_streamlit_tag: ${{ steps.get-version.outputs.result }}
+          TF_VAR_migration_tag: ${{ steps.get-version.outputs.result }}
+        run: |
+          pipenv run cdktf deploy --auto-approve

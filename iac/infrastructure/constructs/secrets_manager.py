@@ -2,7 +2,9 @@ from typing import Dict
 import json
 from constructs import Construct
 from cdktf_cdktf_provider_aws.secretsmanager_secret import SecretsmanagerSecret
-from cdktf_cdktf_provider_aws.secretsmanager_secret_version import SecretsmanagerSecretVersion
+from cdktf_cdktf_provider_aws.secretsmanager_secret_version import (
+    SecretsmanagerSecretVersion,
+)
 
 
 class SecretsManagerConstruct(Construct):

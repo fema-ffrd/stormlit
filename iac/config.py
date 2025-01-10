@@ -160,10 +160,10 @@ def get_development_config() -> EnvironmentConfig:
             max_allocated_storage=100,
             deletion_protection=False,
             multi_az=False,
-            backup_retention_period=7
+            backup_retention_period=7,
         ),
         application=ApplicationConfig(
-            domain_name="dev.example.com", # TODO Change domain name
+            domain_name="dev.example.com",  # TODO Change domain name
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
         ),
         ecs=EcsConfig(

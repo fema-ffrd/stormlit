@@ -1,0 +1,50 @@
+name: Run Database Migrations
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Migration Container"]
+    types:
+      - completed
+    branches: [main]
+
+concurrency: 
+  group: development-environment
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2 # Must match region in config.py
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get migration task definition
+        id: get-task-def
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition stormlit-development-db-init \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_def=$TASK_DEF" >> $GITHUB_OUTPUT
+
+      - name: Run migration task
+        run: |
+          aws ecs run-task \
+            --cluster stormlit-development-cluster \
+            --task-definition ${{ steps.get-task-def.outputs.task_def }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-12345678],securityGroups=[sg-12345678],assignPublicIp=ENABLED}"
