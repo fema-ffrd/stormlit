@@ -60,7 +60,7 @@ def main():
         rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
         database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
         keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
-        streamlit_secret_arn=Token.as_string(database_stack.secrets.streamlit_secret.arn),
+        streamlit_secret_arn=Token.as_string(database_stack.secrets.streamlit_secret.arn)
     )
 
     # Add dependency between stacks

@@ -1,6 +1,6 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput, Token
+from cdktf import TerraformOutput, Token, TerraformVariable
 from config import EnvironmentConfig
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
@@ -39,6 +39,9 @@ class ApplicationStack(BaseStack):
         private_subnet_ids (List[str]): A list of IDs for private subnets.
         alb_security_group_id (str): The ID of the security group for the ALB.
         rds_endpoint (str): The endpoint of the RDS database to connect to.
+        database_secret_arn (str): The ARN of the secret containing the database credentials.
+        keycloak_secret_arn (str): The ARN of the secret containing the Keycloak credentials.
+        streamlit_secret_arn (str): The ARN of the secret containing the Streamlit credentials.
 
     Methods:
         __init__(self, scope, id, config, vpc_id, public_subnet_ids, private_subnet_ids, alb_security_group_id,
@@ -63,13 +66,19 @@ class ApplicationStack(BaseStack):
     ) -> None:
         super().__init__(scope, id, config)
 
+        streamlit_tag = TerraformVariable(self, "streamlit_tag",
+            type="string",
+            description="Version tag for the streamlit image",
+            default="latest"  # fallback to 'latest' if not provided
+        )
+
         # Create IAM roles and instance profile
         iam = EcsIamConstruct(
             self,
             "ecs-iam",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            secret_arns=[database_secret_arn, keycloak_secret_arn],
+            secret_arns=[database_secret_arn, keycloak_secret_arn, streamlit_secret_arn],
             tags=config.tags,
         )
 
@@ -133,7 +142,8 @@ class ApplicationStack(BaseStack):
             keycloak_target_group_arn=alb.keycloak_target_group.arn,
             streamlit_target_group_arn=alb.streamlit_target_group.arn,
             keycloak_image=config.application.keycloak_image,
-            streamlit_image=f"{ecr.streamlit_repository.repository_url}:{config.application.streamlit_image}",
+            streamlit_repository_url=Token.as_string(ecr.streamlit_repository.repository_url),
+            streamlit_tag=streamlit_tag.string_value,
             rds_endpoint=rds_endpoint,
             database_secret_arn=database_secret_arn,
             keycloak_secret_arn=keycloak_secret_arn,

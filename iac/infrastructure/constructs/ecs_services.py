@@ -34,7 +34,8 @@ class EcsServicesConstruct(Construct):
         keycloak_target_group_arn (str): The ARN of the AWS Application Load Balancer target group for Keycloak.
         streamlit_target_group_arn (str): The ARN of the AWS Application Load Balancer target group for Streamlit.
         keycloak_image (str): The Docker image URI for the Keycloak application.
-        streamlit_image (str): The Docker image URI for the Streamlit application.
+        streamlit_repository_url (str): The URL of the ECR repository for the Streamlit application.
+        streamlit_tag (str): The tag of the Streamlit Docker image to deploy.
         rds_endpoint (str): The endpoint of the RDS database for storing application data.
         keycloak_admin_user (str): The Keycloak admin user for initial setup.
         keycloak_admin_password (str): The Keycloak admin password for initial setup.
@@ -62,7 +63,8 @@ class EcsServicesConstruct(Construct):
         keycloak_target_group_arn: str,
         streamlit_target_group_arn: str,
         keycloak_image: str,
-        streamlit_image: str,
+        streamlit_repository_url: str,
+        streamlit_tag: str,
         rds_endpoint: str,
         database_secret_arn: str,
         keycloak_secret_arn: str,
@@ -83,18 +85,19 @@ class EcsServicesConstruct(Construct):
                 "memory": 1024,
                 "essential": True,
                 "portMappings": [
-                    {"containerPort": 8080, "hostPort": 8080, "protocol": "tcp"}
+                    {"containerPort": 8080, "hostPort": 8080, "protocol": "tcp"},
+                    {"containerPort": 9000, "hostPort": 9000, "protocol": "tcp"},
                 ],
                 "entryPoint": ["/opt/keycloak/bin/kc.sh"],
                 "command": ["start"],  # Using production mode
                 "secrets": [
                     {
                         "name": "KC_DB_USERNAME",
-                        "valueFrom": f"{keycloak_secret_arn}:username::",
+                        "valueFrom": f"{database_secret_arn}:username::",
                     },
                     {
                         "name": "KC_DB_PASSWORD",
-                        "valueFrom": f"{keycloak_secret_arn}:password::",
+                        "valueFrom": f"{database_secret_arn}:password::",
                     },
                     {
                         "name": "KEYCLOAK_ADMIN",
@@ -142,17 +145,7 @@ class EcsServicesConstruct(Construct):
                         "awslogs-stream-prefix": "keycloak",
                         "awslogs-create-group": "true",
                     },
-                },
-                "healthCheck": {
-                    "command": [
-                        "CMD-SHELL",
-                        "curl -f http://localhost:8080/health || exit 1",
-                    ],
-                    "interval": 30,
-                    "timeout": 5,
-                    "retries": 3,
-                    "startPeriod": 60,
-                },
+                }
             }
         ]
 
@@ -162,7 +155,7 @@ class EcsServicesConstruct(Construct):
             family=f"{resource_prefix}-keycloak",
             requires_compatibilities=["EC2"],
             network_mode="awsvpc",
-            cpu="1024",
+            cpu="512",
             memory="1024",
             execution_role_arn=execution_role_arn,
             task_role_arn=task_role_arn,
@@ -189,12 +182,14 @@ class EcsServicesConstruct(Construct):
                     target_group_arn=keycloak_target_group_arn,
                     container_name="keycloak",
                     container_port=8080,
-                )
+                ),
             ],
             tags=tags,
+            deployment_minimum_healthy_percent=0,  # Allow all tasks to be stopped during deployment
+            deployment_maximum_percent=100,  # Don't allow more than the desired count during deployment
             deployment_circuit_breaker={
-                "enable": True,
-                "rollback": True,
+                "enable": False,
+                "rollback": False,
             },
             health_check_grace_period_seconds=120,
             propagate_tags="SERVICE",
@@ -204,7 +199,7 @@ class EcsServicesConstruct(Construct):
         streamlit_container_definitions = [
             {
                 "name": "streamlit",
-                "image": streamlit_image,
+                "image": f"{streamlit_repository_url}:{streamlit_tag}",
                 "cpu": 1024,
                 "memory": 1500,
                 "essential": True,
@@ -214,11 +209,11 @@ class EcsServicesConstruct(Construct):
                 "secrets": [
                     {
                         "name": "DB_USERNAME",
-                        "valueFrom": f"{streamlit_secret_arn}:username::",
+                        "valueFrom": f"{streamlit_secret_arn}:admin_user::",
                     },
                     {
                         "name": "DB_PASSWORD",
-                        "valueFrom": f"{streamlit_secret_arn}:password::",
+                        "valueFrom": f"{streamlit_secret_arn}:admin_password::",
                     },
                 ],
                 "environment": [
@@ -229,10 +224,6 @@ class EcsServicesConstruct(Construct):
                     {
                         "name": "DB_NAME",
                         "value": "streamlit",
-                    },
-                    {
-                        "name": "DATABASE_URL",
-                        "value": "postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}",
                     },
                     {"name": "KEYCLOAK_URL", "value": f"{alb_dns_name}/auth"},
                     {"name": "STREAMLIT_SERVER_PORT", "value": "8501"},
@@ -247,17 +238,7 @@ class EcsServicesConstruct(Construct):
                         "awslogs-stream-prefix": "streamlit",
                         "awslogs-create-group": "true",
                     },
-                },
-                "healthCheck": {
-                    "command": [
-                        "CMD-SHELL",
-                        "curl -f http://localhost:8501/healthz || exit 1",
-                    ],
-                    "interval": 30,
-                    "timeout": 5,
-                    "retries": 3,
-                    "startPeriod": 30,
-                },
+                }
             }
         ]
 
@@ -267,8 +248,8 @@ class EcsServicesConstruct(Construct):
             family=f"{resource_prefix}-streamlit",
             requires_compatibilities=["EC2"],
             network_mode="awsvpc",
-            cpu="512",
-            memory="512",
+            cpu="1024",
+            memory="1500",
             execution_role_arn=execution_role_arn,
             task_role_arn=task_role_arn,
             container_definitions=json.dumps(streamlit_container_definitions),
@@ -297,9 +278,11 @@ class EcsServicesConstruct(Construct):
                 )
             ],
             tags=tags,
+            deployment_minimum_healthy_percent=0,  # Allow all tasks to be stopped during deployment
+            deployment_maximum_percent=100,  # Don't allow more than the desired count during deployment
             deployment_circuit_breaker={
-                "enable": True,
-                "rollback": True,
+                "enable": False,
+                "rollback": False,
             },
             health_check_grace_period_seconds=60,
             propagate_tags="SERVICE",

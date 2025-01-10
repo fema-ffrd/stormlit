@@ -69,13 +69,11 @@ class ApplicationConfig:
         keycloak_admin_password (str): The admin password for Keycloak (consider using AWS Secrets
             Manager for production).
         keycloak_image (str): The Docker image of Keycloak.
-        streamlit_image (str): The Docker image for Streamlit.
 
     """
 
     domain_name: str
     keycloak_image: str
-    streamlit_image: str
 
 
 @dataclass
@@ -167,7 +165,6 @@ def get_development_config() -> EnvironmentConfig:
         application=ApplicationConfig(
             domain_name="dev.example.com", # TODO Change domain name
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            streamlit_image="latest",
         ),
         ecs=EcsConfig(
             instance_type="t4g.medium",
@@ -217,7 +214,6 @@ def get_production_config() -> EnvironmentConfig:
         application=ApplicationConfig(
             domain_name="prod.example.com",  # TODO Change domain name
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            streamlit_image="latest",
         ),
         ecs=EcsConfig(
             instance_type="t3.large",

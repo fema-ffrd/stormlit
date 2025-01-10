@@ -67,7 +67,7 @@ class EcrConstruct(Construct):
                     "description": "Keep last 5 images",
                     "selection": {
                         "tagStatus": "tagged",
-                        "tagPrefixList": ["latest", "prod", "stage"],
+                        "tagPatternList": ["*"],
                         "countType": "imageCountMoreThan",
                         "countNumber": 5,
                     },
