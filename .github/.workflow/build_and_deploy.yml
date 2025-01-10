@@ -1,0 +1,140 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency: 
+  group: development-environment
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2 # Must match region in config.py
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]
+          then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+          fi
+
+  build-containers:
+    needs: get-version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        container: [
+          {
+            name: 'migration',
+            dockerfile: 'migrations/Dockerfile',
+            context: 'migrations/'
+          },
+          {
+            name: 'streamlit',
+            dockerfile: 'Dockerfile',
+            context: '.'
+          }
+        ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push container
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.get-version.outputs.version }}
+        run: |
+          docker build -t $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG -f ${{ matrix.container.dockerfile }} ${{ matrix.container.context }}
+          docker push $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG
+
+  run-migrations:
+    needs: [get-version, build-containers]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get migration task definition
+        id: get-task-def
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition stormlit-development-db-init \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_def=$TASK_DEF" >> $GITHUB_OUTPUT
+
+      - name: Run migration task
+        run: |
+          aws ecs run-task \
+            --cluster stormlit-development-cluster \
+            --task-definition ${{ steps.get-task-def.outputs.task_def }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-086fd43f60505baff,subnet-0d53d6f1a5f9417d1],securityGroups=[sg-0e5588f79df414505],assignPublicIp=DISABLED}"
+
+  deploy-infrastructure:
+    needs: [get-version, run-migrations]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        working-directory: ./iac
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+
+      - name: Deploy with CDKTF
+        working-directory: ./iac
+        env:
+          TF_VAR_streamlit_tag: ${{ needs.get-version.outputs.version }}
+          TF_VAR_migration_tag: ${{ needs.get-version.outputs.version }}
+        run: |
+          pipenv run cdktf deploy --auto-approve
