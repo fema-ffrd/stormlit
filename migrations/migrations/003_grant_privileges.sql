@@ -1,0 +1,2 @@
+GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+GRANT ALL PRIVILEGES ON DATABASE streamlit TO streamlit;

@@ -55,7 +55,7 @@ class SecretsManagerConstruct(Construct):
         # Create database credentials secret
         self.database_secret = self._create_secret_with_version(
             "database-secret",
-            f"{resource_prefix}-database-creds",
+            f"{resource_prefix}-db-creds",
             database_credentials,
             tags,
         )
@@ -63,7 +63,7 @@ class SecretsManagerConstruct(Construct):
         # Create Keycloak admin credentials secret
         self.keycloak_secret = self._create_secret_with_version(
             "keycloak-secret",
-            f"{resource_prefix}-keycloak-creds",
+            f"{resource_prefix}-kc-creds",
             keycloak_credentials,
             tags,
         )
@@ -71,7 +71,7 @@ class SecretsManagerConstruct(Construct):
         # Create streamlit admin credentials secret
         self.streamlit_secret = self._create_secret_with_version(
             "streamlit-secret",
-            f"{resource_prefix}-streamlit-creds",
+            f"{resource_prefix}-st-creds",
             streamlit_credentials,
             tags,
         )

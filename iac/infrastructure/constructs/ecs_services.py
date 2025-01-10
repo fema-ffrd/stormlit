@@ -65,6 +65,8 @@ class EcsServicesConstruct(Construct):
         keycloak_image: str,
         streamlit_repository_url: str,
         streamlit_tag: str,
+        migration_repository_url: str,
+        migration_tag: str,
         rds_endpoint: str,
         database_secret_arn: str,
         keycloak_secret_arn: str,
@@ -75,6 +77,74 @@ class EcsServicesConstruct(Construct):
         super().__init__(scope, id)
 
         resource_prefix = f"{project_prefix}-{environment}"
+
+        # Create task definition for migrations
+        self.db_init_task_definition = EcsTaskDefinition(
+            self,
+            "db-init-task-def",
+            family=f"{resource_prefix}-db-init",
+            requires_compatibilities=["FARGATE"],  # Use Fargate
+            network_mode="awsvpc",
+            cpu="256",
+            memory="512",
+            execution_role_arn=execution_role_arn,
+            task_role_arn=task_role_arn,
+            container_definitions=json.dumps(
+                [
+                    {
+                        "name": "db-init",
+                        "image": f"{migration_repository_url}:{migration_tag}",
+                        "essential": True,
+                        "secrets": [
+                            {
+                                "name": "PGUSER",
+                                "valueFrom": f"{database_secret_arn}:username::",
+                            },
+                            {
+                                "name": "PGPASSWORD",
+                                "valueFrom": f"{database_secret_arn}:password::",
+                            },
+                            {
+                                "name": "KEYCLOAK_PASSWORD",
+                                "valueFrom": f"{keycloak_secret_arn}:admin_password::",
+                            },
+                            {
+                                "name": "STREAMLIT_PASSWORD",
+                                "valueFrom": f"{streamlit_secret_arn}:admin_password::",
+                            },
+                        ],
+                        "environment": [
+                            {
+                                "name": "RDS_ENDPOINT",
+                                "value": rds_endpoint,
+                            },
+                            {
+                                "name": "PGPORT",
+                                "value": "5432",
+                            },
+                            {
+                                "name": "PGSSLMODE",
+                                "value": "verify-full",
+                            },
+                            {
+                                "name": "PGSSLROOTCERT",  # Path to the AWS RDS root certificate
+                                "value": "/etc/ssl/certs/rds-ca-2019-root.pem",
+                            },
+                        ],
+                        "logConfiguration": {
+                            "logDriver": "awslogs",
+                            "options": {
+                                "awslogs-group": f"/ecs/{resource_prefix}-db-init",
+                                "awslogs-region": tags.get("Region", "us-east-2"),
+                                "awslogs-stream-prefix": "db-init",
+                                "awslogs-create-group": "true",
+                            },
+                        },
+                    }
+                ]
+            ),
+            tags=tags,
+        )
 
         # Keycloak Task Definition
         keycloak_container_definitions = [
@@ -89,7 +159,7 @@ class EcsServicesConstruct(Construct):
                     {"containerPort": 9000, "hostPort": 9000, "protocol": "tcp"},
                 ],
                 "entryPoint": ["/opt/keycloak/bin/kc.sh"],
-                "command": ["start"],  # Using production mode
+                "command": ["start"],
                 "secrets": [
                     {
                         "name": "KC_DB_USERNAME",
@@ -124,18 +194,9 @@ class EcsServicesConstruct(Construct):
                         "name": "JAVA_OPTS_APPEND",
                         "value": "-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50",
                     },
-                    {
-                        "name": "KC_HTTP_RELATIVE_PATH",
-                        "value": "/auth"
-                    },
-                    {
-                        "name": "KC_HOSTNAME_STRICT",
-                        "value": "false"
-                    },
-                    {
-                        "name": "KC_HOSTNAME_STRICT_HTTPS",
-                        "value": "false"
-                    },
+                    {"name": "KC_HTTP_RELATIVE_PATH", "value": "/auth"},
+                    {"name": "KC_HOSTNAME_STRICT", "value": "false"},
+                    {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "false"},
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
@@ -145,8 +206,8 @@ class EcsServicesConstruct(Construct):
                         "awslogs-stream-prefix": "keycloak",
                         "awslogs-create-group": "true",
                     },
-                }
-            }
+                },
+            },
         ]
 
         keycloak_task_definition = EcsTaskDefinition(
@@ -218,7 +279,7 @@ class EcsServicesConstruct(Construct):
                 ],
                 "environment": [
                     {
-                        "name": "DB_HOST",
+                        "name": "RDS_ENDPOINT",
                         "value": rds_endpoint,
                     },
                     {
@@ -238,7 +299,7 @@ class EcsServicesConstruct(Construct):
                         "awslogs-stream-prefix": "streamlit",
                         "awslogs-create-group": "true",
                     },
-                }
+                },
             }
         ]
 

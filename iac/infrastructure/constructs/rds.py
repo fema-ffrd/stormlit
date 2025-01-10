@@ -29,7 +29,7 @@ class RdsConstruct(Construct):
         environment (str): The environment name (e.g., `production`, `development`) for tagging purposes.
         private_subnets (List[Subnet]): A list of private subnets to associate with the RDS instance.
         public_subnets (List[Subnet]): A list of public subnets to associate with the RDS instance.
-        security_group (SecurityGroup): The security group to associate with the RDS instance.
+        security_group_id (str): The security group to associate with the RDS instance.
         instance_class (str): The instance class/type for the RDS instance (e.g., `db.t2.micro`).
         allocated_storage (int): The amount of allocated storage for the RDS instance (in GB).
         max_allocated_storage (int): The maximum storage allocated for the RDS instance (in GB).
@@ -52,7 +52,7 @@ class RdsConstruct(Construct):
         environment: str,
         private_subnets: List[Subnet],
         public_subnets: List[Subnet],
-        security_group: SecurityGroup,
+        security_group_id: str,
         instance_class: str,
         allocated_storage: int,
         max_allocated_storage: int,
@@ -67,13 +67,9 @@ class RdsConstruct(Construct):
 
         resource_prefix = f"{project_prefix}-{environment}"
 
-        # Create DB subnet group with both public subnets for development and private subnets for production
-        subnet_ids = (
-            [subnet.id for subnet in public_subnets]
-            if environment == "development"
-            else [subnet.id for subnet in private_subnets]
-        )
-    
+        # Create DB subnet group with private subnets
+        subnet_ids = private_subnets
+
         db_subnet_group = DbSubnetGroup(
             self,
             "db-subnet-group",
@@ -119,13 +115,13 @@ class RdsConstruct(Construct):
             password=master_password,
             multi_az=multi_az,
             db_subnet_group_name=db_subnet_group.name,
-            vpc_security_group_ids=[security_group.id],
+            vpc_security_group_ids=[security_group_id],
             parameter_group_name=db_parameter_group.name,
             backup_retention_period=backup_retention_period,
             deletion_protection=deletion_protection,
             skip_final_snapshot=True if environment == "development" else False,
             final_snapshot_identifier=f"{resource_prefix}-final-snapshot",
-            publicly_accessible=True if environment == "development" else False,
+            publicly_accessible=False,
             apply_immediately=True if environment == "development" else False,
             copy_tags_to_snapshot=True,
             auto_minor_version_upgrade=True,

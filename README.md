@@ -187,6 +187,8 @@ And destroy the environment with `destroy`:
 cdktf destroy
 ```
 
-## TODO
+## Cloud Architecture Diagram
 
-- Cloud Architecture Diagram
+The following diagram shows the architecture of the Stormlit application as deployed in the development environment. Note that production deployments will have different configurations (DNS, WAF, etc.).
+
+![Stormlit Arch](docs/arch.png)

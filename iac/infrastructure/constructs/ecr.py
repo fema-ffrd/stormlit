@@ -18,6 +18,7 @@ class EcrConstruct(Construct):
 
     Attributes:
         streamlit_repository (EcrRepository): ECR repository for the Streamlit application.
+        migration_repository (EcrRepository): ECR repository for database migration jobs.
 
     Parameters:
         scope (Construct): The scope in which this construct is defined.
@@ -48,6 +49,22 @@ class EcrConstruct(Construct):
             self,
             "streamlit-repo",
             name=f"{resource_prefix}-streamlit",
+            image_tag_mutability="MUTABLE",
+            force_delete=True if environment == "development" else False,
+            image_scanning_configuration=EcrRepositoryImageScanningConfiguration(
+                scan_on_push=True
+            ),
+            encryption_configuration=[
+                EcrRepositoryEncryptionConfiguration(encryption_type="KMS")
+            ],
+            tags=tags,
+        )
+
+        # Create ECR repository for database migration jobs
+        self.migration_repository = EcrRepository(
+            self,
+            "migration-repo",
+            name=f"{resource_prefix}-migration",
             image_tag_mutability="MUTABLE",
             force_delete=True if environment == "development" else False,
             image_scanning_configuration=EcrRepositoryImageScanningConfiguration(
@@ -91,5 +108,12 @@ class EcrConstruct(Construct):
             self,
             "streamlit-lifecycle-policy",
             repository=self.streamlit_repository.name,
+            policy=json.dumps(lifecycle_policy),
+        )
+
+        EcrLifecyclePolicy(
+            self,
+            "migration-lifecycle-policy",
+            repository=self.migration_repository.name,
             policy=json.dumps(lifecycle_policy),
         )
