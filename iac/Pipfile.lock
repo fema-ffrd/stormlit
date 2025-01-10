@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6948f0bfb5436af2fed2585db1405b9855ccf28794e36082b350be03db3d30d0"
+            "sha256": "69afc1f2201506709e46172e460d4abd265a266be5a631073d4c3071cc415f0e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -49,15 +49,6 @@
             "index": "pypi",
             "markers": "python_version ~= '3.8'",
             "version": "==19.21.0"
-        },
-        "cdktf-cdktf-provider-postgresql": {
-            "hashes": [
-                "sha256:59287a892486fda16f14aeebac61315c227c7f4a10e3d22cc5740a0f2ba7cb43",
-                "sha256:d8e4e3d84cd8487043a7d199b0b03159574fc1c3ccbdda5c21c8b4a46a47f42b"
-            ],
-            "index": "pypi",
-            "markers": "python_version ~= '3.8'",
-            "version": "==11.4.0"
         },
         "cdktf-cdktf-provider-random": {
             "hashes": [
