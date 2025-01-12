@@ -101,5 +101,4 @@ jobs:
         env:
           TF_VAR_streamlit_tag: ${{ needs.get-version.outputs.version }}
           TF_VAR_migration_tag: ${{ needs.get-version.outputs.version }}
-        run: |
-          pipenv run cdktf deploy stormlit-development-network stormlit-development-database stormlit-development-application --auto-approve
+        run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-development-network stormlit-development-database stormlit-development-application --auto-approve

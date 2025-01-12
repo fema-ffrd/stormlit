@@ -36,5 +36,4 @@ jobs:
 
       - name: Synth with CDKTF
         working-directory: ./iac
-        run: |
-          pipenv run cdktf synth
+        run: pipenv run npx cdktf-cli@0.20.3 deploy
