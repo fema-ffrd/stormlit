@@ -57,14 +57,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push container
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ needs.get-version.outputs.version }}
         run: |
-          docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG -f ${{ matrix.container.dockerfile }} ${{ matrix.container.context }} \
-          --push .
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG \
+            -f ${{ matrix.container.dockerfile }} \
+            --push \
+            ${{ matrix.container.context }}
 
   deploy-infrastructure:
     needs: [get-version, build-containers]
