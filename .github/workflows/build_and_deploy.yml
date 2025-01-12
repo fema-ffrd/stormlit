@@ -66,7 +66,7 @@ jobs:
           docker push $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG
 
   deploy-infrastructure:
-    needs: [get-version, run-migrations]
+    needs: [get-version, build-containers]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
