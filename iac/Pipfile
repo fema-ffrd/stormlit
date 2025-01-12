@@ -13,7 +13,5 @@ cdktf-cdktf-provider-random = "~=11.0.3"
 pytest = "*"
 constructs = "~=10.3.0"
 typing-extensions = "*"
-
-[dev-packages]
 black = "*"
 pylint = "*"
