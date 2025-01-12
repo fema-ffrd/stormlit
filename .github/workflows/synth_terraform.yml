@@ -2,9 +2,9 @@ name: Synth Terraform
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, ci-cd-init ]
   push:
-    branches: [ main ]
+    branches: [ main, ci-cd-init ]
 
 jobs:
   synth-terraform:

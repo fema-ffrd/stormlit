@@ -2,9 +2,9 @@ name: Lint and Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, ci-cd-init ]
   push:
-    branches: [ main ]
+    branches: [ main, ci-cd-init ]
 
 jobs:
   iac-lint-and-test:
