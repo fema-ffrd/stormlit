@@ -27,6 +27,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name : Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+
       - name: Install dependencies
         working-directory: ./iac
         run: |
