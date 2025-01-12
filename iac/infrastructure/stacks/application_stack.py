@@ -62,8 +62,7 @@ class ApplicationStack(BaseStack):
         database_secret_arn: str,
         keycloak_secret_arn: str,
         streamlit_secret_arn: str,
-        streamlit_repository_url: str,
-        migration_repository_url: str,
+        streamlit_repository_url: str
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -72,14 +71,6 @@ class ApplicationStack(BaseStack):
             "streamlit_tag",
             type="string",
             description="Version tag for the streamlit image",
-            default="latest",  # fallback to 'latest' if not provided
-        )
-
-        migration_tag = TerraformVariable(
-            self,
-            "migration_tag",
-            type="string",
-            description="Version tag for the migration image",
             default="latest",  # fallback to 'latest' if not provided
         )
 
@@ -150,8 +141,6 @@ class ApplicationStack(BaseStack):
             keycloak_image=config.application.keycloak_image,
             streamlit_repository_url=streamlit_repository_url,
             streamlit_tag=streamlit_tag.string_value,
-            migration_repository_url=migration_repository_url,
-            migration_tag=migration_tag.string_value,
             rds_endpoint=rds_endpoint,
             database_secret_arn=database_secret_arn,
             keycloak_secret_arn=keycloak_secret_arn,
@@ -170,13 +159,6 @@ class ApplicationStack(BaseStack):
             "alb-dns-name",
             value=alb.alb.dns_name,
             description="Application Load Balancer DNS Name",
-        )
-
-        TerraformOutput(
-            self,
-            "db-init-task-definition-arn",
-            value=ecs_services.db_init_task_definition.arn,
-            description="Database Initialization Task Definition ARN",
         )
 
         TerraformOutput(

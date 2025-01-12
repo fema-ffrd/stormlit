@@ -38,14 +38,9 @@ jobs:
       matrix:
         container: [
           {
-            name: 'migration',
-            dockerfile: 'migrations/Dockerfile',
-            context: 'migrations/'
-          },
-          {
             name: 'streamlit',
-            dockerfile: 'Dockerfile',
-            context: '.'
+            dockerfile: './app/Dockerfile',
+            context: './app'
           }
         ]
     steps:
@@ -72,33 +67,10 @@ jobs:
 
   run-migrations:
     needs: [get-version, build-containers]
-    runs-on: ubuntu-latest
+    runs-on: codebuild-stormlit-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get migration task definition
-        id: get-task-def
-        run: |
-          TASK_DEF=$(aws ecs describe-task-definition \
-            --task-definition stormlit-development-db-init \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-          echo "task_def=$TASK_DEF" >> $GITHUB_OUTPUT
-
-      - name: Run migration task
-        run: |
-          aws ecs run-task \
-            --cluster stormlit-development-cluster \
-            --task-definition ${{ steps.get-task-def.outputs.task_def }} \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[subnet-086fd43f60505baff,subnet-0d53d6f1a5f9417d1],securityGroups=[sg-0e5588f79df414505],assignPublicIp=DISABLED}"
 
   deploy-infrastructure:
     needs: [get-version, run-migrations]
@@ -137,4 +109,4 @@ jobs:
           TF_VAR_streamlit_tag: ${{ needs.get-version.outputs.version }}
           TF_VAR_migration_tag: ${{ needs.get-version.outputs.version }}
         run: |
-          pipenv run cdktf deploy --auto-approve
+          pipenv run cdktf deploy stormlit-development-network stormlit-development-database stormlit-development-application --auto-approve

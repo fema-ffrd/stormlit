@@ -65,10 +65,3 @@ class NetworkStack(BaseStack):
             value=self.ecr.streamlit_repository.repository_url,
             description="Streamlit ECR Repository URL",
         )
-
-        TerraformOutput(
-            self,
-            "migration-repo-url",
-            value=self.ecr.migration_repository.repository_url,
-            description="Migration ECR Repository URL",
-        )

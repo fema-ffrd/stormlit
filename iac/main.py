@@ -82,9 +82,6 @@ def main():
         streamlit_repository_url=Token.as_string(
             network_stack.ecr.streamlit_repository.repository_url
         ),
-        migration_repository_url=Token.as_string(
-            network_stack.ecr.migration_repository.repository_url
-        ),
     )
 
     # Add dependency between stacks
