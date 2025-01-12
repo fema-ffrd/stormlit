@@ -2,7 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main, ci-cd-init ]
+    branches: [ main ]
 
 concurrency: 
   group: development-environment
