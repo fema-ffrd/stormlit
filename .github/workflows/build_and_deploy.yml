@@ -62,8 +62,9 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ needs.get-version.outputs.version }}
         run: |
-          docker build -t $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG -f ${{ matrix.container.dockerfile }} ${{ matrix.container.context }}
-          docker push $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG
+          docker buildx build --platform linux/amd64,linux/arm64 \
+          -t $ECR_REGISTRY/stormlit-development-${{ matrix.container.name }}:$IMAGE_TAG -f ${{ matrix.container.dockerfile }} ${{ matrix.container.context }} \
+          --push .
 
   deploy-infrastructure:
     needs: [get-version, build-containers]
