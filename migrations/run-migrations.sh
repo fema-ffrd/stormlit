@@ -19,9 +19,8 @@ for migration in /migrations/*.sql; do
     echo "Running $migration..."
     # Explicitly use host connection
     PGCONNECT_TIMEOUT=15 psql "host=$PGHOST port=$PGPORT dbname=postgres user=$PGUSER password=$PGPASSWORD sslmode=$PGSSLMODE" \
-         -v keycloak_password="$KEYCLOAK_PASSWORD" \
-         -v streamlit_password="$STREAMLIT_PASSWORD" \
-         -f "$migration"
+    -v keycloak_password="$KEYCLOAK_PASSWORD" \
+    -f "$migration"
 done
 
 echo "Migrations completed successfully"

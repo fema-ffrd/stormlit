@@ -30,9 +30,8 @@
 		"vscode": {
 			"extensions": [
 				"ms-python.python",
-				"ms-python.pylint",
-				"GitHub.copilot",
-				"ms-python.black-formatter"
+				"charliermarsh.ruff",
+				"GitHub.copilot"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "/opt/conda/envs/stormlit/bin/python"

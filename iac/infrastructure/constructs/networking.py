@@ -125,14 +125,14 @@ class NetworkingConstruct(Construct):
             # Public subnet
             public_subnet = Subnet(
                 self,
-                f"public-subnet-{i+1}",
+                f"public-subnet-{i + 1}",
                 vpc_id=self.vpc.id,
                 cidr_block=f"10.0.{subnet_number}.0/24",
                 availability_zone=az,
                 map_public_ip_on_launch=True,
                 tags={
                     **tags,
-                    "Name": f"{resource_prefix}-public-subnet-{i+1}",
+                    "Name": f"{resource_prefix}-public-subnet-{i + 1}",
                     "Type": "Public",
                 },
             )
@@ -141,7 +141,7 @@ class NetworkingConstruct(Construct):
             # Associate public subnet with public route table
             RouteTableAssociation(
                 self,
-                f"public-rta-{i+1}",
+                f"public-rta-{i + 1}",
                 subnet_id=public_subnet.id,
                 route_table_id=public_route_table.id,
             )
@@ -149,13 +149,13 @@ class NetworkingConstruct(Construct):
             # Private subnet uses the next subnet number
             private_subnet = Subnet(
                 self,
-                f"private-subnet-{i+1}",
+                f"private-subnet-{i + 1}",
                 vpc_id=self.vpc.id,
                 cidr_block=f"10.0.{subnet_number + 1}.0/24",
                 availability_zone=az,
                 tags={
                     **tags,
-                    "Name": f"{resource_prefix}-private-subnet-{i+1}",
+                    "Name": f"{resource_prefix}-private-subnet-{i + 1}",
                     "Type": "Private",
                 },
             )
@@ -163,7 +163,7 @@ class NetworkingConstruct(Construct):
 
             RouteTableAssociation(
                 self,
-                f"private-rta-{i+1}",
+                f"private-rta-{i + 1}",
                 subnet_id=private_subnet.id,
                 route_table_id=private_route_table.id,
             )

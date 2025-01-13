@@ -1,12 +1,11 @@
-import pytest
-from cdktf import Testing
+# import pytest
+# from cdktf import Testing
 
 # The tests below are example tests, you can find more information at
 # https://cdk.tf/testing
 
 
 class TestMain:
-
     def test_my_app(self):
         assert True
 

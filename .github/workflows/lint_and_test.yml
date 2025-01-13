@@ -27,13 +27,13 @@ jobs:
           pip install pipenv
           
       - name: Install dependencies
-        run: pipenv install
+        run: pipenv install -d
           
-      - name: Run Black
-        run: pipenv run black . --check
+      - name: Run Ruff Check
+        run: pipenv run ruff check
         
-      - name: Run Pylint
-        run: pipenv run pylint --fail-under=9 --fail-on=E ./
+      - name: Run Ruff Format
+        run: pipenv run ruff format --check
         
       - name: Run Tests
         run: pipenv run pytest main-test.py
@@ -54,13 +54,13 @@ jobs:
           cache-downloads-key: downloads-dev
           environment-name: ci
           
-      - name: Run Black
+      - name: Run Ruff Check
         shell: bash -el {0}
-        run: black . --check
+        run: ruff check
         
-      - name: Run Pylint
+      - name: Run Ruff Format
         shell: bash -el {0}
-        run: pylint --fail-under=9 --fail-on=E ./
+        run: ruff format --check
         
       - name: Run Tests
         shell: bash -el {0}

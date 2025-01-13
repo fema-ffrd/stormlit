@@ -91,9 +91,8 @@ code .
 
 ### Included VS Code Extensions
 - Python
-- Pylint
+- Ruff
 - GitHub Copilot
-- Black Formatter
 
 ### Post-Creation Commands
 The container automatically:
@@ -115,29 +114,15 @@ All services are connected via `stormlit-network` for internal communication.
 ### Local Development
 ```bash
 # In VS Code terminal
+cd app
 streamlit run app.py
 ```
 Access at http://localhost:8501
 
-### Port Configuration
-- Streamlit default port: 8501
-- Configure in `.streamlit/config.toml`:
-```toml
-[server]
-port = 8501
-```
-
-### Hot Reload
-- Code changes trigger automatic reload
-- Disable in config.toml:
-```toml
-[server]
-runOnSave = false
-```
-
 ### Environment Variables
 1. Copy the template:
 ```bash
+cd app
 cp .env.template .env
 ```
 
@@ -145,13 +130,25 @@ cp .env.template .env
 
 The `.env.template` file in the project root contains all required environment variables with descriptions.
 
+### Linting, Testing, and Formatting
+```bash
+# In VS Code terminal
+cd app
+# Linting
+ruff check
+# Testing
+pytest
+# Formatting
+ruff format
+```
+
 ## IaC
 
 The IaC for this repository is inside the `iac/` directory. This projects used the CDK for terraform with Python.
 
 ```
 cd iac
-pipenv install
+pipenv install -d
 ```
 
 The `cdktf` command is available in the devcontainer. Once provider bindings have been installed, activate the pipenv inside the `iac` directory:
@@ -172,7 +169,7 @@ If you need to manually specify the interpreter path, you can get the correct pa
 There is only a single environment defined. This is the test environment deployed in the PTS's shared AWS account in commercial cloud. The infrastructure is deploy with the following command from the `iac` directory (only in CI/CD):
 
 ```
-cdktf deploy --auto-approve
+cdktf deploy <stack names>
 ```
 
 You can also test a deployment with `synth` during development:
@@ -184,7 +181,19 @@ cdktf synth
 And destroy the environment with `destroy`:
 
 ```
-cdktf destroy
+cdktf destroy <stack names>
+```
+
+### Linting, Testing, and Formatting
+```bash
+# In VS Code terminal
+cd iac
+# Linting
+ruff check
+# Testing
+pytest main-test.py
+# Formatting
+ruff format
 ```
 
 ## Cloud Architecture Diagram

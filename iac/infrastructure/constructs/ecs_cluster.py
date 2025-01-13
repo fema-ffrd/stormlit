@@ -77,7 +77,7 @@ echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config"""
 
             instance = Instance(
                 self,
-                f"ecs-instance-{i+1}",
+                f"ecs-instance-{i + 1}",
                 ami=latest_ecs_ami.value,
                 instance_type=instance_type,
                 subnet_id=subnet_ids[i % len(subnet_ids)],  # Round-robin across subnets
@@ -95,7 +95,7 @@ echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config"""
                 },
                 tags={
                     **tags,
-                    "Name": f"{resource_prefix}-ecs-instance-{i+1}",
+                    "Name": f"{resource_prefix}-ecs-instance-{i + 1}",
                 },
             )
             self.instances.append(instance)
@@ -103,7 +103,7 @@ echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config"""
             # Add output for instance ID
             TerraformOutput(
                 self,
-                f"instance-id-{i+1}",
+                f"instance-id-{i + 1}",
                 value=instance.id,
-                description=f"EC2 Instance ID {i+1}",
+                description=f"EC2 Instance ID {i + 1}",
             )

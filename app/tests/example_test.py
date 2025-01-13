@@ -13,9 +13,3 @@ class TestMain:
         This is an example test method.
         """
         assert True
-
-    def test_should_contain_container(self):
-        """
-        This is an example test method.
-        """
-        assert True

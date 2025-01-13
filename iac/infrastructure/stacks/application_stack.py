@@ -62,7 +62,7 @@ class ApplicationStack(BaseStack):
         database_secret_arn: str,
         keycloak_secret_arn: str,
         streamlit_secret_arn: str,
-        streamlit_repository_url: str
+        streamlit_repository_url: str,
     ) -> None:
         super().__init__(scope, id, config)
 

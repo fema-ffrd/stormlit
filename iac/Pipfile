@@ -10,8 +10,9 @@ python_version = "3.12"
 cdktf = "~=0.20.10"
 cdktf-cdktf-provider-aws = "~=19.21.0"
 cdktf-cdktf-provider-random = "~=11.0.3"
-pytest = "*"
 constructs = "~=10.3.0"
 typing-extensions = "*"
-black = "*"
-pylint = "*"
+
+[dev-packages]
+ruff = "*"
+pytest = "*"
