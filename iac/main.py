@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 from cdktf import App, Token
+from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
 from infrastructure.stacks.application_stack import ApplicationStack
 from config import get_config
@@ -35,11 +36,26 @@ def main():
     # Initialize the CDKTF app
     app = App()
 
+    network_stack = NetworkStack(
+        app,
+        f"{config.project_prefix}-{environment}-network",
+        config,
+    )
+
     # Create the database stack
     database_stack = DatabaseStack(
         app,
         f"{config.project_prefix}-{environment}-database",
         config,
+        private_subnets=[
+            subnet.id for subnet in network_stack.networking.private_subnets
+        ],
+        public_subnets=[
+            subnet.id for subnet in network_stack.networking.public_subnets
+        ],
+        rds_security_group=Token.as_string(
+            network_stack.networking.rds_security_group.id
+        ),
     )
 
     # Create the application stack with references to database resources
@@ -47,20 +63,32 @@ def main():
         app,
         f"{config.project_prefix}-{environment}-application",
         config,
-        vpc_id=Token.as_string(database_stack.networking.vpc.id),
+        vpc_id=Token.as_string(network_stack.networking.vpc.id),
         public_subnet_ids=[
-            subnet.id for subnet in database_stack.networking.public_subnets
+            subnet.id for subnet in network_stack.networking.public_subnets
         ],
         private_subnet_ids=[
-            subnet.id for subnet in database_stack.networking.private_subnets
+            subnet.id for subnet in network_stack.networking.private_subnets
         ],
         alb_security_group_id=Token.as_string(
-            database_stack.networking.alb_security_group.id
+            network_stack.networking.alb_security_group.id
         ),
         rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
+        database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
+        keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
+        streamlit_secret_arn=Token.as_string(
+            database_stack.secrets.streamlit_secret.arn
+        ),
+        streamlit_repository_url=Token.as_string(
+            network_stack.ecr.streamlit_repository.repository_url
+        ),
+        migration_repository_url=Token.as_string(
+            network_stack.ecr.migration_repository.repository_url
+        ),
     )
 
     # Add dependency between stacks
+    database_stack.add_dependency(network_stack)
     application_stack.add_dependency(database_stack)
 
     app.synth()

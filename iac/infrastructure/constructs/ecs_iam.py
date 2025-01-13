@@ -1,4 +1,5 @@
 import json
+from typing import List
 from constructs import Construct
 from cdktf_cdktf_provider_aws.iam_role import IamRole
 from cdktf_cdktf_provider_aws.iam_role_policy_attachment import IamRolePolicyAttachment
@@ -40,6 +41,7 @@ class EcsIamConstruct(Construct):
         *,
         project_prefix: str,
         environment: str,
+        secret_arns: List[str],
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
@@ -91,6 +93,41 @@ class EcsIamConstruct(Construct):
         )
 
         # Create ECS task execution role
+        execution_role_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "logs:DescribeLogGroups",
+                        "logs:DescribeLogStreams",
+                    ],
+                    "Resource": "*",
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "secretsmanager:GetSecretValue",
+                        "secretsmanager:DescribeSecret",
+                    ],
+                    "Resource": secret_arns,
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "ecr:GetAuthorizationToken",
+                        "ecr:BatchCheckLayerAvailability",
+                        "ecr:GetDownloadUrlForLayer",
+                        "ecr:BatchGetImage",
+                    ],
+                    "Resource": "*",
+                },
+            ],
+        }
+
         self.execution_role = IamRole(
             self,
             "execution-role",
@@ -107,6 +144,12 @@ class EcsIamConstruct(Construct):
                     }
                 ]
             }""",
+            inline_policy=[
+                {
+                    "name": "ecs-execution-policy",
+                    "policy": json.dumps(execution_role_policy),
+                }
+            ],
             tags=tags,
         )
 

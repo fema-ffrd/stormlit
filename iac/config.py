@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List
 
 
 @dataclass
@@ -69,15 +69,41 @@ class ApplicationConfig:
         keycloak_admin_password (str): The admin password for Keycloak (consider using AWS Secrets
             Manager for production).
         keycloak_image (str): The Docker image of Keycloak.
-        streamlit_image (str): The Docker image for Streamlit.
 
     """
 
     domain_name: str
-    keycloak_admin_user: str
-    keycloak_admin_password: str
     keycloak_image: str
-    streamlit_image: str
+
+
+@dataclass
+class PasswordConfig:
+    """
+    Configuration class for password generation settings.
+
+    Attributes:
+        length (int): The length of generated passwords.
+        use_special (bool): Whether to include special characters in passwords.
+        special_chars (str): The set of special characters to use in passwords.
+    """
+
+    length: int = 20
+    use_special: bool = True
+    special_chars: str = "!#$%&*()-_=+[]{}<>:?"
+
+
+@dataclass
+class SecretsConfig:
+    """
+    Configuration class for AWS Secrets Manager settings.
+
+    Attributes:
+        database_admin_username (str): The admin username for the database.
+        passwords (PasswordConfig): Configuration for password generation.
+    """
+
+    database_admin_username: str
+    passwords: PasswordConfig
 
 
 @dataclass
@@ -94,6 +120,7 @@ class EnvironmentConfig:
         database (DatabaseConfig): The configuration for RDS database settings.
         application (ApplicationConfig): The configuration for application-specific settings.
         ecs (EcsConfig): The configuration for ECS instance settings.
+        secrets (SecretsConfig): The configuration for AWS Secrets Manager settings.
         tags (Dict[str, str]): A dictionary of tags to apply to all resources.
 
     """
@@ -106,6 +133,7 @@ class EnvironmentConfig:
     database: DatabaseConfig
     application: ApplicationConfig
     ecs: EcsConfig
+    secrets: SecretsConfig
     tags: Dict[str, str]
 
 
@@ -120,31 +148,35 @@ def get_development_config() -> EnvironmentConfig:
     return EnvironmentConfig(
         project_prefix="stormlit",
         environment="development",
-        region="us-east-1",
+        region="us-east-2",
         vpc_cidr="10.0.0.0/16",
         backend=BackendConfig(
-            s3_bucket="mbi-dev-cdktf-backend-state",
-            dynamodb_table="mbi-dev-cdktf-backend-table",
+            s3_bucket="cdktf-state-fema-ffrd",
+            dynamodb_table="cdktf-state-lock-fema-ffrd",
         ),
         database=DatabaseConfig(
-            instance_class="db.t3.micro",
+            instance_class="db.t4g.medium",
             allocated_storage=20,
             max_allocated_storage=100,
             deletion_protection=False,
             multi_az=False,
-            backup_retention_period=7,
+            backup_retention_period=7
         ),
         application=ApplicationConfig(
-            domain_name="dev.example.com",  # TODO Change domain name
-            keycloak_admin_user="admin",
-            keycloak_admin_password="CHANGE_ME_IN_PROD",  # TODO: Use AWS Secrets Manager in prod
+            domain_name="dev.example.com", # TODO Change domain name
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            streamlit_image="latest",
         ),
         ecs=EcsConfig(
-            instance_type="t3.small",
-            instance_count=2,
-            streamlit_container_count=2,
+            instance_type="t4g.medium",
+            instance_count=1,
+            streamlit_container_count=1,
+        ),
+        secrets=SecretsConfig(
+            database_admin_username="stormlit_admin",
+            passwords=PasswordConfig(
+                length=16,
+                use_special=True,
+            ),
         ),
         tags={
             "Environment": "development",
@@ -168,8 +200,8 @@ def get_production_config() -> EnvironmentConfig:
         region="us-gov-east-1",
         vpc_cidr="10.1.0.0/16",
         backend=BackendConfig(
-            s3_bucket="mbi-prod-cdktf-backend-state",  # TODO: Change bucket name
-            dynamodb_table="mbi-prod-cdktf-backend-table",  # TODO: Change table name
+            s3_bucket="",  # TODO: Change bucket name
+            dynamodb_table="",  # TODO: Change table name
         ),
         database=DatabaseConfig(
             instance_class="db.t3.medium",
@@ -181,15 +213,19 @@ def get_production_config() -> EnvironmentConfig:
         ),
         application=ApplicationConfig(
             domain_name="prod.example.com",  # TODO Change domain name
-            keycloak_admin_user="admin",
-            keycloak_admin_password="CHANGE_ME_IN_PROD",  # TODO: Use AWS Secrets Manager in prod
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            streamlit_image="latest",
         ),
         ecs=EcsConfig(
-            instance_type="t3.medium",
-            instance_count=3,
-            streamlit_container_count=3,
+            instance_type="t3.large",
+            instance_count=2,
+            streamlit_container_count=2,
+        ),
+        secrets=SecretsConfig(
+            database_admin_username="stormlit_admin",
+            passwords=PasswordConfig(
+                length=32,
+                use_special=True,
+            ),
         ),
         tags={
             "Environment": "production",

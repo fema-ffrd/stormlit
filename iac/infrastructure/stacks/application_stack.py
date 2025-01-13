@@ -1,10 +1,9 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput
+from cdktf import TerraformOutput, Token, TerraformVariable
 from config import EnvironmentConfig
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
-from ..constructs.ecr import EcrConstruct
 from ..constructs.alb import AlbConstruct
 from ..constructs.ecs_cluster import EcsClusterConstruct
 from ..constructs.ecs_services import EcsServicesConstruct
@@ -39,6 +38,9 @@ class ApplicationStack(BaseStack):
         private_subnet_ids (List[str]): A list of IDs for private subnets.
         alb_security_group_id (str): The ID of the security group for the ALB.
         rds_endpoint (str): The endpoint of the RDS database to connect to.
+        database_secret_arn (str): The ARN of the secret containing the database credentials.
+        keycloak_secret_arn (str): The ARN of the secret containing the Keycloak credentials.
+        streamlit_secret_arn (str): The ARN of the secret containing the Streamlit credentials.
 
     Methods:
         __init__(self, scope, id, config, vpc_id, public_subnet_ids, private_subnet_ids, alb_security_group_id,
@@ -57,8 +59,29 @@ class ApplicationStack(BaseStack):
         private_subnet_ids: List[str],
         alb_security_group_id: str,
         rds_endpoint: str,
+        database_secret_arn: str,
+        keycloak_secret_arn: str,
+        streamlit_secret_arn: str,
+        streamlit_repository_url: str,
+        migration_repository_url: str,
     ) -> None:
         super().__init__(scope, id, config)
+
+        streamlit_tag = TerraformVariable(
+            self,
+            "streamlit_tag",
+            type="string",
+            description="Version tag for the streamlit image",
+            default="latest",  # fallback to 'latest' if not provided
+        )
+
+        migration_tag = TerraformVariable(
+            self,
+            "migration_tag",
+            type="string",
+            description="Version tag for the migration image",
+            default="latest",  # fallback to 'latest' if not provided
+        )
 
         # Create IAM roles and instance profile
         iam = EcsIamConstruct(
@@ -66,6 +89,11 @@ class ApplicationStack(BaseStack):
             "ecs-iam",
             project_prefix=config.project_prefix,
             environment=config.environment,
+            secret_arns=[
+                database_secret_arn,
+                keycloak_secret_arn,
+                streamlit_secret_arn,
+            ],
             tags=config.tags,
         )
 
@@ -73,15 +101,6 @@ class ApplicationStack(BaseStack):
         CloudWatchConstruct(
             self,
             "cloudwatch",
-            project_prefix=config.project_prefix,
-            environment=config.environment,
-            tags=config.tags,
-        )
-
-        # Create ECR repositories
-        ecr = EcrConstruct(
-            self,
-            "ecr",
             project_prefix=config.project_prefix,
             environment=config.environment,
             tags=config.tags,
@@ -118,6 +137,7 @@ class ApplicationStack(BaseStack):
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
+            alb_dns_name=Token.as_string(alb.alb.dns_name),
             project_prefix=config.project_prefix,
             environment=config.environment,
             cluster_id=ecs_cluster.cluster.id,
@@ -128,10 +148,14 @@ class ApplicationStack(BaseStack):
             keycloak_target_group_arn=alb.keycloak_target_group.arn,
             streamlit_target_group_arn=alb.streamlit_target_group.arn,
             keycloak_image=config.application.keycloak_image,
-            streamlit_image=f"{ecr.streamlit_repository.repository_url}:{config.application.streamlit_image}",
+            streamlit_repository_url=streamlit_repository_url,
+            streamlit_tag=streamlit_tag.string_value,
+            migration_repository_url=migration_repository_url,
+            migration_tag=migration_tag.string_value,
             rds_endpoint=rds_endpoint,
-            keycloak_admin_user=config.application.keycloak_admin_user,
-            keycloak_admin_password=config.application.keycloak_admin_password,
+            database_secret_arn=database_secret_arn,
+            keycloak_secret_arn=keycloak_secret_arn,
+            streamlit_secret_arn=streamlit_secret_arn,
             streamlit_container_count=config.ecs.streamlit_container_count,
             tags=config.tags,
         )
@@ -150,7 +174,14 @@ class ApplicationStack(BaseStack):
 
         TerraformOutput(
             self,
-            "ecr-repository-url",
-            value=ecr.streamlit_repository.repository_url,
-            description="ECR Repository URL for Streamlit Application",
+            "db-init-task-definition-arn",
+            value=ecs_services.db_init_task_definition.arn,
+            description="Database Initialization Task Definition ARN",
+        )
+
+        TerraformOutput(
+            self,
+            "cluster-name",
+            value=ecs_cluster.cluster.name,
+            description="ECS Cluster Name",
         )
