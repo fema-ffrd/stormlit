@@ -10,7 +10,7 @@ class AcmRoute53Construct(Construct):
     """
     A construct for managing ACM certificates and Route53 DNS records.
     """
-    
+
     def __init__(
         self,
         scope: Construct,
@@ -23,7 +23,7 @@ class AcmRoute53Construct(Construct):
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
-        
+
         # Get the hosted zone
         self.hosted_zone = DataAwsRoute53Zone(
             self,
@@ -48,22 +48,28 @@ class AcmRoute53Construct(Construct):
             self,
             "validation-record",
             zone_id=self.hosted_zone.zone_id,
-            name=Token.as_string(Fn.lookup(
-                Fn.element(self.certificate.domain_validation_options, 0),
-                "resource_record_name",
-                ""
-            )),
-            type=Token.as_string(Fn.lookup(
-                Fn.element(self.certificate.domain_validation_options, 0),
-                "resource_record_type",
-                ""
-            )),
-            records=[
-                Token.as_string(Fn.lookup(
+            name=Token.as_string(
+                Fn.lookup(
                     Fn.element(self.certificate.domain_validation_options, 0),
-                    "resource_record_value",
-                    ""
-                ))
+                    "resource_record_name",
+                    "",
+                )
+            ),
+            type=Token.as_string(
+                Fn.lookup(
+                    Fn.element(self.certificate.domain_validation_options, 0),
+                    "resource_record_type",
+                    "",
+                )
+            ),
+            records=[
+                Token.as_string(
+                    Fn.lookup(
+                        Fn.element(self.certificate.domain_validation_options, 0),
+                        "resource_record_value",
+                        "",
+                    )
+                )
             ],
             ttl=60,
         )

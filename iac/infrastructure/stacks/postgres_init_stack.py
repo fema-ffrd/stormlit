@@ -2,7 +2,6 @@ from constructs import Construct
 from cdktf_cdktf_provider_postgresql.provider import PostgresqlProvider
 from cdktf_cdktf_provider_postgresql.database import Database
 from cdktf_cdktf_provider_postgresql.role import Role
-from cdktf_cdktf_provider_postgresql.grant import Grant
 from .base_stack import BaseStack
 from config import EnvironmentConfig
 
@@ -31,7 +30,7 @@ class PostgresInitStack(BaseStack):
             username=f"{config.project_prefix}_admin",
             password=db_admin_password,
             sslmode="require",
-            superuser=False # so it will not try to read the password from Postgres
+            superuser=False,  # so it will not try to read the password from Postgres
         )
 
         # Create keycloak role

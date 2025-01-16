@@ -130,7 +130,9 @@ def main():
             task_role_arn=Token.as_string(application_stack.iam.task_role.arn),
             cluster_id=Token.as_string(application_stack.ecs_cluster.cluster.id),
             streamlit_repository_url=config.application.stormlit_repo_url,
-            https_listener_arn=Token.as_string(application_stack.alb.https_listener.arn),
+            https_listener_arn=Token.as_string(
+                application_stack.alb.https_listener.arn
+            ),
         )
 
     app.synth()
