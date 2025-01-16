@@ -5,6 +5,7 @@ from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
 from infrastructure.stacks.application_stack import ApplicationStack
 from infrastructure.stacks.postgres_init_stack import PostgresInitStack
+from infrastructure.stacks.application_stack_dev import ApplicationStackDev
 from config import get_config
 
 
@@ -67,7 +68,7 @@ def main():
             f'${{split(":", {database_stack.rds.db_instance.endpoint})[0]}}'
         ),
         port=5432,
-        superuser_password=database_stack.random_passwords.database_password.result,
+        db_admin_password=database_stack.random_passwords.database_password.result,
         keycloak_password=database_stack.random_passwords.keycloak_db_password.result,
         pgstac_password=database_stack.random_passwords.pgstac_db_password.result,
     )
@@ -106,6 +107,31 @@ def main():
     database_stack.add_dependency(network_stack)
     postgres_init_stack.add_dependency(database_stack)
     application_stack.add_dependency(database_stack)
+
+    # Deploy streamlit dev container
+    # This is specific to the arc pts dev environment
+    # it deploys a streamlit container alongside the production deployments for testing and development purposes
+    if environment == "development":
+        ApplicationStackDev(
+            app,
+            f"{config.project_prefix}-{environment}-application-dev",
+            config,
+            vpc_id=Token.as_string(network_stack.networking.vpc.id),
+            private_subnet_ids=[
+                subnet.id for subnet in network_stack.networking.private_subnets
+            ],
+            security_group_id=Token.as_string(
+                network_stack.networking.ecs_security_group.id
+            ),
+            alb_dns_name=Token.as_string(application_stack.alb.alb.dns_name),
+            execution_role_arn=Token.as_string(
+                application_stack.iam.execution_role.arn
+            ),
+            task_role_arn=Token.as_string(application_stack.iam.task_role.arn),
+            cluster_id=Token.as_string(application_stack.ecs_cluster.cluster.id),
+            streamlit_repository_url=config.application.stormlit_repo_url,
+            https_listener_arn=Token.as_string(application_stack.alb.https_listener.arn),
+        )
 
     app.synth()
 

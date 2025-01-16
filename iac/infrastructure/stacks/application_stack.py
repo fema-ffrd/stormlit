@@ -77,7 +77,7 @@ class ApplicationStack(BaseStack):
         )
 
         # Create IAM roles and instance profile
-        iam = EcsIamConstruct(
+        self.iam = EcsIamConstruct(
             self,
             "ecs-iam",
             project_prefix=config.project_prefix,
@@ -101,7 +101,7 @@ class ApplicationStack(BaseStack):
         )
 
         # Create ECS Cluster with EC2 instances
-        ecs_cluster = EcsClusterConstruct(
+        self.ecs_cluster = EcsClusterConstruct(
             self,
             "ecs-cluster",
             project_prefix=config.project_prefix,
@@ -110,20 +110,20 @@ class ApplicationStack(BaseStack):
             instance_count=config.ecs.instance_count,
             subnet_ids=private_subnet_ids,
             security_group_id=ecs_security_group_id,
-            instance_profile_name=iam.instance_profile.name,
+            instance_profile_name=self.iam.instance_profile.name,
             tags=config.tags,
         )
 
         # Create Application Load Balancer
-        alb = AlbConstruct(
+        self.alb = AlbConstruct(
             self,
             "alb",
             project_prefix=config.project_prefix,
             environment=config.environment,
+            domain_name=config.application.domain_name,
             vpc_id=vpc_id,
             public_subnet_ids=public_subnet_ids,
             security_group_id=alb_security_group_id,
-            domain_name=config.application.domain_name,
             tags=config.tags,
         )
 
@@ -131,16 +131,16 @@ class ApplicationStack(BaseStack):
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
-            alb_dns_name=Token.as_string(alb.alb.dns_name),
+            alb_dns_name=Token.as_string(self.alb.alb.dns_name),
             project_prefix=config.project_prefix,
             environment=config.environment,
-            cluster_id=ecs_cluster.cluster.id,
-            execution_role_arn=iam.execution_role.arn,
-            task_role_arn=iam.task_role.arn,
+            cluster_id=self.ecs_cluster.cluster.id,
+            execution_role_arn=self.iam.execution_role.arn,
+            task_role_arn=self.iam.task_role.arn,
             private_subnet_ids=private_subnet_ids,
             security_group_id=ecs_security_group_id,
-            keycloak_target_group_arn=alb.keycloak_target_group.arn,
-            streamlit_target_group_arn=alb.streamlit_target_group.arn,
+            keycloak_target_group_arn=self.alb.keycloak_target_group.arn,
+            streamlit_target_group_arn=self.alb.streamlit_target_group.arn,
             keycloak_image=config.application.keycloak_image,
             streamlit_repository_url=streamlit_repository_url,
             streamlit_tag=streamlit_tag.string_value,
@@ -152,20 +152,20 @@ class ApplicationStack(BaseStack):
         )
 
         # Add explicit dependencies
-        ecs_services.node.add_dependency(alb)
-        ecs_services.node.add_dependency(ecs_cluster)
+        ecs_services.node.add_dependency(self.alb)
+        ecs_services.node.add_dependency(self.ecs_cluster)
 
         # Create outputs
         TerraformOutput(
             self,
             "alb-dns-name",
-            value=alb.alb.dns_name,
+            value=self.alb.alb.dns_name,
             description="Application Load Balancer DNS Name",
         )
 
         TerraformOutput(
             self,
             "cluster-name",
-            value=ecs_cluster.cluster.name,
+            value=self.ecs_cluster.cluster.name,
             description="ECS Cluster Name",
         )

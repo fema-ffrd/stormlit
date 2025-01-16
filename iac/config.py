@@ -162,7 +162,7 @@ def get_development_config() -> EnvironmentConfig:
             backup_retention_period=7,
         ),
         application=ApplicationConfig(
-            domain_name="dev.example.com",  # TODO Change domain name
+            domain_name="arc-apps.net",
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
             stormlit_repo_url="ghcr.io/fema-ffrd/stormlit",
         ),

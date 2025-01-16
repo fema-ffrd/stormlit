@@ -37,8 +37,7 @@ class ApplicationStackDev(BaseStack):
         task_role_arn: str,
         cluster_id: str,
         streamlit_repository_url: str,
-        http_listener_arn: str,
-        tags: dict,
+        https_listener_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -66,20 +65,20 @@ class ApplicationStackDev(BaseStack):
                 "healthy_threshold": 2,
                 "interval": 30,
                 "matcher": "200",
-                "path": "/healthz",
+                "path": "/dev/healthz",
                 "port": "traffic-port",
                 "protocol": "HTTP",
                 "timeout": 5,
                 "unhealthy_threshold": 10,
             },
-            tags=tags,
+            tags=config.tags,
         )
 
         # Create listener rule for Streamlit dev path
         LbListenerRule(
             self,
             "streamlit-dev-rule",
-            listener_arn=http_listener_arn,
+            listener_arn=https_listener_arn,
             priority=2,
             condition=[
                 LbListenerRuleCondition(path_pattern={"values": ["/dev/*", "/dev"]})
@@ -95,7 +94,7 @@ class ApplicationStackDev(BaseStack):
         streamlit_dev_container_definitions = [
             {
                 "name": "streamlit-dev",
-                "image": f"{streamlit_repository_url}:{streamlit_dev_tag}",
+                "image": f"{streamlit_repository_url}:{streamlit_dev_tag.string_value}",
                 "cpu": 512,
                 "memory": 1024,
                 "essential": True,
@@ -132,7 +131,7 @@ class ApplicationStackDev(BaseStack):
             execution_role_arn=execution_role_arn,
             task_role_arn=task_role_arn,
             container_definitions=json.dumps(streamlit_dev_container_definitions),
-            tags=tags,
+            tags=config.tags,
         )
         # Streamlit dev Service
         self.streamlit_dev_service = EcsService(
@@ -155,7 +154,7 @@ class ApplicationStackDev(BaseStack):
                     container_port=8501,
                 )
             ],
-            tags=tags,
+            tags=config.tags,
             deployment_minimum_healthy_percent=0,  # Allow all tasks to be stopped during deployment
             deployment_maximum_percent=100,  # Don't allow more than the desired count during deployment
             deployment_circuit_breaker={

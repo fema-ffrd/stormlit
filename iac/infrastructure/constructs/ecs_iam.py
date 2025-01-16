@@ -1,6 +1,7 @@
 import json
 from typing import List
 from constructs import Construct
+from cdktf import TerraformOutput
 from cdktf_cdktf_provider_aws.iam_role import IamRole
 from cdktf_cdktf_provider_aws.iam_role_policy_attachment import IamRolePolicyAttachment
 from cdktf_cdktf_provider_aws.iam_role_policy import IamRolePolicy
@@ -205,4 +206,26 @@ class EcsIamConstruct(Construct):
                 ]
             }""",
             tags=tags,
+        )
+
+        # output the ARNs of the roles
+        TerraformOutput(
+            self,
+            "instance-role-arn",
+            value=self.instance_role.arn,
+            description="Instance Role ARN",
+        )
+
+        TerraformOutput(
+            self,
+            "execution-role-arn",
+            value=self.execution_role.arn,
+            description="Execution Role ARN",
+        )
+
+        TerraformOutput(
+            self,
+            "task-role-arn",
+            value=self.task_role.arn,
+            description="Task Role ARN",
         )
