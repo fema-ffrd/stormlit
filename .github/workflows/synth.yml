@@ -1,10 +1,7 @@
 name: Synth Terraform
 
 on:
-  pull_request:
-    branches: [ main, dev ]
-  push:
-    branches: [ main, dev ]
+  workflow_call:
 
 jobs:
   synth-terraform:
