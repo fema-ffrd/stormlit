@@ -2,7 +2,6 @@ from constructs import Construct
 from cdktf import TerraformOutput
 from config import EnvironmentConfig
 from ..constructs.networking import NetworkingConstruct
-from ..constructs.ecr import EcrConstruct
 from .base_stack import BaseStack
 
 
@@ -29,15 +28,6 @@ class NetworkStack(BaseStack):
             tags=config.tags,
         )
 
-        # Create ECR repositories
-        self.ecr = EcrConstruct(
-            self,
-            "ecr",
-            project_prefix=config.project_prefix,
-            environment=config.environment,
-            tags=config.tags,
-        )
-
         TerraformOutput(
             self,
             "vpc-id",
@@ -57,18 +47,4 @@ class NetworkStack(BaseStack):
             "private-subnet-ids",
             value=[subnet.id for subnet in self.networking.private_subnets],
             description="Private Subnet IDs",
-        )
-
-        TerraformOutput(
-            self,
-            "streamlit-repo-url",
-            value=self.ecr.streamlit_repository.repository_url,
-            description="Streamlit ECR Repository URL",
-        )
-
-        TerraformOutput(
-            self,
-            "migration-repo-url",
-            value=self.ecr.migration_repository.repository_url,
-            description="Migration ECR Repository URL",
         )

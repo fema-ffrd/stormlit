@@ -1,5 +1,6 @@
 from typing import List
 from constructs import Construct
+from cdktf import TerraformOutput
 from cdktf_cdktf_provider_aws.lb import Lb
 from cdktf_cdktf_provider_aws.lb_listener import (
     LbListener,
@@ -11,40 +12,10 @@ from cdktf_cdktf_provider_aws.lb_listener_rule import (
     LbListenerRuleCondition,
 )
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
+from .acm import AcmRoute53Construct
 
 
 class AlbConstruct(Construct):
-    """
-    A Construct for setting up an Application Load Balancer (ALB) with associated listeners, target groups,
-    and routing rules.
-
-    This construct simplifies the deployment and management of an Application Load Balancer (ALB) in AWS.
-    It configures listeners, target groups, and routing rules to route traffic from the ALB to backend ECS services
-    such as Keycloak and Streamlit. The ALB serves as a single entry point for incoming traffic and manages
-    HTTP routing based on domain names.
-
-    Attributes:
-        alb (Lb): The Application Load Balancer resource.
-        keycloak_target_group (LbTargetGroup): Target group for the Keycloak service.
-        streamlit_target_group (LbTargetGroup): Target group for the Streamlit service.
-        http_listener (LbListener): HTTP listener for the ALB.
-
-    Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): The unique identifier of the construct.
-        project_prefix (str): A prefix for project-related resource names to ensure uniqueness.
-        environment (str): The environment name (e.g., `production`, `staging`) to differentiate resources.
-        vpc_id (str): The VPC ID where the ALB will be deployed.
-        public_subnet_ids (List[str]): A list of public subnet IDs for ALB deployment.
-        security_group_id (str): The security group ID for the ALB.
-        domain_name (str): The base domain name for routing (e.g., `example.com`).
-        tags (dict): A dictionary of tags to apply to all resources created by this construct.
-
-    Methods:
-        __init__(self, scope, id, ...): Initializes the ALB construct, creating the ALB, target groups, listeners,
-            and routing rules for Keycloak and Streamlit applications.
-    """
-
     def __init__(
         self,
         scope: Construct,
@@ -52,10 +23,10 @@ class AlbConstruct(Construct):
         *,
         project_prefix: str,
         environment: str,
+        domain_name: str,
         vpc_id: str,
         public_subnet_ids: List[str],
         security_group_id: str,
-        domain_name: str,
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
@@ -74,6 +45,19 @@ class AlbConstruct(Construct):
             enable_deletion_protection=True if environment == "production" else False,
             tags=tags,
         )
+
+        # Create ACM certificate and Route53 records
+        self.acm = AcmRoute53Construct(
+            self,
+            "acm",
+            domain_name=domain_name,
+            subdomain="stormlit",
+            alb_dns_name=self.alb.dns_name,
+            alb_zone_id=self.alb.zone_id,
+            tags=tags,
+        )
+
+        self.acm.node.add_dependency(self.alb)
 
         # Create target groups for each service
         self.keycloak_target_group = LbTargetGroup(
@@ -126,13 +110,15 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create HTTP listener that forwards to Streamlit by default
-        self.http_listener = LbListener(
+        # Create HTTPS listener that forwards to Streamlit by default
+        self.https_listener = LbListener(
             self,
-            "http-listener",
+            "https-listener",
             load_balancer_arn=self.alb.arn,
-            port=80,
-            protocol="HTTP",
+            port=443,
+            protocol="HTTPS",
+            ssl_policy="ELBSecurityPolicy-2016-08",
+            certificate_arn=self.acm.certificate.arn,
             default_action=[
                 LbListenerDefaultAction(
                     type="forward",
@@ -142,18 +128,36 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
+        self.https_listener.node.add_dependency(self.acm.certificate_validation)
+
+        # Create HTTP listener that redirects to HTTPS
+        self.http_listener = LbListener(
+            self,
+            "http-listener",
+            load_balancer_arn=self.alb.arn,
+            port=80,
+            protocol="HTTP",
+            default_action=[
+                LbListenerDefaultAction(
+                    type="redirect",
+                    redirect={
+                        "port": "443",
+                        "protocol": "HTTPS",
+                        "status_code": "HTTP_301",
+                    },
+                )
+            ],
+            tags=tags,
+        )
+
         # Create listener rule for Keycloak path
         LbListenerRule(
             self,
             "keycloak-rule",
-            listener_arn=self.http_listener.arn,
+            listener_arn=self.https_listener.arn,
             priority=1,
             condition=[
-                LbListenerRuleCondition(
-                    path_pattern={
-                        "values": ["/auth/*"]
-                    }
-                )
+                LbListenerRuleCondition(path_pattern={"values": ["/auth/*", "/auth"]})
             ],
             action=[
                 LbListenerRuleAction(
@@ -161,4 +165,26 @@ class AlbConstruct(Construct):
                     target_group_arn=self.keycloak_target_group.arn,
                 )
             ],
+        )
+
+        # Output ALB DNS name and zone ID
+        TerraformOutput(
+            self,
+            "alb-dns-name",
+            value=self.alb.dns_name,
+            description="The DNS name of the Application Load Balancer",
+        )
+
+        TerraformOutput(
+            self,
+            "alb-zone-id",
+            value=self.alb.zone_id,
+            description="The hosted zone ID of the Application Load Balancer",
+        )
+
+        TerraformOutput(
+            self,
+            "https-listener-arn",
+            value=self.https_listener.arn,
+            description="The ARN of the HTTPS listener",
         )

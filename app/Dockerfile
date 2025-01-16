@@ -4,17 +4,13 @@ FROM --platform=$BUILDPLATFORM python:3.12-slim as builder
 # Set the working directory in the container
 WORKDIR /app
 
-# Install streamlit
-RUN pip install --no-cache-dir streamlit
-
 # Stage 1: Create the final multi-arch image
 FROM --platform=$TARGETPLATFORM python:3.12-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
-COPY --from=builder /usr/local/bin/streamlit /usr/local/bin/
+# Install streamlit
+RUN pip install --no-cache-dir streamlit
 
 # Expose the port Streamlit runs on
 EXPOSE 8501

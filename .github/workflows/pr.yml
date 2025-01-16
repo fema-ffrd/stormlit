@@ -1,0 +1,21 @@
+name: PR Checks
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  synth:
+    uses: ./.github/workflows/synth.yml
+
+  build:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.yml
+    with:
+      push_to_registry: false
+      platforms: 'linux/amd64,linux/arm64'
+    secrets: inherit

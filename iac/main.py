@@ -4,6 +4,8 @@ from cdktf import App, Token
 from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
 from infrastructure.stacks.application_stack import ApplicationStack
+from infrastructure.stacks.postgres_init_stack import PostgresInitStack
+from infrastructure.stacks.application_stack_dev import ApplicationStackDev
 from config import get_config
 
 
@@ -58,6 +60,19 @@ def main():
         ),
     )
 
+    postgres_init_stack = PostgresInitStack(
+        app,
+        f"{config.project_prefix}-{environment}-postgres-init",
+        config,
+        host=Token.as_string(
+            f'${{split(":", {database_stack.rds.db_instance.endpoint})[0]}}'
+        ),
+        port=5432,
+        db_admin_password=database_stack.random_passwords.database_password.result,
+        keycloak_password=database_stack.random_passwords.keycloak_db_password.result,
+        pgstac_password=database_stack.random_passwords.pgstac_db_password.result,
+    )
+
     # Create the application stack with references to database resources
     application_stack = ApplicationStack(
         app,
@@ -73,23 +88,52 @@ def main():
         alb_security_group_id=Token.as_string(
             network_stack.networking.alb_security_group.id
         ),
+        ecs_security_group_id=Token.as_string(
+            network_stack.networking.ecs_security_group.id
+        ),
         rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
         database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
         keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
-        streamlit_secret_arn=Token.as_string(
-            database_stack.secrets.streamlit_secret.arn
+        keycloak_db_secret_arn=Token.as_string(
+            database_stack.secrets.keycloak_db_secret.arn
         ),
-        streamlit_repository_url=Token.as_string(
-            network_stack.ecr.streamlit_repository.repository_url
+        pgstac_db_secret_arn=Token.as_string(
+            database_stack.secrets.pgstac_db_secret.arn
         ),
-        migration_repository_url=Token.as_string(
-            network_stack.ecr.migration_repository.repository_url
-        ),
+        streamlit_repository_url=config.application.stormlit_repo_url,
     )
 
     # Add dependency between stacks
     database_stack.add_dependency(network_stack)
+    postgres_init_stack.add_dependency(database_stack)
     application_stack.add_dependency(database_stack)
+
+    # Deploy streamlit dev container
+    # This is specific to the arc pts dev environment
+    # it deploys a streamlit container alongside the production deployments for testing and development purposes
+    if environment == "development":
+        ApplicationStackDev(
+            app,
+            f"{config.project_prefix}-{environment}-application-dev",
+            config,
+            vpc_id=Token.as_string(network_stack.networking.vpc.id),
+            private_subnet_ids=[
+                subnet.id for subnet in network_stack.networking.private_subnets
+            ],
+            security_group_id=Token.as_string(
+                network_stack.networking.ecs_security_group.id
+            ),
+            alb_dns_name=Token.as_string(application_stack.alb.alb.dns_name),
+            execution_role_arn=Token.as_string(
+                application_stack.iam.execution_role.arn
+            ),
+            task_role_arn=Token.as_string(application_stack.iam.task_role.arn),
+            cluster_id=Token.as_string(application_stack.ecs_cluster.cluster.id),
+            streamlit_repository_url=config.application.stormlit_repo_url,
+            https_listener_arn=Token.as_string(
+                application_stack.alb.https_listener.arn
+            ),
+        )
 
     app.synth()
 

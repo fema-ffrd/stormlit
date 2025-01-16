@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict
 
 
 @dataclass
@@ -65,15 +65,14 @@ class ApplicationConfig:
 
     Attributes:
         domain_name (str): The domain name of the application.
-        keycloak_admin_user (str): The admin user for Keycloak.
-        keycloak_admin_password (str): The admin password for Keycloak (consider using AWS Secrets
-            Manager for production).
         keycloak_image (str): The Docker image of Keycloak.
+        stormlit_repo_url (str): The URL of the Stormlit repository.
 
     """
 
     domain_name: str
     keycloak_image: str
+    stormlit_repo_url: str
 
 
 @dataclass
@@ -148,7 +147,7 @@ def get_development_config() -> EnvironmentConfig:
     return EnvironmentConfig(
         project_prefix="stormlit",
         environment="development",
-        region="us-east-2",
+        region="us-east-1",
         vpc_cidr="10.0.0.0/16",
         backend=BackendConfig(
             s3_bucket="cdktf-state-fema-ffrd",
@@ -160,16 +159,17 @@ def get_development_config() -> EnvironmentConfig:
             max_allocated_storage=100,
             deletion_protection=False,
             multi_az=False,
-            backup_retention_period=7
+            backup_retention_period=7,
         ),
         application=ApplicationConfig(
-            domain_name="dev.example.com", # TODO Change domain name
+            domain_name="arc-apps.net",
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
+            stormlit_repo_url="ghcr.io/fema-ffrd/stormlit",
         ),
         ecs=EcsConfig(
             instance_type="t4g.medium",
-            instance_count=1,
-            streamlit_container_count=1,
+            instance_count=2,
+            streamlit_container_count=2,
         ),
         secrets=SecretsConfig(
             database_admin_username="stormlit_admin",
@@ -214,6 +214,7 @@ def get_production_config() -> EnvironmentConfig:
         application=ApplicationConfig(
             domain_name="prod.example.com",  # TODO Change domain name
             keycloak_image="quay.io/keycloak/keycloak:26.0.6",
+            stormlit_repo_url="ghcr.io/fema-ffrd/stormlit",
         ),
         ecs=EcsConfig(
             instance_type="t3.large",
