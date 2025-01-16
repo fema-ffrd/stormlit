@@ -13,6 +13,9 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: us-east-1
+
 jobs:
   test:
     uses: ./.github/workflows/test.yml
@@ -69,8 +72,6 @@ jobs:
 
       - name: Deploy with CDKTF
         working-directory: ./iac
-        env:
-          AWS_REGION: us-east-1
           TF_VAR_streamlit_tag: latest
           TF_VAR_streamlit_dev_tag: dev
         run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-development-network stormlit-development-database stormlit-development-application --auto-approve
