@@ -11,6 +11,9 @@ jobs:
     uses: ./.github/workflows/synth.yml
 
   build:
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build.yml
     with:
       push_to_registry: false

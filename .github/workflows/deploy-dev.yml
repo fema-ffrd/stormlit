@@ -5,6 +5,14 @@ on:
     branches: [dev, ci-cd-init]
     tags: [ 'v*' ]
 
+concurrency: 
+  group: development
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     uses: ./.github/workflows/test.yml
@@ -13,6 +21,9 @@ jobs:
     uses: ./.github/workflows/synth.yml
 
   build:
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build.yml
     with:
       push_to_registry: true
@@ -22,6 +33,7 @@ jobs:
   deploy-infrastructure:
     needs: [test, synth, build]
     runs-on: ubuntu-latest
+    environment: development
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
