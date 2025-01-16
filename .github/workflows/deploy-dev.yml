@@ -2,7 +2,7 @@ name: Deploy Dev Application
 
 on:
   push:
-    branches: [dev, ci-cd-init]
+    branches: [dev]
     tags: [ 'v*' ]
 
 concurrency: 
