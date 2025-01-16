@@ -4,6 +4,7 @@ from cdktf import App, Token
 from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
 from infrastructure.stacks.application_stack import ApplicationStack
+from infrastructure.stacks.postgres_init_stack import PostgresInitStack
 from config import get_config
 
 
@@ -58,6 +59,19 @@ def main():
         ),
     )
 
+    postgres_init_stack = PostgresInitStack(
+        app,
+        f"{config.project_prefix}-{environment}-postgres-init",
+        config,
+        host=Token.as_string(
+            f'${{split(":", {database_stack.rds.db_instance.endpoint})[0]}}'
+        ),
+        port=5432,
+        superuser_password=database_stack.random_passwords.database_password.result,
+        keycloak_password=database_stack.random_passwords.keycloak_db_password.result,
+        pgstac_password=database_stack.random_passwords.pgstac_db_password.result,
+    )
+
     # Create the application stack with references to database resources
     application_stack = ApplicationStack(
         app,
@@ -73,19 +87,24 @@ def main():
         alb_security_group_id=Token.as_string(
             network_stack.networking.alb_security_group.id
         ),
+        ecs_security_group_id=Token.as_string(
+            network_stack.networking.ecs_security_group.id
+        ),
         rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
         database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
         keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
-        streamlit_secret_arn=Token.as_string(
-            database_stack.secrets.streamlit_secret.arn
+        keycloak_db_secret_arn=Token.as_string(
+            database_stack.secrets.keycloak_db_secret.arn
         ),
-        streamlit_repository_url=Token.as_string(
-            network_stack.ecr.streamlit_repository.repository_url
+        pgstac_db_secret_arn=Token.as_string(
+            database_stack.secrets.pgstac_db_secret.arn
         ),
+        streamlit_repository_url=config.application.stormlit_repo_url,
     )
 
     # Add dependency between stacks
     database_stack.add_dependency(network_stack)
+    postgres_init_stack.add_dependency(database_stack)
     application_stack.add_dependency(database_stack)
 
     app.synth()

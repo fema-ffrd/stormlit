@@ -82,7 +82,7 @@ code .
 #### pgAdmin (Database Management)
 - Container: `stormlit-pgadmin`
 - URL: http://localhost:55050
-- Login: admin@example.com/admin
+- Login: admin/admin
 
 ### Environment Configurations
 - Python path: `/opt/conda/envs/stormlit/bin/python`

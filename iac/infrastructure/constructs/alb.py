@@ -27,6 +27,7 @@ class AlbConstruct(Construct):
         alb (Lb): The Application Load Balancer resource.
         keycloak_target_group (LbTargetGroup): Target group for the Keycloak service.
         streamlit_target_group (LbTargetGroup): Target group for the Streamlit service.
+        streamlit_dev_target_group (LbTargetGroup): Target group for the Streamlit development server.
         http_listener (LbListener): HTTP listener for the ALB.
 
     Parameters:
@@ -148,7 +149,9 @@ class AlbConstruct(Construct):
             "keycloak-rule",
             listener_arn=self.http_listener.arn,
             priority=1,
-            condition=[LbListenerRuleCondition(path_pattern={"values": ["/auth/*"]})],
+            condition=[
+                LbListenerRuleCondition(path_pattern={"values": ["/auth/*", "/auth"]})
+            ],
             action=[
                 LbListenerRuleAction(
                     type="forward",

@@ -23,10 +23,10 @@ RUN chmod +x /migrations/run-migrations.sh && \
 
 # Set environment variables with defaults
 ENV PGPORT="5432"
+ENV RDS_ENDPOINT=""
 ENV PGUSER=""
 ENV PGPASSWORD=""
 ENV KEYCLOAK_PASSWORD=""
-ENV STREAMLIT_PASSWORD=""
 ENV PGSSLMODE="verify-full"
 ENV PGSSLROOTCERT="/etc/ssl/certs/rds-ca-2019-root.pem"
 

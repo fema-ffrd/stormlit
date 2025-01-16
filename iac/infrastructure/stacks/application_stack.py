@@ -58,10 +58,12 @@ class ApplicationStack(BaseStack):
         public_subnet_ids: List[str],
         private_subnet_ids: List[str],
         alb_security_group_id: str,
+        ecs_security_group_id: str,
         rds_endpoint: str,
         database_secret_arn: str,
         keycloak_secret_arn: str,
-        streamlit_secret_arn: str,
+        keycloak_db_secret_arn: str,
+        pgstac_db_secret_arn: str,
         streamlit_repository_url: str,
     ) -> None:
         super().__init__(scope, id, config)
@@ -83,7 +85,8 @@ class ApplicationStack(BaseStack):
             secret_arns=[
                 database_secret_arn,
                 keycloak_secret_arn,
-                streamlit_secret_arn,
+                keycloak_db_secret_arn,
+                pgstac_db_secret_arn,
             ],
             tags=config.tags,
         )
@@ -106,7 +109,7 @@ class ApplicationStack(BaseStack):
             instance_type=config.ecs.instance_type,
             instance_count=config.ecs.instance_count,
             subnet_ids=private_subnet_ids,
-            security_group_id=alb_security_group_id,
+            security_group_id=ecs_security_group_id,
             instance_profile_name=iam.instance_profile.name,
             tags=config.tags,
         )
@@ -135,16 +138,15 @@ class ApplicationStack(BaseStack):
             execution_role_arn=iam.execution_role.arn,
             task_role_arn=iam.task_role.arn,
             private_subnet_ids=private_subnet_ids,
-            security_group_id=alb_security_group_id,
+            security_group_id=ecs_security_group_id,
             keycloak_target_group_arn=alb.keycloak_target_group.arn,
             streamlit_target_group_arn=alb.streamlit_target_group.arn,
             keycloak_image=config.application.keycloak_image,
             streamlit_repository_url=streamlit_repository_url,
             streamlit_tag=streamlit_tag.string_value,
             rds_endpoint=rds_endpoint,
-            database_secret_arn=database_secret_arn,
             keycloak_secret_arn=keycloak_secret_arn,
-            streamlit_secret_arn=streamlit_secret_arn,
+            keycloak_db_secret_arn=keycloak_db_secret_arn,
             streamlit_container_count=config.ecs.streamlit_container_count,
             tags=config.tags,
         )

@@ -65,9 +65,13 @@ class DatabaseStack(BaseStack):
                 "admin_user": "admin",
                 "admin_password": self.random_passwords.keycloak_password.result,
             },
-            streamlit_credentials={
-                "admin_user": "admin",
-                "admin_password": self.random_passwords.streamlit_password.result,
+            keycloak_db_credentials={
+                "username": f"{config.project_prefix}_keycloak",
+                "password": self.random_passwords.keycloak_db_password.result,
+            },
+            pgstac_db_credentials={
+                "username": f"{config.project_prefix}_pgstac",
+                "password": self.random_passwords.pgstac_db_password.result,
             },
             tags=config.tags,
         )
@@ -115,11 +119,4 @@ class DatabaseStack(BaseStack):
             "keycloak-secret-arn",
             value=self.secrets.keycloak_secret.arn,
             description="Keycloak Credentials Secret ARN",
-        )
-
-        TerraformOutput(
-            self,
-            "streamlit-secret-arn",
-            value=self.secrets.streamlit_secret.arn,
-            description="Streamlit Credentials Secret ARN",
         )

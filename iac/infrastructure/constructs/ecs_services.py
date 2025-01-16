@@ -1,6 +1,7 @@
 import json
 from typing import List
 from constructs import Construct
+from cdktf import FnGenerated
 from cdktf_cdktf_provider_aws.ecs_task_definition import EcsTaskDefinition
 from cdktf_cdktf_provider_aws.ecs_service import (
     EcsService,
@@ -66,9 +67,8 @@ class EcsServicesConstruct(Construct):
         streamlit_repository_url: str,
         streamlit_tag: str,
         rds_endpoint: str,
-        database_secret_arn: str,
         keycloak_secret_arn: str,
-        streamlit_secret_arn: str,
+        keycloak_db_secret_arn: str,
         streamlit_container_count: int,
         tags: dict,
     ) -> None:
@@ -81,8 +81,8 @@ class EcsServicesConstruct(Construct):
             {
                 "name": "keycloak",
                 "image": keycloak_image,
-                "cpu": 512,
-                "memory": 1024,
+                "cpu": 1024,
+                "memory": 2048,
                 "essential": True,
                 "portMappings": [
                     {"containerPort": 8080, "hostPort": 8080, "protocol": "tcp"},
@@ -93,11 +93,11 @@ class EcsServicesConstruct(Construct):
                 "secrets": [
                     {
                         "name": "KC_DB_USERNAME",
-                        "valueFrom": f"{database_secret_arn}:username::",
+                        "valueFrom": f"{keycloak_db_secret_arn}:username::",
                     },
                     {
                         "name": "KC_DB_PASSWORD",
-                        "valueFrom": f"{database_secret_arn}:password::",
+                        "valueFrom": f"{keycloak_db_secret_arn}:password::",
                     },
                     {
                         "name": "KEYCLOAK_ADMIN",
@@ -132,7 +132,7 @@ class EcsServicesConstruct(Construct):
                     "logDriver": "awslogs",
                     "options": {
                         "awslogs-group": f"/ecs/{resource_prefix}-keycloak",
-                        "awslogs-region": tags.get("Region", "us-east-2"),
+                        "awslogs-region": "us-east-1",
                         "awslogs-stream-prefix": "keycloak",
                         "awslogs-create-group": "true",
                     },
@@ -146,8 +146,8 @@ class EcsServicesConstruct(Construct):
             family=f"{resource_prefix}-keycloak",
             requires_compatibilities=["EC2"],
             network_mode="awsvpc",
-            cpu="512",
-            memory="1024",
+            cpu="1024",
+            memory="2048",
             execution_role_arn=execution_role_arn,
             task_role_arn=task_role_arn,
             container_definitions=json.dumps(keycloak_container_definitions),
@@ -191,31 +191,11 @@ class EcsServicesConstruct(Construct):
             {
                 "name": "streamlit",
                 "image": f"{streamlit_repository_url}:{streamlit_tag}",
-                "cpu": 1024,
-                "memory": 1500,
+                "cpu": 768,
+                "memory": 1536,
                 "essential": True,
-                "portMappings": [
-                    {"containerPort": 8501, "hostPort": 8501, "protocol": "tcp"}
-                ],
-                "secrets": [
-                    {
-                        "name": "DB_USERNAME",
-                        "valueFrom": f"{streamlit_secret_arn}:admin_user::",
-                    },
-                    {
-                        "name": "DB_PASSWORD",
-                        "valueFrom": f"{streamlit_secret_arn}:admin_password::",
-                    },
-                ],
+                "portMappings": [{"containerPort": 8501, "protocol": "tcp"}],
                 "environment": [
-                    {
-                        "name": "RDS_ENDPOINT",
-                        "value": rds_endpoint,
-                    },
-                    {
-                        "name": "DB_NAME",
-                        "value": "streamlit",
-                    },
                     {"name": "KEYCLOAK_URL", "value": f"{alb_dns_name}/auth"},
                     {"name": "STREAMLIT_SERVER_PORT", "value": "8501"},
                     {"name": "STREAMLIT_SERVER_ADDRESS", "value": "0.0.0.0"},
@@ -225,7 +205,7 @@ class EcsServicesConstruct(Construct):
                     "logDriver": "awslogs",
                     "options": {
                         "awslogs-group": f"/ecs/{resource_prefix}-streamlit",
-                        "awslogs-region": tags.get("Region", "us-east-2"),
+                        "awslogs-region": "us-east-1",
                         "awslogs-stream-prefix": "streamlit",
                         "awslogs-create-group": "true",
                     },
@@ -239,8 +219,8 @@ class EcsServicesConstruct(Construct):
             family=f"{resource_prefix}-streamlit",
             requires_compatibilities=["EC2"],
             network_mode="awsvpc",
-            cpu="1024",
-            memory="1500",
+            cpu="768",
+            memory="1536",
             execution_role_arn=execution_role_arn,
             task_role_arn=task_role_arn,
             container_definitions=json.dumps(streamlit_container_definitions),
@@ -277,4 +257,9 @@ class EcsServicesConstruct(Construct):
             },
             health_check_grace_period_seconds=60,
             propagate_tags="SERVICE",
+            # Force a new deployment for each terraform apply
+            force_new_deployment=True,
+            triggers={
+                "redeployment": FnGenerated.plantimestamp(),
+            },
         )

@@ -12,9 +12,8 @@ class RandomPasswordConstruct(Construct):
     meet specified complexity requirements and length constraints.
 
     Attributes:
-        database_password (Password): The generated random password for database access.
+        database_password (Password): The generated random password for admin database access.
         keycloak_password (Password): The generated random password for Keycloak admin.
-        streamlit_password (Password): The generated random password for Streamlit admin.
 
     Parameters:
         scope (Construct): The scope in which this construct is defined.
@@ -45,7 +44,7 @@ class RandomPasswordConstruct(Construct):
             "database-password",
             length=min_length,
             special=special,
-            override_special="!#$%&*()-_=+[]{}<>:?",  # Safer special chars for passwords
+            override_special="!#$%&*()-_=+[]{}<>:?",
         )
 
         # Generate Keycloak Password
@@ -57,10 +56,19 @@ class RandomPasswordConstruct(Construct):
             override_special="!#$%&*()-_=+[]{}<>:?",
         )
 
-        # Generate Streamlit Password
-        self.streamlit_password = Password(
+        # Generate Keycloak Database Password
+        self.keycloak_db_password = Password(
             self,
-            "streamlit-password",
+            "keycloak-db-password",
+            length=min_length,
+            special=special,
+            override_special="!#$%&*()-_=+[]{}<>:?",
+        )
+
+        # Generate PgStac Database Password
+        self.pgstac_db_password = Password(
+            self,
+            "pgstac-db-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",

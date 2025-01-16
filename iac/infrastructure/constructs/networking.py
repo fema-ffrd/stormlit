@@ -113,9 +113,9 @@ class NetworkingConstruct(Construct):
 
         # Create subnets based on environment
         azs = (
-            ["us-east-2a", "us-east-2b"]
+            ["us-east-1a", "us-east-1b"]
             if environment == "development"
-            else ["us-east-2a", "us-east-2b", "us-east-2c"]
+            else ["us-east-1a", "us-east-1b", "us-east-1c"]
         )
 
         # For VPC CIDR 10.0.0.0/16, create subnets in 10.0.x.0/24 ranges
