@@ -63,3 +63,6 @@ coverage.xml
 # AWS
 .aws/
 *.pem
+
+# Root CA certificates
+.devcontainer/*.crt
