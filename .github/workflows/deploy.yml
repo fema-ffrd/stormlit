@@ -73,6 +73,7 @@ jobs:
           pipenv install
 
       - name: Deploy with CDKTF
+        working-directory: ./iac
         env:
           ENVIRONMENT: development
           AWS_REGION: us-east-1
