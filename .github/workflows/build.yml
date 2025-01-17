@@ -50,10 +50,10 @@ jobs:
             # tag events
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # branch events
-            type=ref,event=branch
-            # set latest tag for main branch
-            type=raw,value=latest,enable={{is_default_branch}}
+            # branch events - dev branch gets dev tag
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            # main branch gets latest tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
