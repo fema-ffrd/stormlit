@@ -74,6 +74,7 @@ jobs:
 
       - name: Deploy with CDKTF
         env:
+          ENVIRONMENT: development
           AWS_REGION: us-east-1
           TF_VAR_streamlit_tag: latest
           TF_VAR_streamlit_dev_tag: dev
