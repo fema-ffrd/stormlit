@@ -142,6 +142,52 @@ pytest
 ruff format
 ```
 
+## CI/CD Pipeline
+
+Stormlit uses GitHub Actions for continuous integration and deployment, with separate workflows for pull requests, development, and staging environments.
+
+### Pull Request Workflow
+When a pull request is opened against the `main` or `dev` branches, the following checks run automatically:
+- Unit tests for both the Streamlit application and infrastructure code
+- CDKTF synthesis to validate infrastructure changes
+- Docker image build verification (without registry push)
+- Code formatting and linting with Ruff
+
+All checks must pass before the PR can be merged.
+
+### Development Deployment
+Pushes to the `dev` branch trigger:
+1. Complete test suite execution
+2. CDKTF infrastructure synthesis
+3. Docker image build and push to GitHub Container Registry with the `dev` tag
+4. Deployment to the development environment via CDKTF
+   - Deploys only the application stack with development-specific configurations
+   - Uses the `--ignore-missing-stack-dependencies` flag to update just the application
+
+### Staging Deployment
+Pushes to the `main` branch trigger:
+1. Complete test suite execution
+2. CDKTF infrastructure synthesis
+3. Docker image build and push to GitHub Container Registry with the `latest` tag
+4. Full infrastructure deployment including:
+   - Network stack (VPC, subnets, gateways)
+   - Database stack (RDS, secrets)
+   - Application stack (ECS, load balancer)
+
+### Environment Variables
+The CI/CD pipeline uses the following environment variables:
+- `AWS_REGION`: Set to us-east-1 for all deployments
+- `TF_VAR_streamlit_tag`: Docker image tag for staging (`latest`)
+- `TF_VAR_streamlit_dev_tag`: Docker image tag for development (`dev`)
+
+### Infrastructure Deployment Order
+The CI/CD pipeline maintains the correct deployment order for infrastructure components:
+1. Network infrastructure
+2. Database resources
+3. Application deployment
+
+There are no secrets or environment variables stored in the repository. Authentication with AWS is performed using OpenID Connect.
+
 ## IaC
 
 The IaC for this repository is inside the `iac/` directory. This projects used the CDK for terraform with Python.
@@ -171,6 +217,22 @@ There is only a single environment defined. This is the test environment deploye
 ```
 cdktf deploy <stack names>
 ```
+
+There are currently 5 stacks defined in the `main.py` file:
+
+- `stormlit-development-network`: The base network infrastructure for the development environment. This includes the VPC, subnets, internet gateway, NAT gateway, elastic IPs, and security groups.
+- `stormlit-development-database`: The database infrastructure for the development environment. This includes the RDS instance and secrets manager for the database credentials.
+- `stormlit-development-postgres-init`: The database initialization for the development environment. This stack must be deployed after the database stack from within the development VPC. We have set up a jump box for this purpose inside the development VPC. This stack will create the database schema.
+- `stormlit-development-application`: The application infrastructure for the development environment. This includes the ECS cluster, IAM Roles, task definitions, services, and load balancer.
+- `stormlit-development-application-dev`: The development environment for the application. This stack will deploy the dev application container to the ECS cluster.
+
+To deploy this infrastructure, you must deploy the stacks in the following order:
+
+1. `stormlit-development-network`
+2. `stormlit-development-database`
+3. `stormlit-development-postgres-init` (from inside the VPC created by stack 1)
+4. `stormlit-development-application`
+5. `stormlit-development-application-dev` (only needed for the development environment, must include the `--ignore-missing-stack-dependencies` flag)
 
 You can also test a deployment with `synth` during development:
 
