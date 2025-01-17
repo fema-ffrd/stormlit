@@ -122,7 +122,10 @@ class EcsServicesConstruct(Construct):
                     {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "true"},
                     {"name": "KC_HOSTNAME", "value": host_name},
                     {"name": "KC_HOSTNAME_URL", "value": f"https://{host_name}/auth"},
-                    {"name": "KC_HOSTNAME_ADMIN_URL", "value": f"https://{host_name}/auth"},
+                    {
+                        "name": "KC_HOSTNAME_ADMIN_URL",
+                        "value": f"https://{host_name}/auth",
+                    },
                     {"name": "KC_HTTP_RELATIVE_PATH", "value": "/auth"},
                     {"name": "PROXY_ADDRESS_FORWARDING", "value": "true"},
                     {"name": "KC_HTTP_MAX_FORWARDED_HEADER_SIZE", "value": "50"},

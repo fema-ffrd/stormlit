@@ -1,6 +1,6 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput, Token, TerraformVariable
+from cdktf import TerraformOutput, TerraformVariable
 from config import EnvironmentConfig
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
