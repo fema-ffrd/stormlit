@@ -1,6 +1,6 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput, Token, TerraformVariable
+from cdktf import TerraformOutput, TerraformVariable
 from config import EnvironmentConfig
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
@@ -131,7 +131,7 @@ class ApplicationStack(BaseStack):
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
-            alb_dns_name=Token.as_string(self.alb.alb.dns_name),
+            host_name=f"stormlit.{config.application.domain_name}",
             project_prefix=config.project_prefix,
             environment=config.environment,
             cluster_id=self.ecs_cluster.cluster.id,

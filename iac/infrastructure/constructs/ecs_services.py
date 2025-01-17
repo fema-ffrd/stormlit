@@ -24,7 +24,7 @@ class EcsServicesConstruct(Construct):
     Parameters:
         scope (Construct): The scope in which this construct is defined.
         id (str): The unique identifier of the construct.
-        alb_dns_name (str): The DNS name of the Application Load Balancer for routing traffic.
+        host_name (str): The custom domain name for the application.
         project_prefix (str): A prefix for project-related resource names to ensure uniqueness.
         environment (str): The environment name (e.g., `production`, `staging`) to differentiate resources.
         cluster_id (str): The ECS cluster identifier where services will be deployed.
@@ -53,7 +53,7 @@ class EcsServicesConstruct(Construct):
         scope: Construct,
         id: str,
         *,
-        alb_dns_name: str,
+        host_name: str,
         project_prefix: str,
         environment: str,
         cluster_id: str,
@@ -89,7 +89,7 @@ class EcsServicesConstruct(Construct):
                     {"containerPort": 9000, "hostPort": 9000, "protocol": "tcp"},
                 ],
                 "entryPoint": ["/opt/keycloak/bin/kc.sh"],
-                "command": ["start"],
+                "command": ["start", "--proxy-headers=xforwarded"],
                 "secrets": [
                     {
                         "name": "KC_DB_USERNAME",
@@ -119,14 +119,22 @@ class EcsServicesConstruct(Construct):
                     {"name": "KC_HTTP_ENABLED", "value": "true"},
                     {"name": "KC_PROXY", "value": "edge"},
                     {"name": "KC_HOSTNAME_STRICT", "value": "false"},
-                    {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "false"},
+                    {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "true"},
+                    {"name": "KC_HOSTNAME", "value": host_name},
+                    {"name": "KC_HOSTNAME_URL", "value": f"https://{host_name}/auth"},
+                    {
+                        "name": "KC_HOSTNAME_ADMIN_URL",
+                        "value": f"https://{host_name}/auth",
+                    },
+                    {"name": "KC_HTTP_RELATIVE_PATH", "value": "/auth"},
+                    {"name": "PROXY_ADDRESS_FORWARDING", "value": "true"},
+                    {"name": "KC_HTTP_MAX_FORWARDED_HEADER_SIZE", "value": "50"},
+                    {"name": "KC_HTTP_FORWARD_ROLES", "value": "true"},
+                    {"name": "KC_HTTPS_PROTOCOLS", "value": "TLSv1.2,TLSv1.3"},
                     {
                         "name": "JAVA_OPTS_APPEND",
                         "value": "-XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=50",
                     },
-                    {"name": "KC_HTTP_RELATIVE_PATH", "value": "/auth"},
-                    {"name": "KC_HOSTNAME_STRICT", "value": "false"},
-                    {"name": "KC_HOSTNAME_STRICT_HTTPS", "value": "false"},
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
@@ -196,7 +204,7 @@ class EcsServicesConstruct(Construct):
                 "essential": True,
                 "portMappings": [{"containerPort": 8501, "protocol": "tcp"}],
                 "environment": [
-                    {"name": "KEYCLOAK_URL", "value": f"{alb_dns_name}/auth"},
+                    {"name": "KEYCLOAK_URL", "value": f"https://{host_name}/auth"},
                     {"name": "STREAMLIT_SERVER_PORT", "value": "8501"},
                     {"name": "STREAMLIT_SERVER_ADDRESS", "value": "0.0.0.0"},
                     {"name": "STREAMLIT_BROWSER_GATHER_USAGE_STATS", "value": "false"},
