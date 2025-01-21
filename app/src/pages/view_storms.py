@@ -1,6 +1,11 @@
+# module imports
+from ..configs.settings import LOG_LEVEL
+from ..utils.stac_data import init_storm_data
+from ..utils.session import init_session_state
+from ..components.layout import render_footer
+
 # standard imports
 import os
-import sys
 import folium
 import geopandas as gpd
 import streamlit as st
@@ -13,14 +18,7 @@ from dotenv import load_dotenv
 STORMS_DATA = "s3://kanawha-pilot/stac/Kanawha-0505/data-summary/storms.pq"
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
-sys.path.append(srcDir)
 load_dotenv()
-
-# custom imports
-from utils.stac_data import init_storm_data
-from utils.session import init_session_state
-from components.layout import render_footer
-from configs.settings import LOG_LEVEL
 
 
 def swap_coordinates(point_str):

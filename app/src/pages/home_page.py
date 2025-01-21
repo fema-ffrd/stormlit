@@ -1,6 +1,11 @@
+# module imports
+from ..utils.particles import particles_js
+from ..utils.functions import create_st_button
+from ..utils.session import init_session_state
+from ..components.layout import render_footer
+
 # standard imports
 import os
-import sys
 from PIL import Image
 import streamlit as st
 from dotenv import load_dotenv
@@ -9,14 +14,7 @@ import streamlit.components.v1 as components
 # global variables
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
-sys.path.append(srcDir)
 load_dotenv()
-
-# custom imports
-from utils.particles import particles_js
-from utils.functions import create_st_button
-from utils.session import init_session_state
-from components.layout import render_footer
 
 
 def home_page():

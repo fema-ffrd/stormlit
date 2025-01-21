@@ -1,24 +1,22 @@
+# module imports
+from ..utils.stac_data import init_gage_data
+from ..utils.session import init_session_state
+from ..components.layout import render_footer
+from ..components.tables import stylized_table
+from ..configs.settings import LOG_LEVEL
+
 # standard imports
 import os
-import sys
-import plotly.graph_objects as go
 import streamlit as st
 from scipy.stats import norm
-from components.tables import stylized_table
 from dotenv import load_dotenv
+import plotly.graph_objects as go
 
 # global variables
 GAGES_DATA = "s3://kanawha-pilot/stac/Kanawha-0505/data-summary/gages.pq"
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
-sys.path.append(srcDir)
 load_dotenv()
-
-# custom imports
-from utils.stac_data import init_gage_data
-from utils.session import init_session_state
-from components.layout import render_footer
-from configs.settings import LOG_LEVEL
 
 
 def view_gages():
@@ -65,14 +63,12 @@ def view_gages():
         )
 
         if st.session_state["variable"] == "Flow":
-            value, time, plot_label = "max_flow_value", "max_flow_time", "Flow (cfs)"
+            value, plot_label = "max_flow_value", "Flow (cfs)"
         else:
-            value, time, plot_label = (
+            value, plot_label = (
                 "max_wse_value",
-                "max_wse_time",
                 "Water Surface Elevation(ft)",
             )
-
         if (
             st.session_state["gage_id"] != "None"
             and len(st.session_state["realization"]) > 0
