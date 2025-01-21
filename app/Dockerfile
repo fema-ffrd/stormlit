@@ -1,16 +1,13 @@
-# Stage 0: Use BuildKit's multi-platform support
-FROM --platform=$BUILDPLATFORM python:3.12-slim as builder
-
-# Set the working directory in the container
-WORKDIR /app
-
-# Stage 1: Create the final multi-arch image
-FROM --platform=$TARGETPLATFORM python:3.12-slim
+FROM mambaorg/micromamba:2.0.5
 
 WORKDIR /app
 
-# Install streamlit
-RUN pip install --no-cache-dir streamlit
+COPY env.yml env.yml
+COPY src src
+COPY main.py main.py
+
+RUN micromamba install -y -n base -f env.yml && \
+    micromamba clean --all --yes
 
 # Expose the port Streamlit runs on
 EXPOSE 8501
@@ -19,4 +16,4 @@ EXPOSE 8501
 ENV STREAMLIT_SERVER_ADDRESS="0.0.0.0"
 
 # Command to run your application
-CMD ["streamlit", "hello"]
+CMD ["streamlit", "run", "main.py"]

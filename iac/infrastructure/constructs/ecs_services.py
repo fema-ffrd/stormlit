@@ -208,6 +208,10 @@ class EcsServicesConstruct(Construct):
                     {"name": "STREAMLIT_SERVER_PORT", "value": "8501"},
                     {"name": "STREAMLIT_SERVER_ADDRESS", "value": "0.0.0.0"},
                     {"name": "STREAMLIT_BROWSER_GATHER_USAGE_STATS", "value": "false"},
+                    {
+                        "name": "STAC_API_URL",
+                        "value": "https://stac.ffrd.wspwater.tech",
+                    },
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
