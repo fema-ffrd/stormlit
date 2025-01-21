@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM mambaorg/micromamba:2.0.5
+FROM mambaorg/micromamba:2.0.5
 
 WORKDIR /app
 
