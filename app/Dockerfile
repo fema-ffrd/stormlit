@@ -6,6 +6,8 @@ COPY env.yml env.yml
 COPY src src
 COPY main.py main.py
 
+RUN apt-get update && apt-get install build-essential -y
+
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
 
