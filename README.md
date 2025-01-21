@@ -114,8 +114,7 @@ All services are connected via `stormlit-network` for internal communication.
 ### Local Development
 ```bash
 # In VS Code terminal
-cd app
-streamlit run app.py
+streamlit run app/main.py
 ```
 Access at http://localhost:8501
 
