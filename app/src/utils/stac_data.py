@@ -3,13 +3,14 @@ import streamlit as st
 
 
 def generate_stac_item_link(base_url, collection_id, item_id):
-    return (
-        f"https://radiantearth.github.io/stac-browser/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
-    )
+    return f"https://radiantearth.github.io/stac-browser/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
+
 
 @st.cache_data
 def fetch_collection_data(collection_id, _progress_bar):
-    items = list(st.session_state.stac_client.search(collections=[collection_id]).items())
+    items = list(
+        st.session_state.stac_client.search(collections=[collection_id]).items()
+    )
     item_data = []
     total_items = len(items)
 
@@ -23,7 +24,9 @@ def fetch_collection_data(collection_id, _progress_bar):
         historic_storm_date = item.properties.get("historic_storm_date", "N/A")
         historic_storm_center = item.properties.get("historic_storm_center", "N/A")
         historic_storm_season = item.properties.get("historic_storm_season", "N/A")
-        historic_storm_max_precip_inches = item.properties.get("historic_storm_max_precip_inches", "N/A")
+        historic_storm_max_precip_inches = item.properties.get(
+            "historic_storm_max_precip_inches", "N/A"
+        )
 
         item_data.append(
             {
@@ -45,8 +48,10 @@ def fetch_collection_data(collection_id, _progress_bar):
     df = pd.DataFrame(item_data)
     return df
 
+
 def collection_id(realization):
     return f"Kanawha-0505-R{realization:03}"
+
 
 @st.cache_data
 def init_storm_data(storms_pq_path: str):
@@ -56,6 +61,7 @@ def init_storm_data(storms_pq_path: str):
         axis=1,
     )
 
+
 @st.cache_data
 def init_gage_data(gages_pq_path: str):
     st.gages = pd.read_parquet(gages_pq_path, engine="pyarrow")
@@ -64,7 +70,7 @@ def init_gage_data(gages_pq_path: str):
         axis=1,
     )
 
+
 @st.cache_data
 def init_computation_data(comp_pq_path: str):
     st.computation = pd.read_parquet(comp_pq_path, engine="pyarrow")
-

@@ -11,6 +11,7 @@ from src.pages.view_storms import view_storms
 warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
 
+
 class MultiApp:
     def __init__(self):
         self.apps = []
@@ -19,8 +20,9 @@ class MultiApp:
         self.apps.append({"title": title, "function": func})
 
     def run(self):
-
-        st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
+        st.set_page_config(
+            page_title="stormlit", page_icon=":rain_cloud:", layout="wide"
+        )
 
         st.sidebar.markdown("## Main Menu")
         app = st.sidebar.selectbox(

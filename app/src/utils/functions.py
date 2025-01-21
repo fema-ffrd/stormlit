@@ -2,8 +2,8 @@ import re
 import uuid
 import streamlit as st
 
-def create_st_button(link_text, link_url, hover_color="#e78ac3", st_col=None):
 
+def create_st_button(link_text, link_url, hover_color="#e78ac3", st_col=None):
     button_uuid = str(uuid.uuid4()).replace("-", "")
     button_id = re.sub("\d+", "", button_uuid)
 

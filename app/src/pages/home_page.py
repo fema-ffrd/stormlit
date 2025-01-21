@@ -18,8 +18,8 @@ from utils.functions import create_st_button
 from utils.session import init_session_state
 from components.layout import render_footer
 
-def home_page():
 
+def home_page():
     if "session_id" not in st.session_state:
         init_session_state()
 
@@ -61,7 +61,6 @@ def home_page():
     i = 0
     link_col_dict = {0: link_1_col, 1: link_2_col, 2: link_3_col}
     for link_text, link_url in software_link_dict.items():
-
         st_col = link_col_dict[i]
         i += 1
         if i == len(link_col_dict.keys()):
@@ -96,7 +95,6 @@ def home_page():
     ffrd_img = Image.open(ffrd_path)
 
     right_col.image(ffrd_img, output_format="PNG")
-
 
     left_col.markdown(
         """

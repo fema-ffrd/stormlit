@@ -22,6 +22,7 @@ from utils.session import init_session_state
 from components.layout import render_footer
 from configs.settings import LOG_LEVEL
 
+
 def swap_coordinates(point_str):
     """Fix for error in stac items, need to fix in catalog and return wkt.loads(point_str)"""
     point = wkt.loads(point_str)
@@ -61,39 +62,52 @@ def view_storms():
 
     # with search_col1:
     sieve1 = df.copy()
-    st.session_state["realization"] = st.sidebar.multiselect("Select by Realization",
-                                                        sieve1["Realization"].unique(),
-                                                        default=list(sieve1["Realization"].unique())[0])
+    st.session_state["realization"] = st.sidebar.multiselect(
+        "Select by Realization",
+        sieve1["Realization"].unique(),
+        default=list(sieve1["Realization"].unique())[0],
+    )
     sieve1 = sieve1[sieve1["Realization"].isin(st.session_state["realization"])]
-    st.session_state["block"] = st.sidebar.slider("Select by Block Range",
-                                            min_value=sieve1["Block"].min(),
-                                            max_value=sieve1["Block"].max(),
-                                            value=(122, 255))
-    sieve1 = sieve1[(sieve1["Block"] >= st.session_state["block"][0]) & (sieve1["Block"] <= st.session_state["block"][1])]
+    st.session_state["block"] = st.sidebar.slider(
+        "Select by Block Range",
+        min_value=sieve1["Block"].min(),
+        max_value=sieve1["Block"].max(),
+        value=(122, 255),
+    )
+    sieve1 = sieve1[
+        (sieve1["Block"] >= st.session_state["block"][0])
+        & (sieve1["Block"] <= st.session_state["block"][1])
+    ]
 
-    st.session_state["search_id"] = st.sidebar.multiselect("Search by ID", sieve1["ID"].unique())
+    st.session_state["search_id"] = st.sidebar.multiselect(
+        "Search by ID", sieve1["ID"].unique()
+    )
     if len(st.session_state["search_id"]) > 0:
         st.write("filtering by search_id")
         sieve1 = sieve1[sieve1["ID"].isin(st.session_state["search_id"])]
 
     # with search_col2:
     if sieve1["Max Precip (in)"].min() != sieve1["Max Precip (in)"].max():
-        st.session_state["max_precip"] = st.sidebar.slider("Search by Max Precipitation (inches)",
-                                                min_value=sieve1["Max Precip (in)"].min(),
-                                                max_value=sieve1["Max Precip (in)"].max(),
-                                                value=sieve1["Max Precip (in)"].mean(),
-                                                step=0.1)
+        st.session_state["max_precip"] = st.sidebar.slider(
+            "Search by Max Precipitation (inches)",
+            min_value=sieve1["Max Precip (in)"].min(),
+            max_value=sieve1["Max Precip (in)"].max(),
+            value=sieve1["Max Precip (in)"].mean(),
+            step=0.1,
+        )
         sieve1 = sieve1[sieve1["Max Precip (in)"] >= st.session_state["max_precip"]]
 
-    st.session_state["storm_season"] = st.sidebar.multiselect("Search for Seasonal Storms",
-                                                    ["All", "spring", "summer", "fall", "winter"],
-                                                    default=["All"])
+    st.session_state["storm_season"] = st.sidebar.multiselect(
+        "Search for Seasonal Storms",
+        ["All", "spring", "summer", "fall", "winter"],
+        default=["All"],
+    )
     if "All" not in st.session_state["storm_season"]:
         sieve1 = sieve1[sieve1["Season"].isin(st.session_state["storm_season"])]
 
-    st.session_state["storm_date"] = st.sidebar.multiselect("Search by Storm Date",
-                                                    ["All", *sieve1["Date"].unique()],
-                                                    default=["All"])
+    st.session_state["storm_date"] = st.sidebar.multiselect(
+        "Search by Storm Date", ["All", *sieve1["Date"].unique()], default=["All"]
+    )
     if "All" not in st.session_state["storm_date"]:
         sieve1 = sieve1[sieve1["Date"].isin(st.session_state["storm_date"])]
 
@@ -108,19 +122,29 @@ def view_storms():
 
         # Create a gdf for the historic storm center points
         historic_gdf = sieve1.copy()
-        historic_gdf["geometry"] = historic_gdf["historic_storm_center"].apply(swap_coordinates)
+        historic_gdf["geometry"] = historic_gdf["historic_storm_center"].apply(
+            swap_coordinates
+        )
         historic_gdf = gpd.GeoDataFrame(historic_gdf, geometry="geometry")
 
         # initialize the maps
         m1 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(m1)
+        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(
+            m1
+        )
         m2 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(m2)
-        
+        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(
+            m2
+        )
+
         # create a heatmap for the historic storm center points
-        folium.plugins.HeatMap(data=historic_gdf["geometry"].apply(lambda pt: [pt.y, pt.x]).tolist()).add_to(m1)
+        folium.plugins.HeatMap(
+            data=historic_gdf["geometry"].apply(lambda pt: [pt.y, pt.x]).tolist()
+        ).add_to(m1)
         # create a heatmap for the SST storm center points
-        folium.plugins.HeatMap(data=sst_gdf["geometry"].apply(lambda pt: [pt.y, pt.x]).tolist()).add_to(m2)
+        folium.plugins.HeatMap(
+            data=sst_gdf["geometry"].apply(lambda pt: [pt.y, pt.x]).tolist()
+        ).add_to(m2)
 
         col3, col4 = st.columns(2)
         with col3:

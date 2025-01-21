@@ -46,7 +46,10 @@ class LogFormatter(logging.Formatter):
 
 
 def setup_logging(
-    log_type: str, log_level: int = logging.INFO, log_to_file: bool = False, log_file_path: str = "log.json"
+    log_type: str,
+    log_level: int = logging.INFO,
+    log_to_file: bool = False,
+    log_file_path: str = "log.json",
 ):
     """
     Sets up logging for the application. Configures log levels for ripple1d and main script.
@@ -97,7 +100,9 @@ def move_existing_logs(log_dir):
         dep_logs_dir = os.path.join(log_dir, "archive")
         os.makedirs(dep_logs_dir, exist_ok=True)
         for log_file in log_files:
-            shutil.move(log_file, os.path.join(dep_logs_dir, os.path.basename(log_file)))
+            shutil.move(
+                log_file, os.path.join(dep_logs_dir, os.path.basename(log_file))
+            )
 
 
 def find_huey_log(log_dir):
