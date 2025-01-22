@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:2.0.5 as builder
+FROM mambaorg/micromamba:2.0.5
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ USER root
 RUN apt-get update && apt-get install build-essential -y \
     && apt-get clean
 
-USER micromamba
+USER mambauser
 
 COPY env.yml env.yml
 COPY src src
