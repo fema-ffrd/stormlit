@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:2.0.5
+FROM mambaorg/micromamba:2.0.5 as builder
 
 WORKDIR /app
 
@@ -15,6 +15,13 @@ COPY main.py main.py
 
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
+
+FROM mambaorg/micromamba:2.0.5
+
+COPY --from=builder /opt/conda /opt/conda
+COPY --from=builder /app /app
+
+WORKDIR /app
 
 # Expose the port Streamlit runs on
 EXPOSE 8501
