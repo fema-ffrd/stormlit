@@ -1,12 +1,17 @@
-FROM mambaorg/micromamba:2.0.5
+FROM mambaorg/micromamba:2.0.5 as builder
 
 WORKDIR /app
+
+USER root
+
+RUN apt-get update && apt-get install build-essential -y \
+    && apt-get clean
+
+USER micromamba
 
 COPY env.yml env.yml
 COPY src src
 COPY main.py main.py
-
-RUN apt-get update && apt-get install build-essential -y
 
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
