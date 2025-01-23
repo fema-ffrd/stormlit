@@ -33,15 +33,12 @@ def view_storms():
     if "session_id" not in st.session_state:
         init_session_state()
 
-
     st.session_state.log_level = LOG_LEVEL
 
     if st.session_state["init_storm_data"] is False:
         st.write("Initializing datasets...")
         init_storm_data(STORMS_DATA)
         st.session_state["init_storm_data"] = True
-        # st.balloons()
-        # st.success("Complete! Storm data is now ready for exploration.")
 
     st.markdown("## Storm Viewer")
 
@@ -113,9 +110,19 @@ def view_storms():
     st.write("Filtered Dataset")
 
     stylized_table(
-                sieve1[["ID", "event", "Block","Realization","Date","Season", "Link", "Max Precip (in)"]].sort_values(by="Max Precip (in)", ascending=True)
-            )
-
+        sieve1[
+            [
+                "ID",
+                "event",
+                "Block",
+                "Realization",
+                "Date",
+                "Season",
+                "Link",
+                "Max Precip (in)",
+            ]
+        ].sort_values(by="Max Precip (in)", ascending=True)
+    )
 
     if len(sieve1) > 0:
         # Create a gdf for the SST storm center points
@@ -132,13 +139,13 @@ def view_storms():
 
         # initialize the maps
         m1 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.session_state.stac_api}/collections/Kanawha-R01/items/E005125").add_to(
-            m1
-        )
+        folium.GeoJson(
+            f"{st.session_state.stac_api_url}/collections/Kanawha-R01/items/E005125"
+        ).add_to(m1)
         m2 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.session_state.stac_api}/collections/Kanawha-R01/items/E005125").add_to(
-            m2
-        )
+        folium.GeoJson(
+            f"{st.session_state.stac_api_url}/collections/Kanawha-R01/items/E005125"
+        ).add_to(m2)
 
         # create a heatmap for the historic storm center points
         folium.plugins.HeatMap(
