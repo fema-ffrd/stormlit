@@ -7,6 +7,7 @@ from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv())
 
+
 class CORSRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -23,7 +24,9 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
         list.sort(key=lambda a: a.lower())
         r = []
         displaypath = self.path
-        r.append(f"<!DOCTYPE html><html><head><title>Directory listing for {displaypath}</title></head>")
+        r.append(
+            f"<!DOCTYPE html><html><head><title>Directory listing for {displaypath}</title></head>"
+        )
         r.append(
             '<div style="text-align: right; margin: 20px;"><button style="background-color: #2986cc; color: \
              white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;" \
@@ -95,10 +98,10 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
 
 
-def serve(local_dir:str):
+def serve(local_dir: str):
     os.chdir(local_dir)
     host = "0.0.0.0"
-    port =  5000
+    port = 5000
 
     print(f"Serving '{local_dir}' on {host}:{port}")
     httpd = ThreadedHTTPServer((host, port), CORSRequestHandler)

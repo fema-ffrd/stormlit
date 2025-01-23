@@ -15,7 +15,7 @@ def fetch_collection_data(collection_id, _progress_bar):
     total_items = len(items)
 
     for idx, item in enumerate(items):
-        stac_item_link = f"{st.session_state.stac_browser}/#/external/{st.session_state.stac_api}/collections/{collection_id}/items/{item.id}"
+        stac_item_link = f"{st.session_state.stac_browser}/#/external/{st.session_state.stac_api_url}/collections/{collection_id}/items/{item.id}"
 
         event = item.properties.get("event", "N/A")
         block_group = item.properties.get("block_group", "N/A")
@@ -57,7 +57,7 @@ def collection_id(realization):
 def init_storm_data(storms_pq_path: str):
     st.storms = pd.read_parquet(storms_pq_path, engine="pyarrow")
     st.storms["Link"] = st.storms.apply(
-        lambda row: f'<a href="{generate_stac_item_link(st.session_state.stac_api, collection_id(row["realization"]), row["ID"])}" target="_blank">See in Catalog</a>',
+        lambda row: f'<a href="{generate_stac_item_link(st.session_state.stac_api_url, collection_id(row["realization"]), row["ID"])}" target="_blank">See in Catalog</a>',
         axis=1,
     )
 
@@ -66,7 +66,7 @@ def init_storm_data(storms_pq_path: str):
 def init_gage_data(gages_pq_path: str):
     st.gages = pd.read_parquet(gages_pq_path, engine="pyarrow")
     st.gages["Link"] = st.gages.apply(
-        lambda row: f'<a href="{generate_stac_item_link(st.session_state.stac_api, collection_id(row["realization"]), row["ID"])}" target="_blank">See in Catalog</a>',
+        lambda row: f'<a href="{generate_stac_item_link(st.session_state.stac_api_url, collection_id(row["realization"]), row["ID"])}" target="_blank">See in Catalog</a>',
         axis=1,
     )
 
