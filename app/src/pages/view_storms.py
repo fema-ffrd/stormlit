@@ -1,18 +1,20 @@
 # module imports
-from ..configs.settings import LOG_LEVEL
-from ..utils.stac_data import init_storm_data
-from ..utils.session import init_session_state
-from ..components.layout import render_footer
-
 # standard imports
 import os
+
 import folium
 import geopandas as gpd
 import streamlit as st
+from dotenv import load_dotenv
 from shapely import wkt
 from shapely.geometry import Point
 from streamlit_folium import st_folium
-from dotenv import load_dotenv
+
+from ..components.layout import render_footer
+from ..components.tables import stylized_table
+from ..configs.settings import LOG_LEVEL
+from ..utils.session import init_session_state
+from ..utils.stac_data import init_storm_data
 
 # global variables
 STORMS_DATA = "s3://kanawha-pilot/stac/Kanawha-0505/data-summary/storms.pq"
@@ -31,7 +33,6 @@ def view_storms():
     if "session_id" not in st.session_state:
         init_session_state()
 
-    st.stac_url = os.getenv("STAC_API_URL")
 
     st.session_state.log_level = LOG_LEVEL
 
@@ -39,8 +40,8 @@ def view_storms():
         st.write("Initializing datasets...")
         init_storm_data(STORMS_DATA)
         st.session_state["init_storm_data"] = True
-        st.balloons()
-        st.success("Complete! Storm data is now ready for exploration.")
+        # st.balloons()
+        # st.success("Complete! Storm data is now ready for exploration.")
 
     st.markdown("## Storm Viewer")
 
@@ -110,7 +111,11 @@ def view_storms():
         sieve1 = sieve1[sieve1["Date"].isin(st.session_state["storm_date"])]
 
     st.write("Filtered Dataset")
-    st.dataframe(sieve1)
+
+    stylized_table(
+                sieve1[["ID", "event", "Block","Realization","Date","Season", "Link", "Max Precip (in)"]].sort_values(by="Max Precip (in)", ascending=True)
+            )
+
 
     if len(sieve1) > 0:
         # Create a gdf for the SST storm center points
@@ -127,11 +132,11 @@ def view_storms():
 
         # initialize the maps
         m1 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(
+        folium.GeoJson(f"{st.session_state.stac_api}/collections/Kanawha-R01/items/E005125").add_to(
             m1
         )
         m2 = folium.Map(location=[37.75153, -80.94911], zoom_start=6)
-        folium.GeoJson(f"{st.stac_url}/collections/Kanawha-R01/items/E005125").add_to(
+        folium.GeoJson(f"{st.session_state.stac_api}/collections/Kanawha-R01/items/E005125").add_to(
             m2
         )
 
