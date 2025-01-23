@@ -1,0 +1,7 @@
+{
+    "type": "Catalog",
+    "id": "local-catalog",
+    "stac_version": "1.0.0",
+    "description": "Local catalog for testing",
+    "links": []
+}
