@@ -61,8 +61,8 @@ code .
 If encountering SSL errors in building dev container
 environment, check if you are on a corporate VPN which
 does man-in-the-middle SSL inspection with certificate
-replacement (e.g., Zscaler). Programs running in the
-dev container needs to "trust" the Root Certificate
+replacement (e.g., Zscaler). Programs running within the
+dev container need to "trust" the Root Certificate
 Authority of your VPN.
 
 Obtain the Root CA in `PEM` format, put it in a text
