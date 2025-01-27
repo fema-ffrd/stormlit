@@ -1,16 +1,17 @@
 # module imports
-from ..utils.stac_data import init_gage_data
-from ..utils.session import init_session_state
+# standard imports
+import os
+
+import plotly.graph_objects as go
+import streamlit as st
+from dotenv import load_dotenv
+from scipy.stats import norm
+
 from ..components.layout import render_footer
 from ..components.tables import stylized_table
 from ..configs.settings import LOG_LEVEL
-
-# standard imports
-import os
-import streamlit as st
-from scipy.stats import norm
-from dotenv import load_dotenv
-import plotly.graph_objects as go
+from ..utils.session import init_session_state
+from ..utils.stac_data import init_gage_data
 
 # global variables
 GAGES_DATA = "s3://kanawha-pilot/stac/Kanawha-0505/data-summary/gages.pq"
@@ -22,8 +23,6 @@ load_dotenv()
 def view_gages():
     if "session_id" not in st.session_state:
         init_session_state()
-
-    st.stac_url = os.getenv("STAC_API_URL")
 
     st.session_state.log_level = LOG_LEVEL
 
