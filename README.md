@@ -68,9 +68,22 @@ Authority of your VPN.
 Obtain the Root CA in `PEM` format, put it in a text
 file with the extension `.crt`, and place it in the
 `./devcontainer/` folder. Then, rebuild the dev
-container environment.
+container environment. This will allow the dev container
+to build without SSL errors.
 
-Further configuration may be necessary.
+Additonal configuration may be necessary to allow the
+Stormlit app container to connect to online resources
+without SSL errors. First, create a CA bundle by
+concatenating the Root CA with, e.g., [the Mozilla
+certificate bundle distributed with the Python certifi
+library](https://github.com/certifi/python-certifi/blob/master/certifi/cacert.pem),
+and name it with a `.crt` extension. Then, modify
+your `./app/.env` file with environment variables
+to ensure that Stormlit uses the Root CA:
+```sh
+REQUESTS_CA_BUNDLE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
+SSL_CERT_FILE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
+```
 
 ### Base Image and Features
 - Base image: `mcr.microsoft.com/devcontainers/base:jammy`

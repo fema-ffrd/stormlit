@@ -4,11 +4,14 @@ services:
   stormlit-app:
     container_name: stormlit-app
     build: 
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
+      context: ./app
+    env_file:
+      - ./app/.env
+    ports:
+      - "8501:8501"
     volumes:
-      - ..:/workspace:cached
-    command: sleep infinity
+      - .:/workspace:cached
+      - ./app:/app
     networks:
       - stormlit-network
 

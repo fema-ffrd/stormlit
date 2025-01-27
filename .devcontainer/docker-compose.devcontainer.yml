@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  stormlit-app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached

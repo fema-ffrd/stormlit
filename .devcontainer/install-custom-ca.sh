@@ -1,8 +1,11 @@
 #! /usr/bin/env bash
 set -e
 
-# Custom CA files
-custom_ca=$(find /tmp -maxdepth 1 -name "*.crt")
+# Get the path of this script's parent directory
+script_dir=$(dirname "$(realpath "$0")")
+
+# Find custom CA files placed in the container
+custom_ca=$(find $script_dir -maxdepth 1 -name "*.crt")
 if [ -z "$custom_ca" ]; then
     echo "No custom CA files provided."
     exit 0
