@@ -212,6 +212,10 @@ class EcsServicesConstruct(Construct):
                         "name": "STAC_API_URL",
                         "value": "https://stac.ffrd.wspwater.tech",
                     },
+                    {
+                        "name": "STAC_BROWSER_URL",
+                        "value": "https://fema-ffrd.github.io/stac-browser",
+                    },
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
