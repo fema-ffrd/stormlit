@@ -133,7 +133,7 @@ class EcsIamConstruct(Construct):
                         "s3:ListBucket",
                     ],
                     "Resource": "*",
-                }
+                },
             ],
         }
 
