@@ -3,8 +3,8 @@ version: '3.8'
 services:
   stormlit-app:
     build:
-      context: ..
+      context: .
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
     volumes:
-      - ..:/workspace:cached
+      - .:/workspace:cached
