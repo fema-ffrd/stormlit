@@ -57,6 +57,21 @@ code .
    - Python environment is pre-configured
    - Terminal in VS Code uses the container environment
 
+#### Setup Troubleshooting: SSL Errors in VPN Environments
+If encountering SSL errors in building dev container
+environment, check if you are on a corporate VPN which
+does man-in-the-middle SSL inspection with certificate
+replacement (e.g., Zscaler). Programs running within the
+dev container need to "trust" the Root Certificate
+Authority of your VPN.
+
+Obtain the Root CA in `PEM` format, put it in a text
+file with the extension `.crt`, and place it in the
+`./devcontainer/` folder. Then, rebuild the dev
+container environment.
+
+Further configuration may be necessary.
+
 ### Base Image and Features
 - Base image: `mcr.microsoft.com/devcontainers/base:jammy`
 - Python environment managed by Micromamba
@@ -114,8 +129,7 @@ All services are connected via `stormlit-network` for internal communication.
 ### Local Development
 ```bash
 # In VS Code terminal
-cd app
-streamlit run app.py
+streamlit run app/main.py
 ```
 Access at http://localhost:8501
 
