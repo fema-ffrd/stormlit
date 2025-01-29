@@ -108,6 +108,14 @@ class ApplicationStackDev(BaseStack):
                         "name": "STREAMLIT_BROWSER_GATHER_USAGE_STATS",
                         "value": "false",
                     },
+                    {
+                        "name": "STAC_API_URL",
+                        "value": "https://stac.ffrd.wspwater.tech",
+                    },
+                    {
+                        "name": "STAC_BROWSER_URL",
+                        "value": "https://fema-ffrd.github.io/stac-browser",
+                    },
                 ],
                 "logConfiguration": {
                     "logDriver": "awslogs",
