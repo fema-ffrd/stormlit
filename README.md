@@ -26,6 +26,9 @@ git clone https://github.com/fema-ffrd/stormlit
 cd stormlit
 ```
 
+#### VS Code Dev Container Setup
+If not using dev containers, skip to
+[Docker Compose Setup](#docker-compose-setup) below.
 2. Open in VS Code:
 ```bash
 code .
@@ -37,6 +40,20 @@ code .
    - Select your project folder
    - Wait for container build (~5-10 minutes first time)
 
+Continue to [Verify Services](#verify-services).
+
+#### Docker Compose Setup
+2. Build Docker images for the environment.
+```bash
+docker compose build
+```
+
+3. Start the application and services.
+```bash
+docker compose up
+```
+
+#### Verify Services
 4. Verify services:
    - Open browser: http://localhost:50080 (Keycloak)
      - Login: admin/admin
@@ -58,7 +75,7 @@ code .
    - Terminal in VS Code uses the container environment
 
 #### Setup Troubleshooting: SSL Errors in VPN Environments
-If encountering SSL errors in building dev container
+If encountering SSL errors while building the dev container
 environment, check if you are on a corporate VPN which
 does man-in-the-middle SSL inspection with certificate
 replacement (e.g., Zscaler). Programs running within the
@@ -68,9 +85,22 @@ Authority of your VPN.
 Obtain the Root CA in `PEM` format, put it in a text
 file with the extension `.crt`, and place it in the
 `./devcontainer/` folder. Then, rebuild the dev
-container environment.
+container environment. This will allow the dev container
+to build without SSL errors.
 
-Further configuration may be necessary.
+Additonal configuration may be necessary to allow the
+Stormlit app container to connect to online resources
+without SSL errors. First, create a CA bundle by
+concatenating the Root CA with, e.g., [the Mozilla
+certificate bundle distributed with the Python certifi
+library](https://github.com/certifi/python-certifi/blob/master/certifi/cacert.pem),
+and name it with a `.crt` extension. Then, modify
+your `./app/.env` file with environment variables
+to ensure that Stormlit uses the Root CA:
+```sh
+REQUESTS_CA_BUNDLE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
+SSL_CERT_FILE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
+```
 
 ### Base Image and Features
 - Base image: `mcr.microsoft.com/devcontainers/base:jammy`

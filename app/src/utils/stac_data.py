@@ -3,7 +3,7 @@ import streamlit as st
 
 
 def generate_stac_item_link(base_url, collection_id, item_id):
-    return f"{st.session_state.stac_browser}/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
+    return f"{st.session_state.stac_browser_url}/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
 
 
 @st.cache_data
@@ -15,7 +15,7 @@ def fetch_collection_data(collection_id, _progress_bar):
     total_items = len(items)
 
     for idx, item in enumerate(items):
-        stac_item_link = f"{st.session_state.stac_browser}/#/external/{st.session_state.stac_api_url}/collections/{collection_id}/items/{item.id}"
+        stac_item_link = f"{st.session_state.stac_browser_url}/#/external/{st.session_state.stac_api_url}/collections/{collection_id}/items/{item.id}"
 
         event = item.properties.get("event", "N/A")
         block_group = item.properties.get("block_group", "N/A")
