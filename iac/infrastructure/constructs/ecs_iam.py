@@ -126,14 +126,6 @@ class EcsIamConstruct(Construct):
                     ],
                     "Resource": "*",
                 },
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "s3:GetObject",
-                        "s3:ListBucket",
-                    ],
-                    "Resource": "*",
-                },
             ],
         }
 
