@@ -188,6 +188,20 @@ class EcsIamConstruct(Construct):
             policy=json.dumps(cloudwatch_policy),
         )
 
+        ecs_task_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:GetObject",
+                        "s3:ListBucket",
+                    ],
+                    "Resource": "*",
+                }
+            ],
+        }
+
         # Create ECS task role
         self.task_role = IamRole(
             self,
@@ -202,17 +216,15 @@ class EcsIamConstruct(Construct):
                             "Service": "ecs-tasks.amazonaws.com"
                         },
                         "Effect": "Allow"
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": [
-                            "s3:GetObject",
-                            "s3:ListBucket",
-                        ],
-                        "Resource": "*",
-                    },
+                    }
                 ]
             }""",
+            inline_policy=[
+                {
+                    "name": "ecs-task-policy",
+                    "policy": json.dumps(ecs_task_policy),
+                }
+            ],
             tags=tags,
         )
 
