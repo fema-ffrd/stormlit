@@ -210,7 +210,15 @@ class EcsIamConstruct(Construct):
                             "Service": "ecs-tasks.amazonaws.com"
                         },
                         "Effect": "Allow"
-                    }
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:GetObject",
+                            "s3:ListBucket",
+                        ],
+                        "Resource": "*",
+                    },
                 ]
             }""",
             tags=tags,
