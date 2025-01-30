@@ -103,7 +103,7 @@ def home_page():
         following pages:
 
         - **Home Page:** We are here!
-        - **Load Data:** Initialize the *Stormlit* database
+        - **View Map:** Visualize the spatial modeling components
         - **View Gages:** Explore multi-event gage results
         - **View Storms:** Visualize storm data and SST coverage
         """
