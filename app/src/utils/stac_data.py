@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
-from io import StringIO
+
 
 def generate_stac_item_link(base_url, collection_id, item_id):
     return f"{st.session_state.stac_browser_url}/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
@@ -94,7 +94,7 @@ def prep_df(df: pd.DataFrame):
     # Convert the CRS to EPSG:4326
     df = df.to_crs(epsg=4326)
     df.index.name = "id"
-    df['id'] = df.index.astype(str)
+    df["id"] = df.index.astype(str)
     # Find the center of the map data
     centroids = df.geometry.centroid
     df["lat"] = centroids.y.astype(float)

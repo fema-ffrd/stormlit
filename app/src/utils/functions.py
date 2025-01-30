@@ -59,8 +59,7 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
 
 
 @st.cache_data
-def prep_fmap(sel_layers: list,
-              basemap: str = "OpenStreetMap"):
+def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
     """
     Prep a folium map object given a geojson with a specificed basemap
 
@@ -125,11 +124,15 @@ def prep_fmap(sel_layers: list,
             m_color = "red"
         else:
             m_color = "blue"
-        fg.add_child(folium.GeoJson(df,
-                                    name=sel_layers[idx],
-                                    zoom_on_click=True,
-                                    color=m_color,
-                                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"])))
+        fg.add_child(
+            folium.GeoJson(
+                df,
+                name=sel_layers[idx],
+                zoom_on_click=True,
+                color=m_color,
+                tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+            )
+        )
         idx += 1
     time2 = datetime.now()
     print(f"Time to create map: {time2 - time1}")
@@ -154,10 +157,10 @@ def get_map_sel(map_output: str):
     # Split the tooltip multi line string into objects
     items = tooltip_text.split("\n")
     items = [item.replace(" ", "") for item in items if len(item.replace(" ", "")) > 0]
-    layer_col = items[0] # layer column
-    layer_val = items[1] # layer value
-    id_col = items[2] # id column
-    id_val = items[3] # id value
+    layer_col = items[0]  # layer column
+    layer_val = items[1]  # layer value
+    id_col = items[2]  # id column
+    id_val = items[3]  # id value
     if layer_val == "Subbasins" and st.subbasins is not None:
         df = st.subbasins
     elif layer_val == "Reachs" and st.reaches is not None:
@@ -167,7 +170,9 @@ def get_map_sel(map_output: str):
     elif layer_val == "Reservoirs" and st.reservoirs is not None:
         df = st.reservoirs
     else:
-        raise ValueError(f"Invalid map layer {layer_col} with value {layer_val} and column {id_col} with value {id_val}")
+        raise ValueError(
+            f"Invalid map layer {layer_col} with value {layer_val} and column {id_col} with value {id_val}"
+        )
     # filter based on the map selection
     df = df[df["id"] == id_val]
     return df

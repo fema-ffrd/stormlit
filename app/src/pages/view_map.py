@@ -48,24 +48,27 @@ def view_map():
 
     st.sidebar.markdown("## Toolbar")
     st.session_state["map_layer"] = st.sidebar.multiselect(
-        "Select Map Layer(s)", list(map_layer_dict.keys()),
-        default=None
+        "Select Map Layer(s)", list(map_layer_dict.keys()), default=None
     )
     st.session_state["basemap"] = st.sidebar.selectbox(
-        "Select Basemap", ["OpenStreetMap", "ESRI Satellite", "Google Satellite"],
-        index=0
+        "Select Basemap",
+        ["OpenStreetMap", "ESRI Satellite", "Google Satellite"],
+        index=0,
     )
 
     if len(st.session_state["map_layer"]) > 0:
         # Refresh the map
-        fmap, feature_group = prep_fmap(st.session_state["map_layer"],
-                                        st.session_state["basemap"])
+        fmap, feature_group = prep_fmap(
+            st.session_state["map_layer"], st.session_state["basemap"]
+        )
         # Display the map
-        st.map_output = st_folium(fmap,
-                                    key="base_map",
-                                    height=800,
-                                    feature_group_to_add=feature_group,
-                                    use_container_width=True)
+        st.map_output = st_folium(
+            fmap,
+            key="base_map",
+            height=800,
+            feature_group_to_add=feature_group,
+            use_container_width=True,
+        )
     else:
         st.warning("Please first select a map layer to view.")
 
@@ -74,5 +77,5 @@ def view_map():
             st.sel_map_obj = get_map_sel(st.map_output)
             st.subheader("Selected Object Information")
             st.dataframe(st.sel_map_obj.drop(columns=["geometry"]))
-        
+
     render_footer()
