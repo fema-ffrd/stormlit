@@ -36,9 +36,11 @@ def view_storms():
     st.session_state.log_level = LOG_LEVEL
 
     if st.session_state["init_storm_data"] is False:
-        st.write("Initializing datasets...")
-        init_storm_data(STORMS_DATA)
-        st.session_state["init_storm_data"] = True
+        with st.spinner("Initializing datasets..."):
+            init_storm_data(STORMS_DATA)
+            st.session_state["init_storm_data"] = True
+            st.balloons()
+            st.success("Complete! Storm data is now ready for exploration.")
 
     st.markdown("## Storm Viewer")
 
