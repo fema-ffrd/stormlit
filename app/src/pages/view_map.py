@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 # global variables
 map_layer_dict = {
     "Subbasins": "https://duwamish-pilot.s3.amazonaws.com/stac/Subbasin.geojson",
-    "Reachs": "https://duwamish-pilot.s3.amazonaws.com/stac/Reach.geojson",
+    "Reaches": "https://duwamish-pilot.s3.amazonaws.com/stac/Reach.geojson",
     "Junctions": "https://duwamish-pilot.s3.amazonaws.com/stac/Junction.geojson",
     "Reservoirs": "https://duwamish-pilot.s3.amazonaws.com/stac/Reservoir.geojson",
 }
@@ -39,12 +39,13 @@ def view_map():
         with st.spinner("Initializing datasets..."):
             init_map_data(map_layer_dict)
             st.session_state["init_map_data"] = True
-            st.balloons()
             st.success("Complete! Map data is now ready for exploration.")
 
     st.markdown("## Map Viewer")
-    st.write("""Select one ore multiple map layers from the sidebar to plot on the map. 
-             Afterwards, you may then select objects from the map to view additional information below.""")
+    st.write("""Select one or more map layers from the sidebar to plot on the map. 
+             Once plotted, select objects from the map to view their attributes. 
+             You may quickly toggle layers on and off using the layer control located 
+             in the upper right corner of the map.""")
 
     st.sidebar.markdown("## Toolbar")
     st.session_state["map_layer"] = st.sidebar.multiselect(
@@ -56,26 +57,62 @@ def view_map():
         index=0,
     )
 
-    if len(st.session_state["map_layer"]) > 0:
-        # Refresh the map
-        fmap, feature_group = prep_fmap(
-            st.session_state["map_layer"], st.session_state["basemap"]
-        )
-        # Display the map
-        st.map_output = st_folium(
-            fmap,
-            key="base_map",
-            height=800,
-            feature_group_to_add=feature_group,
-            use_container_width=True,
-        )
-    else:
-        st.warning("Please first select a map layer to view.")
+    col1, col2 = st.columns(2)
 
-    if st.map_output is not None:
-        if st.map_output["last_object_clicked_tooltip"] is not None:
-            st.sel_map_obj = get_map_sel(st.map_output)
-            st.subheader("Selected Object Information")
-            st.dataframe(st.sel_map_obj.drop(columns=["geometry"]))
+    with col1:
+        if len(st.session_state["map_layer"]) > 0:
+            # Refresh the map
+            fmap = prep_fmap(
+                st.session_state["map_layer"], st.session_state["basemap"]
+            )
+            # Display the map
+            st.map_output = st_folium(
+                fmap,
+                key="base_map",
+                height=500,
+                # feature_group_to_add=feature_group,
+                use_container_width=True,
+            )
+        else:
+            st.warning("Please first select a map layer to view.")
+
+    with col2:
+        # Display the selected object information from the map
+        if st.map_output is not None:
+            if st.map_output["last_object_clicked_tooltip"] is not None:
+                st.sel_map_obj = get_map_sel(st.map_output)
+                st.subheader("Selected Map Information")
+                st.dataframe(st.sel_map_obj.drop(columns=["geometry"]))
+
+        # add download buttons for each selected map layer
+        st.subheader("Download Selected Map Layers")
+        if "Subbasins" in st.session_state["map_layer"]:
+            st.download_button(
+                label="Subbasins",
+                data=map_layer_dict["Subbasins"],
+                file_name="Subbasins.geojson",
+                mime="application/json",
+            )
+        if "Reaches" in st.session_state["map_layer"]:
+            st.download_button(
+                label="Reaches",
+                data=map_layer_dict["Reaches"],
+                file_name="Reaches.geojson",
+                mime="application/json",
+            )
+        if "Junctions" in st.session_state["map_layer"]:
+            st.download_button(
+                label="Junctions",
+                data=map_layer_dict["Junctions"],
+                file_name="Junctions.geojson",
+                mime="application/json",
+            )
+        if "Reservoirs" in st.session_state["map_layer"]:
+            st.download_button(
+                label="Reservoirs",
+                data=map_layer_dict["Reservoirs"],
+                file_name="Reservoirs.geojson",
+                mime="application/json",
+            )
 
     render_footer()
