@@ -56,10 +56,14 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
     else:
         st_col.markdown(button_css + html_str, unsafe_allow_html=True)
 
+
 def style_reservoir(feature):
     return {"markerColor": "blue"}
+
+
 def style_junction(feature):
     return {"markerColor": "green"}
+
 
 @st.cache_data
 def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
@@ -169,7 +173,7 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
                     tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
                 )
             )
-            fg_junctions.add_to(m)   
+            fg_junctions.add_to(m)
         else:
             raise ValueError(f"Error: invalid map layer {key}")
         idx += 1

@@ -62,9 +62,7 @@ def view_map():
     with col1:
         if len(st.session_state["map_layer"]) > 0:
             # Refresh the map
-            fmap = prep_fmap(
-                st.session_state["map_layer"], st.session_state["basemap"]
-            )
+            fmap = prep_fmap(st.session_state["map_layer"], st.session_state["basemap"])
             # Display the map
             st.map_output = st_folium(
                 fmap,
