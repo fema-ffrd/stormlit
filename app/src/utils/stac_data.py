@@ -107,8 +107,8 @@ def init_map_data(map_layer_dict: dict):
     if "Subbasins" in map_layer_dict:
         df = gpd.read_file(map_layer_dict["Subbasins"])
         st.subbasins = prep_df(df)
-    if "Reachs" in map_layer_dict:
-        df = gpd.read_file(map_layer_dict["Reachs"])
+    if "Reaches" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Reaches"])
         st.reaches = prep_df(df)
     if "Junctions" in map_layer_dict:
         df = gpd.read_file(map_layer_dict["Junctions"])
