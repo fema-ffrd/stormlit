@@ -37,7 +37,5 @@ app = MultiApp()
 
 app.add_app("Home Page", home_page)
 app.add_app("View Map", view_map)
-app.add_app("View Gages", view_gages)
-app.add_app("View Storms", view_storms)
 
 app.run()
