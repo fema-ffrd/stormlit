@@ -2,7 +2,6 @@ import re
 import folium
 import uuid
 import streamlit as st
-from datetime import datetime
 
 
 def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_col=None):
@@ -57,6 +56,10 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
     else:
         st_col.markdown(button_css + html_str, unsafe_allow_html=True)
 
+def style_reservoir(feature):
+    return {"markerColor": "blue"}
+def style_junction(feature):
+    return {"markerColor": "green"}
 
 @st.cache_data
 def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
@@ -75,16 +78,13 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
     -------
     folium.Map
         Folium map object
-    folium.FeatureGroup
-        Folium feature group object
     """
-    time1 = datetime.now()
     df_dict = {}
     for layer in sel_layers:
         if layer == "Subbasins" and st.subbasins is not None:
             df_dict["Subbasins"] = st.subbasins
-        elif layer == "Reachs" and st.reaches is not None:
-            df_dict["Reachs"] = st.reaches
+        elif layer == "Reaches" and st.reaches is not None:
+            df_dict["Reaches"] = st.reaches
         elif layer == "Junctions" and st.junctions is not None:
             df_dict["Junctions"] = st.junctions
         elif layer == "Reservoirs" and st.reservoirs is not None:
@@ -114,29 +114,68 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
         ).add_to(m)
     else:
         folium.TileLayer("openstreetmap").add_to(m)
-    # Create a feature group for the map data
-    fg = folium.FeatureGroup(name="Map Data")
+
     idx = 0
+
     for key, df in df_dict.items():
         df["layer"] = key
-        # Add the GeoDataFrame geometry to the map
-        if "LineString" in df.geometry.geom_type.unique():
-            m_color = "red"
-        else:
-            m_color = "blue"
-        fg.add_child(
-            folium.GeoJson(
-                df,
-                name=sel_layers[idx],
-                zoom_on_click=True,
-                color=m_color,
-                tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+        # Add the GeoDataFrames geometry to the map
+        if key == "Subbasins":
+            fg_subbasins = folium.FeatureGroup(name="Subbasins")
+            fg_subbasins.add_child(
+                folium.GeoJson(
+                    df,
+                    name=sel_layers[idx],
+                    zoom_on_click=True,
+                    color="blue",
+                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+                )
             )
-        )
+            fg_subbasins.add_to(m)
+        elif key == "Reaches":
+            fg_reaches = folium.FeatureGroup(name="Reaches")
+            fg_reaches.add_child(
+                folium.GeoJson(
+                    df,
+                    name=sel_layers[idx],
+                    zoom_on_click=True,
+                    color="red",
+                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+                )
+            )
+            fg_reaches.add_to(m)
+        elif key == "Reservoirs":
+            fg_reservoirs = folium.FeatureGroup(name="Reservoirs")
+            fg_reservoirs.add_child(
+                folium.GeoJson(
+                    df,
+                    marker=folium.Marker(icon=folium.Icon()),
+                    name=sel_layers[idx],
+                    zoom_on_click=True,
+                    style_function=style_reservoir,
+                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+                )
+            )
+            fg_reservoirs.add_to(m)
+        elif key == "Junctions":
+            fg_junctions = folium.FeatureGroup(name="Junctions")
+            fg_junctions.add_child(
+                folium.GeoJson(
+                    df,
+                    marker=folium.Marker(icon=folium.Icon()),
+                    name=sel_layers[idx],
+                    zoom_on_click=True,
+                    style_function=style_junction,
+                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
+                )
+            )
+            fg_junctions.add_to(m)   
+        else:
+            raise ValueError(f"Error: invalid map layer {key}")
         idx += 1
-    time2 = datetime.now()
-    print(f"Time to create map: {time2 - time1}")
-    return m, fg
+    # Add the layer control to the map
+    folium.LayerControl().add_to(m)
+    return m
 
 
 def get_map_sel(map_output: str):
@@ -163,7 +202,7 @@ def get_map_sel(map_output: str):
     id_val = items[3]  # id value
     if layer_val == "Subbasins" and st.subbasins is not None:
         df = st.subbasins
-    elif layer_val == "Reachs" and st.reaches is not None:
+    elif layer_val == "Reaches" and st.reaches is not None:
         df = st.reaches
     elif layer_val == "Junctions" and st.junctions is not None:
         df = st.junctions
