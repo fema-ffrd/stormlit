@@ -98,14 +98,12 @@ def home_page():
         """
         ### Usage
 
-        To the left, is a dropdown main menu for navigating to 
+        To the left is a dropdown main menu for navigating to 
         each page in *Stormlit*. The main menu includes the 
         following pages:
 
         - **Home Page:** We are here!
         - **View Map:** Visualize the spatial modeling components
-        - **View Gages:** Explore multi-event gage results
-        - **View Storms:** Visualize storm data and SST coverage
         """
     )
 
