@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 # custom imports
 from src.pages.home_page import home_page
 from src.pages.view_map import view_map
-from src.pages.view_gages import view_gages
-from src.pages.view_storms import view_storms
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
