@@ -3,6 +3,7 @@ import os
 from cdktf import App, Token
 from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
+
 # from infrastructure.stacks.application_stack import ApplicationStack
 # from infrastructure.stacks.postgres_init_stack import PostgresInitStack
 # from infrastructure.stacks.application_stack_dev import ApplicationStackDev
@@ -49,14 +50,12 @@ def main():
         app,
         f"{config.project_prefix}-{environment}-database",
         config,
-        subnet_ids=[
-            subnet.id for subnet in network_stack.networking.private_subnets
-        ],
+        subnet_ids=[subnet.id for subnet in network_stack.networking.private_subnets],
         rds_security_group_id=Token.as_string(
             network_stack.networking.rds_security_group.id
         ),
     )
-# 
+    #
     # # Create the application stack with references to database resources
     # application_stack = ApplicationStack(
     #     app,
@@ -86,7 +85,7 @@ def main():
     #     ),
     #     streamlit_repository_url=config.application.stormlit_repo_url,
     # )
-# 
+    #
     # # Add dependency between stacks
     # database_stack.add_dependency(network_stack)
     # application_stack.add_dependency(database_stack)

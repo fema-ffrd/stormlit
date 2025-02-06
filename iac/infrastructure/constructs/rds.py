@@ -6,7 +6,6 @@ from cdktf_cdktf_provider_aws.db_parameter_group import (
     DbParameterGroup,
     DbParameterGroupParameter,
 )
-from cdktf_cdktf_provider_aws.subnet import Subnet
 from config import DatabaseConfig
 
 

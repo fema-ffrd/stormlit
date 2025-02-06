@@ -33,7 +33,6 @@ class DatabaseConfig:
     performance_insights_enabled: bool
 
 
-
 @dataclass
 class BackendConfig:
     """
@@ -215,7 +214,7 @@ def get_development_config(app: App) -> EnvironmentConfig:
                 cpu=512,
                 memory=1024,
                 container_port=8080,
-            )
+            ),
         ),
         secrets=SecretsConfig(
             database_admin_username="stormlit_admin",
@@ -291,7 +290,7 @@ def get_production_config(app: App) -> EnvironmentConfig:
                 cpu=512,
                 memory=1024,
                 container_port=8080,
-            )
+            ),
         ),
         secrets=SecretsConfig(
             database_admin_username="stormlit_admin",
