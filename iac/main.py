@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 import os
-from cdktf import App, Token
+from cdktf import App, Token, Fn
 from infrastructure.stacks.network_stack import NetworkStack
 from infrastructure.stacks.database_stack import DatabaseStack
+from infrastructure.stacks.application_stack import ApplicationStack
 
-# from infrastructure.stacks.application_stack import ApplicationStack
-# from infrastructure.stacks.postgres_init_stack import PostgresInitStack
-# from infrastructure.stacks.application_stack_dev import ApplicationStackDev
 from config import get_config
 
 
@@ -37,7 +35,7 @@ def main():
 
     # Get environment from ENV var, default to development
     environment = os.getenv("ENVIRONMENT", "dev")
-    config = get_config(environment, app)
+    config = get_config(environment)
 
     network_stack = NetworkStack(
         app,
@@ -55,40 +53,36 @@ def main():
             network_stack.networking.rds_security_group.id
         ),
     )
-    #
-    # # Create the application stack with references to database resources
-    # application_stack = ApplicationStack(
-    #     app,
-    #     f"{config.project_prefix}-{environment}-application",
-    #     config,
-    #     vpc_id=Token.as_string(network_stack.networking.vpc.id),
-    #     public_subnet_ids=[
-    #         subnet.id for subnet in network_stack.networking.public_subnets
-    #     ],
-    #     private_subnet_ids=[
-    #         subnet.id for subnet in network_stack.networking.private_subnets
-    #     ],
-    #     alb_security_group_id=Token.as_string(
-    #         network_stack.networking.alb_security_group.id
-    #     ),
-    #     ecs_security_group_id=Token.as_string(
-    #         network_stack.networking.ecs_security_group.id
-    #     ),
-    #     rds_endpoint=Token.as_string(database_stack.rds.db_instance.endpoint),
-    #     database_secret_arn=Token.as_string(database_stack.secrets.database_secret.arn),
-    #     keycloak_secret_arn=Token.as_string(database_stack.secrets.keycloak_secret.arn),
-    #     keycloak_db_secret_arn=Token.as_string(
-    #         database_stack.secrets.keycloak_db_secret.arn
-    #     ),
-    #     pgstac_db_secret_arn=Token.as_string(
-    #         database_stack.secrets.pgstac_db_secret.arn
-    #     ),
-    #     streamlit_repository_url=config.application.stormlit_repo_url,
-    # )
-    #
+
+    # Create the application stack with references to database resources
+    application_stack = ApplicationStack(
+        app,
+        f"{config.project_prefix}-{environment}-application",
+        config,
+        vpc_id=Token.as_string(network_stack.networking.vpc.id),
+        public_subnet_ids=[
+            subnet.id for subnet in network_stack.networking.public_subnets
+        ],
+        private_subnet_ids=[
+            subnet.id for subnet in network_stack.networking.private_subnets
+        ],
+        alb_security_group_id=Token.as_string(
+            network_stack.networking.alb_security_group.id
+        ),
+        ecs_security_group_id=Token.as_string(
+            network_stack.networking.ecs_security_group.id
+        ),
+        rds_host=Token.as_string(
+            Fn.element(Fn.split(":", database_stack.rds.db_instance.endpoint), 0)
+        ),
+        pgstac_read_secret_arn=Token.as_string(
+            database_stack.secrets.pgstac_read_secret.arn
+        ),
+    )
+
     # # Add dependency between stacks
-    # database_stack.add_dependency(network_stack)
-    # application_stack.add_dependency(database_stack)
+    database_stack.add_dependency(network_stack)
+    application_stack.add_dependency(database_stack)
 
     app.synth()
 

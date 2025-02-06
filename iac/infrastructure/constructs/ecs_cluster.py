@@ -65,7 +65,7 @@ class EcsClusterConstruct(Construct):
         latest_ecs_ami = DataAwsSsmParameter(
             self,
             "ecs-ami",
-            name="/aws/service/ecs/optimized-ami/amazon-linux-2/arm64/recommended/image_id",
+            name="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
         )
 
         # Create EC2 instances for ECS cluster

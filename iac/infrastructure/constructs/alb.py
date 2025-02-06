@@ -13,6 +13,7 @@ from cdktf_cdktf_provider_aws.lb_listener_rule import (
 )
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
 from .acm import AcmRoute53Construct
+from config import ApplicationConfig
 
 
 class AlbConstruct(Construct):
@@ -23,7 +24,7 @@ class AlbConstruct(Construct):
         *,
         project_prefix: str,
         environment: str,
-        domain_name: str,
+        app_config: ApplicationConfig,
         vpc_id: str,
         public_subnet_ids: List[str],
         security_group_id: str,
@@ -42,7 +43,7 @@ class AlbConstruct(Construct):
             load_balancer_type="application",
             security_groups=[security_group_id],
             subnets=public_subnet_ids,
-            enable_deletion_protection=True if environment == "production" else False,
+            enable_deletion_protection=app_config.enable_deletion_protection,
             tags=tags,
         )
 
@@ -50,8 +51,8 @@ class AlbConstruct(Construct):
         self.acm = AcmRoute53Construct(
             self,
             "acm",
-            domain_name=domain_name,
-            subdomain="stormlit",
+            domain_name=app_config.domain_name,
+            subdomain=app_config.subdomain,
             alb_dns_name=self.alb.dns_name,
             alb_zone_id=self.alb.zone_id,
             tags=tags,
@@ -60,10 +61,10 @@ class AlbConstruct(Construct):
         self.acm.node.add_dependency(self.alb)
 
         # Create target groups for each service
-        self.keycloak_target_group = LbTargetGroup(
+        self.stac_api_target_group = LbTargetGroup(
             self,
-            "keycloak-tg",
-            name=f"{resource_prefix}-kc-tg",
+            "stac-api-tg",
+            name=f"{resource_prefix}-stac-api-tg",
             port=8080,
             protocol="HTTP",
             vpc_id=vpc_id,
@@ -72,7 +73,7 @@ class AlbConstruct(Construct):
                 "enabled": True,
                 "healthy_threshold": 2,
                 "interval": 30,
-                "matcher": "302",
+                "matcher": "200",
                 "path": "/",
                 "port": "traffic-port",
                 "protocol": "HTTP",
@@ -82,10 +83,10 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        self.streamlit_target_group = LbTargetGroup(
+        self.app_target_group = LbTargetGroup(
             self,
-            "streamlit-tg",
-            name=f"{resource_prefix}-st-tg",
+            "app-tg",
+            name=f"{resource_prefix}-app-tg",
             port=8501,
             protocol="HTTP",
             vpc_id=vpc_id,
@@ -122,7 +123,7 @@ class AlbConstruct(Construct):
             default_action=[
                 LbListenerDefaultAction(
                     type="forward",
-                    target_group_arn=self.streamlit_target_group.arn,
+                    target_group_arn=self.app_target_group.arn,
                 )
             ],
             tags=tags,
@@ -150,19 +151,19 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create listener rule for Keycloak path
+        # Create listener rule for stac api path
         LbListenerRule(
             self,
-            "keycloak-rule",
+            "stac-api-rule",
             listener_arn=self.https_listener.arn,
             priority=1,
             condition=[
-                LbListenerRuleCondition(path_pattern={"values": ["/auth/*", "/auth"]})
+                LbListenerRuleCondition(path_pattern={"values": ["/stac/*", "/stac"]})
             ],
             action=[
                 LbListenerRuleAction(
                     type="forward",
-                    target_group_arn=self.keycloak_target_group.arn,
+                    target_group_arn=self.stac_api_target_group.arn,
                 )
             ],
         )

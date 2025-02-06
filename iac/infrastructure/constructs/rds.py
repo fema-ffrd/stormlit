@@ -86,6 +86,11 @@ class RdsConstruct(Construct):
                     value="16384",  # 16MB in KB
                     apply_method="pending-reboot",
                 ),
+                DbParameterGroupParameter(
+                    name="rds.force_ssl",
+                    value="0",
+                    apply_method="pending-reboot",
+                ),
             ],
             tags={**tags, "Name": f"{resource_prefix}-db-params"},
         )

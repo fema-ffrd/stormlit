@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 from typing import Dict, List
-from cdktf import App, TerraformVariable
+
+
+@dataclass
+class ServiceRoles:
+    execution_role_arn: str
+    task_role_arn: str
 
 
 @dataclass
@@ -85,11 +90,13 @@ class ApplicationConfig:
     Attributes:
         domain_name (str): The domain name of the application.
         subdomain (str): The subdomain of the application.
+        enable_deletion_protection (bool): Indicates whether deletion protection is enabled for the ALB.
 
     """
 
     domain_name: str
     subdomain: str
+    enable_deletion_protection: bool
 
 
 @dataclass
@@ -155,7 +162,7 @@ class EnvironmentConfig:
     tags: Dict[str, str]
 
 
-def get_development_config(app: App) -> EnvironmentConfig:
+def get_development_config() -> EnvironmentConfig:
     """
     Retrieves the configuration settings for the development environment.
 
@@ -189,19 +196,14 @@ def get_development_config(app: App) -> EnvironmentConfig:
         application=ApplicationConfig(
             domain_name="arc-apps.net",
             subdomain="stormlit-dev",
+            enable_deletion_protection=False,
         ),
         ecs=EcsConfig(
-            instance_type="t4g.medium",
+            instance_type="t3.medium",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
-                image_tag=TerraformVariable(
-                    app,
-                    "stormlit_tag",
-                    type="string",
-                    description="Version tag for the stormlit image",
-                    default="latest",  # fallback to 'latest' if not provided
-                ),
+                image_tag=None,  # from TF_VAR_stormlit_tag
                 container_count=1,
                 cpu=1024,
                 memory=2560,
@@ -231,7 +233,7 @@ def get_development_config(app: App) -> EnvironmentConfig:
     )
 
 
-def get_production_config(app: App) -> EnvironmentConfig:
+def get_production_config() -> EnvironmentConfig:
     """
     Retrieves the configuration settings for the production environment.
 
@@ -265,19 +267,14 @@ def get_production_config(app: App) -> EnvironmentConfig:
         application=ApplicationConfig(
             domain_name="arc-apps.net",
             subdomain="stormlit",
+            enable_deletion_protection=True,
         ),
         ecs=EcsConfig(
-            instance_type="t4g.medium",
+            instance_type="t3.medium",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
-                image_tag=TerraformVariable(
-                    app,
-                    "stormlit_tag",
-                    type="string",
-                    description="Version tag for the stormlit image",
-                    default="latest",  # fallback to 'latest' if not provided
-                ),
+                image_tag=None,  # from TF_VAR_stormlit_tag
                 container_count=1,
                 cpu=1024,
                 memory=2560,
@@ -307,13 +304,12 @@ def get_production_config(app: App) -> EnvironmentConfig:
     )
 
 
-def get_config(environment: str, app: App) -> EnvironmentConfig:
+def get_config(environment: str) -> EnvironmentConfig:
     """
     Retrieves the appropriate environment configuration based on the given environment type.
 
     Args:
         environment (str): The environment type (dev or prod).
-        app (App): The CDKTF App instance.
 
     Returns:
         EnvironmentConfig: The corresponding configuration object for the specified environment.
@@ -330,4 +326,4 @@ def get_config(environment: str, app: App) -> EnvironmentConfig:
     if environment not in configs:
         raise ValueError(f"Environment {environment} not found in configs")
 
-    return configs[environment](app)
+    return configs[environment]()
