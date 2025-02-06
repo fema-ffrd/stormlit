@@ -9,6 +9,9 @@
 # export PGHOST=""
 # export PGUSER="stormlit_admin"
 # export PGPASSWORD='' # use single quotes to escape special characters
+# export PGSTAC_ADMIN_PASSWORD=''
+# export PGSTAC_INGEST_PASSWORD=''
+# export PGSTAC_READ_PASSWORD=''
 # export PGDATABASE="postgres"
 # export PGSSLMODE="require"
 # export PGSSLROOTCERT="$(pwd)/global-bundle.pem"
@@ -18,3 +21,8 @@ python -m pip install 'pypgstac[psycopg]'
 
 # Run the migration
 pypgstac migrate --toversion 0.9.2
+
+# Set passwords for pgstac roles
+psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "ALTER ROLE pgstac_admin LOGIN PASSWORD '${PGSTAC_ADMIN_PASSWORD}';"
+psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "ALTER ROLE pgstac_ingest LOGIN PASSWORD '${PGSTAC_INGEST_PASSWORD}';"
+psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "ALTER ROLE pgstac_read LOGIN PASSWORD '${PGSTAC_READ_PASSWORD}';"
