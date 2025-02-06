@@ -105,7 +105,7 @@ class RdsConstruct(Construct):
             "db-instance",
             identifier=f"{resource_prefix}-postgres",
             engine="postgres",
-            engine_version="16.6",
+            engine_version="17.2",
             instance_class=instance_class,
             allocated_storage=allocated_storage,
             max_allocated_storage=max_allocated_storage,
