@@ -1,3 +1,4 @@
+import geopandas as gpd
 import pandas as pd
 import streamlit as st
 
@@ -74,3 +75,44 @@ def init_gage_data(gages_pq_path: str):
 @st.cache_data
 def init_computation_data(comp_pq_path: str):
     st.computation = pd.read_parquet(comp_pq_path, engine="pyarrow")
+
+
+def prep_df(df: pd.DataFrame):
+    """
+    Prepares a GeoDataFrame for plotting on a folium map.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        A GeoDataFrame containing the map data
+
+    Returns
+    -------
+    pd.DataFrame
+        A GeoDataFrame with the necessary columns for plotting on a folium map
+    """
+    # Convert the CRS to EPSG:4326
+    df = df.to_crs(epsg=4326)
+    df.index.name = "id"
+    df["id"] = df.index.astype(str)
+    # Find the center of the map data
+    centroids = df.geometry.centroid
+    df["lat"] = centroids.y.astype(float)
+    df["lon"] = centroids.x.astype(float)
+    return df
+
+
+@st.cache_data
+def init_map_data(map_layer_dict: dict):
+    if "Subbasins" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Subbasins"])
+        st.subbasins = prep_df(df)
+    if "Reaches" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Reaches"])
+        st.reaches = prep_df(df)
+    if "Junctions" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Junctions"])
+        st.junctions = prep_df(df)
+    if "Reservoirs" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Reservoirs"])
+        st.reservoirs = prep_df(df)

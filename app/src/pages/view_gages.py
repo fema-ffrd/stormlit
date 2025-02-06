@@ -27,11 +27,11 @@ def view_gages():
     st.session_state.log_level = LOG_LEVEL
 
     if st.session_state["init_gage_data"] is False:
-        st.write("Initializing datasets...")
-        init_gage_data(GAGES_DATA)
-        st.session_state["init_gage_data"] = True
-        st.balloons()
-        st.success("Complete! Gage data is now ready for exploration.")
+        with st.spinner("Initializing datasets..."):
+            init_gage_data(GAGES_DATA)
+            st.session_state["init_gage_data"] = True
+            st.balloons()
+            st.success("Complete! Gage data is now ready for exploration.")
 
     st.markdown("## Gage Viewer")
 
