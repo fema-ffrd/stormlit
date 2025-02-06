@@ -7,6 +7,11 @@ services:
       context: ./app
     env_file:
       - ./app/.env
+    environment:
+      - PGHOST=stormlit-postgis
+      - PGUSER=admin
+      - PGPASSWORD=password
+      - PGDATABASE=postgis
     ports:
       - "8501:8501"
     volumes:
@@ -15,36 +20,17 @@ services:
     networks:
       - stormlit-network
 
-  stormlit-keycloak:
-    container_name: stormlit-keycloak
-    image: quay.io/keycloak/keycloak:26.0.6
+  stormlit-postgis:
+    container_name: stormlit-postgis
+    image: postgis/postgis:17-3.5
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_URL_HOST: stormlit-postgres
-      KC_DB_URL_DATABASE: stormlit_keycloak_db
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-    ports:
-      - "50080:8080"
-    command: start-dev
-    depends_on:
-      - stormlit-postgres
-    networks:
-      - stormlit-network
-
-  stormlit-postgres:
-    container_name: stormlit-postgres
-    image: postgres:16
-    environment:
-      POSTGRES_DB: stormlit_keycloak_db
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: postgis
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
     ports:
       - "55432:5432"
     volumes:
-      - stormlit-postgres-data:/var/lib/postgresql/data
+      - stormlit-postgis-data:/var/lib/postgresql/data
     networks:
       - stormlit-network
 
@@ -59,12 +45,12 @@ services:
       networks:
         - stormlit-network
       depends_on:
-        - stormlit-postgres
+        - stormlit-postgis
 
 networks:
   stormlit-network:
     name: stormlit-network
 
 volumes:
-  stormlit-postgres-data:
-    name: stormlit-postgres-data
+  stormlit-postgis-data:
+    name: stormlit-postgis-data

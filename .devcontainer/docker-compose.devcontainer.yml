@@ -6,5 +6,10 @@ services:
       context: .
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
+    environment:
+      - PGHOST=stormlit-postgis
+      - PGUSER=admin
+      - PGPASSWORD=password
+      - PGDATABASE=postgis
     volumes:
       - .:/workspace:cached

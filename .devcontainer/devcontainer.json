@@ -42,5 +42,5 @@
 	"postCreateCommand": "sudo chown -R vscode:vscode ${containerWorkspaceFolder}",
 	// start the dev container with the stormlit environment activated
 	// avoid dubious ownership of the workspace folder https://www.kenmuse.com/blog/avoiding-dubious-ownership-in-dev-containers/
-	"postStartCommand": "micromamba shell init --shell=bash && echo 'micromamba activate stormlit' >> ~/.bashrc && git config --global --add safe.directory ${containerWorkspaceFolder}"
+	"postStartCommand": "micromamba shell init --shell=bash && echo 'micromamba activate stormlit' >> ~/.bashrc && git config --global --add safe.directory ${containerWorkspaceFolder} && micromamba run -n stormlit ./migration/migrate.sh"
 }

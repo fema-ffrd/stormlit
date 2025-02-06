@@ -63,11 +63,11 @@ docker compose up
        1. Right click "Servers" → "Register" → "Server"
        2. Name: "Stormlit DB"
        3. Connection tab:
-          - Host: stormlit-postgres
+          - Host: stormlit-postgis
           - Port: 5432
-          - Database: stormlit_keycloak_db
-          - Username: keycloak
-          - Password: keycloak
+          - Database: postgis
+          - Username: admin
+          - Password: password
 
 5. Start developing:
    - Code is synced between your machine and container
