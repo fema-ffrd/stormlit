@@ -38,9 +38,8 @@ class DatabaseStack(BaseStack):
         scope: Construct,
         id: str,
         config: EnvironmentConfig,
-        private_subnets: List[str],
-        public_subnets: List[str],
-        rds_security_group: str,
+        subnet_ids: List[str],
+        rds_security_group_id: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -57,21 +56,21 @@ class DatabaseStack(BaseStack):
             "secrets",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            database_credentials={
+            db_admin_credentials={
                 "username": f"{config.project_prefix}_admin",
-                "password": self.random_passwords.database_password.result,
+                "password": self.random_passwords.db_admin_password.result,
             },
-            keycloak_credentials={
-                "admin_user": "admin",
-                "admin_password": self.random_passwords.keycloak_password.result,
+            pgstac_admin_credentials={
+                "username": "pgstac_admin",
+                "password": self.random_passwords.pgstac_admin_password.result,
             },
-            keycloak_db_credentials={
-                "username": f"{config.project_prefix}_keycloak",
-                "password": self.random_passwords.keycloak_db_password.result,
+            pgstac_ingest_credentials={
+                "username": "pgstac_ingest",
+                "password": self.random_passwords.pgstac_ingest_password.result,
             },
-            pgstac_db_credentials={
-                "username": f"{config.project_prefix}_pgstac",
-                "password": self.random_passwords.pgstac_db_password.result,
+            pgstac_read_credentials={
+                "username": "pgstac_read",
+                "password": self.random_passwords.pgstac_read_password.result,
             },
             tags=config.tags,
         )
@@ -82,17 +81,11 @@ class DatabaseStack(BaseStack):
             "rds",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            private_subnets=private_subnets,
-            public_subnets=public_subnets,
-            security_group_id=rds_security_group,
-            instance_class=config.database.instance_class,
-            allocated_storage=config.database.allocated_storage,
-            max_allocated_storage=config.database.max_allocated_storage,
-            multi_az=config.database.multi_az,
-            deletion_protection=config.database.deletion_protection,
-            backup_retention_period=config.database.backup_retention_period,
+            subnet_ids=subnet_ids,
+            security_group_id=rds_security_group_id,
+            db_config=config.database,
             master_username=f"{config.project_prefix}_admin",
-            master_password=self.random_passwords.database_password.result,
+            master_password=self.random_passwords.db_admin_password.result,
             tags=config.tags,
         )
 
@@ -109,14 +102,28 @@ class DatabaseStack(BaseStack):
 
         TerraformOutput(
             self,
-            "database-secret-arn",
-            value=self.secrets.database_secret.arn,
+            "db-admin-secret-arn",
+            value=self.secrets.db_admin_secret.arn,
             description="Database Credentials Secret ARN",
         )
 
         TerraformOutput(
             self,
-            "keycloak-secret-arn",
-            value=self.secrets.keycloak_secret.arn,
-            description="Keycloak Credentials Secret ARN",
+            "pgstac-admin-secret-arn",
+            value=self.secrets.pgstac_admin_secret.arn,
+            description="PgSTAC Admin Credentials Secret ARN",
+        )
+
+        TerraformOutput(
+            self,
+            "pgstac-ingest-secret-arn",
+            value=self.secrets.pgstac_ingest_secret.arn,
+            description="PgSTAC Ingest Credentials Secret ARN",
+        )
+
+        TerraformOutput(
+            self,
+            "pgstac-read-secret-arn",
+            value=self.secrets.pgstac_read_secret.arn,
+            description="PgSTAC Read Credentials Secret ARN",
         )

@@ -34,6 +34,7 @@ class NetworkingConstruct(Construct):
         id (str): A unique identifier for the construct.
         project_prefix (str): A prefix for naming resources to help differentiate between environments.
         vpc_cidr (str): The CIDR block for the VPC.
+        vpc_subnet_azs (List[str]): A list of availability zones to create subnets in.
         environment (str): The environment name (e.g., `development`, `production`) for tagging purposes.
         tags (dict): A dictionary of tags to apply to all resources created by this construct.
 
@@ -49,6 +50,7 @@ class NetworkingConstruct(Construct):
         *,
         project_prefix: str,
         vpc_cidr: str,
+        vpc_subnet_azs: List[str],
         environment: str,
         tags: dict,
     ) -> None:
@@ -112,14 +114,9 @@ class NetworkingConstruct(Construct):
         )
 
         # Create subnets based on environment
-        azs = (
-            ["us-east-1a", "us-east-1b"]
-            if environment == "development"
-            else ["us-east-1a", "us-east-1b", "us-east-1c"]
-        )
 
         # For VPC CIDR 10.0.0.0/16, create subnets in 10.0.x.0/24 ranges
-        for i, az in enumerate(azs):
+        for i, az in enumerate(vpc_subnet_azs):
             subnet_number = i * 2  # 0 for public subnet in dev
 
             # Public subnet
@@ -202,8 +199,6 @@ class NetworkingConstruct(Construct):
         alb_ingress_rules = [
             ("http", 80, "HTTP"),
             ("https", 443, "HTTPS"),
-            ("keycloak", 8080, "Keycloak"),
-            ("streamlit", 8501, "Streamlit"),
         ]
 
         for rule_id, port, description in alb_ingress_rules:
@@ -244,10 +239,10 @@ class NetworkingConstruct(Construct):
 
         # ECS ingress rules - Allow traffic from ALB
         ecs_ingress_rules = [
-            ("keycloak", 8080, "Keycloak from ALB"),
-            ("streamlit", 8501, "Streamlit from ALB"),
-            ("ecs-agent", 51678, "ECS Agent"),
-            ("ecs-telemetry", 51679, "ECS Telemetry"),
+            ("stac-api", 8080, "STAC API from ALB"),
+            ("stormlit", 8501, "Stormlit from ALB"),
+            ("ecs-agent", 51678, "ECS Agent from ALB"),
+            ("ecs-telemetry", 51679, "ECS Telemetry from ALB"),
         ]
 
         for rule_id, port, description in ecs_ingress_rules:
@@ -299,32 +294,18 @@ class NetworkingConstruct(Construct):
             tags={**tags, "Name": f"{resource_prefix}-rds-sg"},
         )
 
-        # RDS ingress rules - Allow all traffic in development
-        if environment == "development":
-            SecurityGroupRule(
-                self,
-                "rds-public-ingress",
-                type="ingress",
-                security_group_id=self.rds_security_group.id,
-                from_port=5432,
-                to_port=5432,
-                protocol="tcp",
-                cidr_blocks=["0.0.0.0/0"],
-                description="Allow PostgreSQL access from anywhere (Development Only)",
-            )
-        else:
-            # Production rules - only allow from ECS
-            SecurityGroupRule(
-                self,
-                "rds-ecs-ingress",
-                type="ingress",
-                security_group_id=self.rds_security_group.id,
-                from_port=5432,
-                to_port=5432,
-                protocol="tcp",
-                source_security_group_id=self.ecs_security_group.id,
-                description="PostgreSQL access from ECS tasks",
-            )
+        # RDS ingress rules - Allow traffic from the VPC
+        SecurityGroupRule(
+            self,
+            "rds-vpc-ingress",
+            type="ingress",
+            security_group_id=self.rds_security_group.id,
+            from_port=5432,
+            to_port=5432,
+            protocol="tcp",
+            cidr_blocks=[vpc_cidr],
+            description="Allow PostgreSQL access from VPC",
+        )
 
         # RDS egress rule
         SecurityGroupRule(

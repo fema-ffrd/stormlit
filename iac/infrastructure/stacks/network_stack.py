@@ -24,6 +24,7 @@ class NetworkStack(BaseStack):
             "networking",
             project_prefix=config.project_prefix,
             vpc_cidr=config.vpc_cidr,
+            vpc_subnet_azs=config.vpc_subnet_azs,
             environment=config.environment,
             tags=config.tags,
         )

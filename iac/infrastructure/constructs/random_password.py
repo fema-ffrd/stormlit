@@ -5,24 +5,16 @@ from cdktf_cdktf_provider_random.provider import RandomProvider
 
 class RandomPasswordConstruct(Construct):
     """
-    A Construct for generating secure random passwords using the random provider.
-
-    This construct manages the creation of cryptographically secure random passwords
-    for various services like databases and application credentials. It ensures passwords
-    meet specified complexity requirements and length constraints.
+    A construct that generates random passwords for the database and application.
 
     Attributes:
-        database_password (Password): The generated random password for admin database access.
-        keycloak_password (Password): The generated random password for Keycloak admin.
+        db_admin_password (Password): The randomly generated password for the database admin user.
+        pgstac_admin_password (Password): The randomly generated password for the PgStac admin user.
+        pgstac_ingest_password (Password): The randomly generated password for the PgStac ingest user.
+        pgstac_read_password (Password): The randomly generated password for the PgStac read-only user.
 
-    Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): The unique identifier of the construct.
-        min_length (int): Minimum length for generated passwords.
-        special (bool): Whether to include special characters in passwords.
-
-    Methods:
-        __init__(self, scope, id, ...): Initializes the random password generator.
+    Note:
+        For mor information on the PgSTAC roles see https://stac-utils.github.io/pgstac/pgstac/
     """
 
     def __init__(
@@ -39,36 +31,32 @@ class RandomPasswordConstruct(Construct):
         RandomProvider(self, "random")
 
         # Generate Database Password
-        self.database_password = Password(
+        self.db_admin_password = Password(
             self,
-            "database-password",
+            "db-admin-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",
         )
 
-        # Generate Keycloak Password
-        self.keycloak_password = Password(
+        # Generate PgStac Database Passwords
+        self.pgstac_admin_password = Password(
             self,
-            "keycloak-password",
+            "pgstac-admin-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",
         )
-
-        # Generate Keycloak Database Password
-        self.keycloak_db_password = Password(
+        self.pgstac_ingest_password = Password(
             self,
-            "keycloak-db-password",
+            "pgstac-ingest-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",
         )
-
-        # Generate PgStac Database Password
-        self.pgstac_db_password = Password(
+        self.pgstac_read_password = Password(
             self,
-            "pgstac-db-password",
+            "pgstac-read-password",
             length=min_length,
             special=special,
             override_special="!#$%&*()-_=+[]{}<>:?",

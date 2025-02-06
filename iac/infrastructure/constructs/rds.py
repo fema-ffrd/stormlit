@@ -7,6 +7,7 @@ from cdktf_cdktf_provider_aws.db_parameter_group import (
     DbParameterGroupParameter,
 )
 from cdktf_cdktf_provider_aws.subnet import Subnet
+from config import DatabaseConfig
 
 
 class RdsConstruct(Construct):
@@ -49,15 +50,9 @@ class RdsConstruct(Construct):
         *,
         project_prefix: str,
         environment: str,
-        private_subnets: List[Subnet],
-        public_subnets: List[Subnet],
+        subnet_ids: List[str],
         security_group_id: str,
-        instance_class: str,
-        allocated_storage: int,
-        max_allocated_storage: int,
-        multi_az: bool,
-        deletion_protection: bool,
-        backup_retention_period: int,
+        db_config: DatabaseConfig,
         master_username: str,
         master_password: str,
         tags: dict,
@@ -65,9 +60,6 @@ class RdsConstruct(Construct):
         super().__init__(scope, id)
 
         resource_prefix = f"{project_prefix}-{environment}"
-
-        # Create DB subnet group with private subnets
-        subnet_ids = private_subnets
 
         db_subnet_group = DbSubnetGroup(
             self,
@@ -83,7 +75,7 @@ class RdsConstruct(Construct):
             self,
             "db-parameter-group",
             name=f"{resource_prefix}-db-params",
-            family="postgres16",
+            family="postgres17",
             parameter=[
                 DbParameterGroupParameter(
                     name="max_connections",
@@ -106,26 +98,26 @@ class RdsConstruct(Construct):
             identifier=f"{resource_prefix}-postgres",
             engine="postgres",
             engine_version="17.2",
-            instance_class=instance_class,
-            allocated_storage=allocated_storage,
-            max_allocated_storage=max_allocated_storage,
+            instance_class=db_config.instance_class,
+            allocated_storage=db_config.allocated_storage,
+            max_allocated_storage=db_config.max_allocated_storage,
             db_name=f"{project_prefix}_{environment}_db",
             username=master_username,
             password=master_password,
-            multi_az=multi_az,
+            multi_az=db_config.multi_az,
             db_subnet_group_name=db_subnet_group.name,
             vpc_security_group_ids=[security_group_id],
             parameter_group_name=db_parameter_group.name,
-            backup_retention_period=backup_retention_period,
-            deletion_protection=deletion_protection,
-            skip_final_snapshot=True if environment == "development" else False,
+            backup_retention_period=db_config.backup_retention_period,
+            deletion_protection=db_config.deletion_protection,
+            skip_final_snapshot=db_config.skip_final_snapshot,
             final_snapshot_identifier=f"{resource_prefix}-final-snapshot",
-            publicly_accessible=False,
-            apply_immediately=True if environment == "development" else False,
+            publicly_accessible=db_config.publicly_accessible,
+            apply_immediately=db_config.apply_immediately,
             copy_tags_to_snapshot=True,
             auto_minor_version_upgrade=True,
-            monitoring_interval=60 if environment == "production" else 0,
-            performance_insights_enabled=environment == "production",
+            monitoring_interval=db_config.monitoring_interval,
+            performance_insights_enabled=db_config.performance_insights_enabled,
             storage_encrypted=True,
             port=5432,
             tags=tags,
