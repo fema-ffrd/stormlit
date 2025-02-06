@@ -47,8 +47,8 @@ services:
     depends_on:
       - stormlit-postgis
 
-  stac-api:
-    container_name: stac-api
+  stormlit-stac-api:
+    container_name: stormlit-stac-api
     image: ghcr.io/stac-utils/stac-fastapi-pgstac:4.0.0
     environment:
       - APP_HOST=0.0.0.0

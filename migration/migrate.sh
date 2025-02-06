@@ -1,10 +1,20 @@
 #!/bin/bash
 
-# export PGHOST=stormlit-postgis
-# export PGUSER=admin
-# export PGPASSWORD=password
-# export PGDATABASE=postgis
+# # Download RDS certificate if it doesn't exist
+# if [ ! -f "global-bundle.pem" ]; then
+#     curl -o global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+# fi
 
-python -m pip install pypgstac[psycopg]
+# Database connection settings
+# export PGHOST=""
+# export PGUSER="stormlit_admin"
+# export PGPASSWORD='' # use single quotes to escape special characters
+# export PGDATABASE="postgres"
+# export PGSSLMODE="require"
+# export PGSSLROOTCERT="$(pwd)/global-bundle.pem"
 
+# Install pypgstac with its dependencies
+python -m pip install 'pypgstac[psycopg]'
+
+# Run the migration
 pypgstac migrate --toversion 0.9.2
