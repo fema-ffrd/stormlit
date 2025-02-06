@@ -13,27 +13,89 @@ from config import ServiceRoles, EcsConfig, EcsServiceConfig
 
 class EcsServicesConstruct(Construct):
     """
-    A Construct for defining ECS services for various applications.
+    A construct for deploying and configuring ECS services and task definitions.
 
-    This construct creates ECS services and task definitions based on configuration.
-    Each service is created with its own IAM roles, task definition, and service configuration.
+    This construct manages the creation and configuration of ECS services for STAC API and Streamlit
+    applications. It handles:
+    1. Task definition creation with container configurations
+    2. Service creation with load balancer integration
+    3. Environment variable configuration
+    4. Secret injection and management
+    5. CloudWatch logs integration
+    6. Network and security settings
+
+    Service Configurations:
+    - STAC API Service:
+        * Runs the STAC FastAPI PGSTAC container
+        * Configures PostgreSQL connection via secrets
+        * Routes traffic through "/stac" path
+        * Includes health checks and logging
+
+    - Streamlit Service:
+        * Runs the Streamlit application container
+        * Configures STAC API endpoint integration
+        * Manages session stickiness
+        * Includes custom server settings
 
     Attributes:
-        services (Dict[str, EcsService]): Dictionary of created ECS services
+        services (Dict[str, EcsService]): Map of service names to their ECS service resources
 
     Parameters:
         scope (Construct): The scope in which this construct is defined
-        id (str): The unique identifier of the construct
-        host_name (str): The custom domain name for the application
-        project_prefix (str): Prefix for project-related resource names
-        environment (str): Environment name (e.g., 'production', 'staging')
-        cluster_id (str): The ECS cluster identifier
-        service_roles (Dict[str, ServiceRoles]): Dictionary of service names to their IAM roles
-        private_subnet_ids (List[str]): List of private subnet IDs for ECS services
-        security_group_id (str): Security group ID for ECS services
-        target_groups (Dict[str, str]): Dictionary of service names to their target group ARNs
-        ecs_config (EcsConfig): ECS configuration object
+        id (str): The scoped construct ID
+        host_name (str): FQDN for the application
+        project_prefix (str): Prefix for resource names
+        environment (str): Environment name (e.g., "prod", "dev")
+        cluster_id (str): ECS cluster identifier
+        service_roles (Dict[str, ServiceRoles]): IAM roles for each service
+        private_subnet_ids (List[str]): Subnet IDs for service placement
+        security_group_id (str): Security group ID for the services
+        target_groups (Dict[str, str]): ALB target group ARNs for each service
+        ecs_config (EcsConfig): Service-specific configurations
+        rds_host (str): RDS instance hostname
+        pgstac_read_secret_arn (str): ARN of the PGSTAC read-only credentials secret
         tags (dict): Tags to apply to all resources
+
+    Example:
+        ```python
+        services = EcsServicesConstruct(
+            self,
+            "ecs-services",
+            host_name="app.example.com",
+            project_prefix="myapp",
+            environment="prod",
+            cluster_id=cluster.id,
+            service_roles={
+                "stormlit": ServiceRoles(
+                    execution_role_arn="arn:aws:iam::...",
+                    task_role_arn="arn:aws:iam::..."
+                ),
+                "stac-api": ServiceRoles(
+                    execution_role_arn="arn:aws:iam::...",
+                    task_role_arn="arn:aws:iam::..."
+                )
+            },
+            private_subnet_ids=["subnet-1", "subnet-2"],
+            security_group_id="sg-123",
+            target_groups={
+                "stormlit": "arn:aws:elasticloadbalancing:...",
+                "stac-api": "arn:aws:elasticloadbalancing:..."
+            },
+            ecs_config=ecs_config,
+            rds_host="db.example.com",
+            pgstac_read_secret_arn="arn:aws:secretsmanager:...",
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Services are deployed in private subnets with no public IPs
+        - Load balancer target groups handle health checks and routing
+        - Container logs are shipped to CloudWatch Logs
+        - Secrets are injected as environment variables
+        - Task definitions use awsvpc networking mode
+        - Services support zero downtime deployments
+        - Container resource limits are configurable via EcsConfig
     """
 
     def __init__(
@@ -147,6 +209,8 @@ class EcsServicesConstruct(Construct):
                         {"name": "POSTGRES_HOST_WRITER", "value": rds_host or ""},
                         {"name": "POSTGRES_PORT", "value": "5432"},
                         {"name": "POSTGRES_DBNAME", "value": "postgres"},
+                        {"name": "UVICORN_ROOT_PATH", "value": "/stac/"},
+                        {"name": "FASTAPI_ROOT_PATH", "value": "/stac/"},
                     ],
                     "logConfiguration": {
                         "logDriver": "awslogs",

@@ -17,6 +17,68 @@ from config import ApplicationConfig
 
 
 class AlbConstruct(Construct):
+    """
+    A construct for creating and configuring an Application Load Balancer (ALB) with HTTPS support.
+
+    This construct manages the creation of an Application Load Balancer and its associated resources:
+    1. Creates an Application Load Balancer in public subnets
+    2. Sets up HTTPS listener with TLS termination using ACM certificate
+    3. Creates an HTTP listener that redirects to HTTPS
+    4. Configures target groups for different services
+    5. Sets up listener rules for path-based routing
+    6. Manages DNS and SSL certificate configuration through ACM and Route53
+
+    The ALB is configured with:
+    - Dual stack listeners (HTTP on port 80, HTTPS on port 443)
+    - Automatic HTTP to HTTPS redirection
+    - Path-based routing for different backend services
+    - Support for sticky sessions on app target group
+    - Health checks for each target group
+    - Integration with ACM for SSL/TLS certificates
+
+    Attributes:
+        alb (Lb): The Application Load Balancer resource
+        acm (AcmRoute53Construct): The ACM and Route53 configuration for SSL/TLS
+        stac_api_target_group (LbTargetGroup): Target group for STAC API service
+        app_target_group (LbTargetGroup): Target group for Streamlit application
+        https_listener (LbListener): The HTTPS listener (port 443)
+        http_listener (LbListener): The HTTP listener (port 80, redirects to HTTPS)
+
+    Parameters:
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names (e.g., "project-name")
+        environment (str): Environment name (e.g., "prod", "dev")
+        app_config (ApplicationConfig): Application configuration including domain settings
+        vpc_id (str): The ID of the VPC where the ALB will be created
+        public_subnet_ids (List[str]): List of public subnet IDs for ALB placement
+        security_group_id (str): Security group ID for the ALB
+        tags (dict): Tags to apply to all resources
+
+    Example:
+        ```python
+        alb = AlbConstruct(
+            self,
+            "alb",
+            project_prefix="myapp",
+            environment="prod",
+            app_config=app_config,
+            vpc_id=vpc.id,
+            public_subnet_ids=["subnet-1", "subnet-2"],
+            security_group_id="sg-123",
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - The ALB is created in public subnets to be accessible from the internet
+        - Health check settings are configured separately for each target group
+        - The app target group uses cookie-based stickiness for session management
+        - STAC API requests are routed based on the "/stac" path prefix
+        - All other requests are routed to the app target group
+        - SSL certificates are automatically provisioned and validated through ACM
+    """
+
     def __init__(
         self,
         scope: Construct,

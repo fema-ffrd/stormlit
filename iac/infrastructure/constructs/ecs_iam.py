@@ -10,8 +10,78 @@ from cdktf_cdktf_provider_aws.iam_instance_profile import IamInstanceProfile
 
 class EcsIamConstruct(Construct):
     """
-    A Construct to create IAM resources for an ECS setup with support for multiple services.
-    Each service can have its own execution and task roles with specific permissions.
+    A construct for managing IAM roles and policies for ECS services.
+
+    This construct creates and manages IAM resources required for running ECS services, including:
+    1. EC2 instance role and profile for ECS container hosts
+    2. Task execution roles for each service (for pulling images and accessing secrets)
+    3. Task roles for each service (for application-specific AWS API access)
+    4. Service-specific IAM policies and permissions
+
+    The construct supports:
+    - Multiple ECS services with different permission sets
+    - Custom IAM policy statements for each service
+    - Granular secrets access control
+    - Common instance role for ECS hosts
+    - Dynamic policy generation based on service requirements
+
+    Attributes:
+        instance_role (IamRole): The IAM role for EC2 instances in the ECS cluster
+        instance_profile (IamInstanceProfile): The instance profile for EC2 instances
+        service_execution_roles (Dict[str, IamRole]): Map of service names to their execution roles
+        service_task_roles (Dict[str, IamRole]): Map of service names to their task roles
+
+    Parameters:
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names (e.g., "project-name")
+        environment (str): Environment name (e.g., "prod", "dev")
+        secret_arns (List[str]): List of secret ARNs that ECS tasks need access to
+        tags (dict): Tags to apply to all resources
+        services (Dict[str, Dict[str, Union[List[dict], List[str]]]]): Service-specific configurations:
+            {
+                "service_name": {
+                    "task_role_statements": [{"Effect": "Allow", ...}],
+                    "execution_role_statements": [{"Effect": "Allow", ...}],
+                    "secret_arns": ["arn:aws:secretsmanager:..."]
+                }
+            }
+
+    Methods:
+        add_policy_to_task_role(service_name: str, policy_name: str, policy_document: dict) -> None:
+            Adds a new policy to a service's task role
+
+        add_policy_to_execution_role(service_name: str, policy_name: str, policy_document: dict) -> None:
+            Adds a new policy to a service's execution role
+
+    Example:
+        ```python
+        iam = EcsIamConstruct(
+            self,
+            "ecs-iam",
+            project_prefix="myapp",
+            environment="prod",
+            secret_arns=["arn:aws:secretsmanager:region:account:secret:name"],
+            services={
+                "api": {
+                    "task_role_statements": [{
+                        "Effect": "Allow",
+                        "Action": ["s3:GetObject"],
+                        "Resource": ["arn:aws:s3:::my-bucket/*"]
+                    }],
+                    "execution_role_statements": []
+                }
+            },
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Instance role includes AmazonEC2ContainerServiceforEC2Role and AmazonSSMManagedInstanceCore
+        - Execution roles include permissions for ECR, CloudWatch Logs, and specified Secrets Manager secrets
+        - Task roles are customizable per service with specific AWS API permissions
+        - All roles follow AWS security best practices with least privilege access
+        - Role ARNs are exported as TerraformOutputs for reference
     """
 
     def __init__(

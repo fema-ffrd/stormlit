@@ -14,33 +14,81 @@ from cdktf_cdktf_provider_aws.route import Route
 
 class NetworkingConstruct(Construct):
     """
-    A Construct to create a complete networking setup for the AWS environment.
+    A construct to create a complete AWS networking infrastructure.
 
-    This construct manages the creation of a VPC, subnets, internet gateways, NAT gateways, route
-    tables, and associated security groups. It ensures network components are configured according
-    to best practices for public and private subnets, enabling connectivity for ECS, RDS, and other
-    AWS services. Security groups are set up to control inbound and outbound traffic.
+    This construct creates and configures a full VPC networking stack with:
+    1. VPC with custom CIDR block and DNS settings
+    2. Public and private subnets across multiple AZs
+    3. Internet Gateway for public subnets
+    4. NAT Gateway for private subnet internet access
+    5. Route tables and route associations
+    6. Security groups for ALB, ECS, and RDS
+
+    Network Architecture:
+    - Public subnets:
+        * Direct internet access via Internet Gateway
+        * Used for ALB and other public-facing resources
+        * One subnet per specified AZ
+        * CIDR ranges: 10.0.0.0/24, 10.0.2.0/24, etc.
+
+    - Private subnets:
+        * Internet access via NAT Gateway
+        * Used for ECS tasks and RDS
+        * One subnet per specified AZ
+        * CIDR ranges: 10.0.1.0/24, 10.0.3.0/24, etc.
+
+    Security Groups:
+    - ALB Security Group:
+        * Inbound: HTTP/HTTPS from internet
+        * Outbound: All traffic
+
+    - ECS Security Group:
+        * Inbound: Traffic from ALB on service ports
+        * Inbound: Inter-service communication
+        * Outbound: All traffic
+
+    - RDS Security Group:
+        * Inbound: PostgreSQL port from VPC CIDR
+        * Outbound: All traffic
 
     Attributes:
-        vpc (Vpc): The VPC created by this construct.
-        public_subnets (List[Subnet]): A list of public subnets created by this construct.
-        private_subnets (List[Subnet]): A list of private subnets created by this construct.
-        alb_security_group (SecurityGroup): The security group associated with the Application Load Balancer.
-        ecs_security_group (SecurityGroup): The security group associated with ECS tasks.
-        rds_security_group (SecurityGroup): The security group associated with RDS instances.
+        vpc (Vpc): The main VPC resource
+        public_subnets (List[Subnet]): List of public subnets
+        private_subnets (List[Subnet]): List of private subnets
+        alb_security_group (SecurityGroup): Security group for Application Load Balancer
+        ecs_security_group (SecurityGroup): Security group for ECS tasks
+        rds_security_group (SecurityGroup): Security group for RDS instances
 
     Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): A unique identifier for the construct.
-        project_prefix (str): A prefix for naming resources to help differentiate between environments.
-        vpc_cidr (str): The CIDR block for the VPC.
-        vpc_subnet_azs (List[str]): A list of availability zones to create subnets in.
-        environment (str): The environment name (e.g., `development`, `production`) for tagging purposes.
-        tags (dict): A dictionary of tags to apply to all resources created by this construct.
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names (e.g., "project-name")
+        vpc_cidr (str): CIDR block for the VPC (e.g., "10.0.0.0/16")
+        vpc_subnet_azs (List[str]): List of AZs for subnet placement
+        environment (str): Environment name (e.g., "prod", "dev")
+        tags (dict): Tags to apply to all resources
 
-    Methods:
-        __init__(self, scope, id, ...): Initializes the networking setup for the AWS environment.
+    Example:
+        ```python
+        networking = NetworkingConstruct(
+            self,
+            "networking",
+            project_prefix="myapp",
+            vpc_cidr="10.0.0.0/16",
+            vpc_subnet_azs=["us-east-1a", "us-east-1b"],
+            environment="prod",
+            tags={"Environment": "production"}
+        )
+        ```
 
+    Notes:
+        - NAT Gateway is created in first public subnet
+        - Private subnets route through single NAT Gateway
+        - VPC has DNS hostnames and DNS resolution enabled
+        - Security groups follow least privilege principle
+        - Subnet CIDR blocks are allocated sequentially
+        - Resources tagged for cost allocation and management
+        - Supports IPv4 networking
     """
 
     def __init__(

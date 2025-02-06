@@ -9,27 +9,79 @@ from cdktf_cdktf_provider_aws.secretsmanager_secret_version import (
 
 class SecretsManagerConstruct(Construct):
     """
-    A construct that creates secrets in AWS Secrets Manager.
+    A construct for managing database credentials in AWS Secrets Manager.
 
-    This construct creates secrets in AWS Secrets Manager and stores the initial version of the secret.
+    This construct creates and manages secrets for database access credentials:
+    1. Database admin credentials
+    2. PgSTAC admin credentials
+    3. PgSTAC ingest user credentials
+    4. PgSTAC read-only user credentials
+
+    Each secret:
+    - Stores username and password as JSON
+    - Has a unique name with environment prefix
+    - Includes description and tags
+    - Creates initial secret version
+    - Format: {"username": "user", "password": "pass"}
+
+    Secret Hierarchy:
+    - Database Admin: Root database administrator
+    - PgSTAC Admin: PgSTAC schema owner and migrations
+    - PgSTAC Ingest: Write access for data ingestion
+    - PgSTAC Read: Read-only access for queries
 
     Attributes:
-        db_admin_secret (SecretsmanagerSecret): The secret for database admin credentials.
-        pgstac_admin_secret (SecretsmanagerSecret): The secret for PgSTAC admin credentials.
-        pgstac_ingest_secret (SecretsmanagerSecret): The secret for PgSTAC ingest credentials.
-        pgstac_read_secret (SecretsmanagerSecret): The secret for PgSTAC read-only credentials.
+        db_admin_secret (SecretsmanagerSecret): Database admin credentials secret
+        pgstac_admin_secret (SecretsmanagerSecret): PgSTAC admin credentials secret
+        pgstac_ingest_secret (SecretsmanagerSecret): PgSTAC ingest credentials secret
+        pgstac_read_secret (SecretsmanagerSecret): PgSTAC read-only credentials secret
 
-    Args:
-        scope (Construct): The parent construct of this construct.
-        id (str): The ID of this construct.
-        project_prefix (str): A prefix for naming resources to help differentiate between environments.
-        environment (str): The environment for which to create secrets.
-        db_admin_credentials (Dict[str, str]): The database admin credentials to store in the secret.
-        pgstac_admin_credentials (Dict[str, str]): The PgSTAC admin credentials to store in the secret.
-        pgstac_ingest_credentials (Dict[str, str]): The PgSTAC ingest credentials to store in the secret.
-        pgstac_read_credentials (Dict[str, str]): The PgSTAC read-only credentials to store in the secret.
-        tags (dict): Tags to apply to the secret.
+    Parameters:
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names
+        environment (str): Environment name (e.g., "prod", "dev")
+        db_admin_credentials (Dict[str, str]): Database admin username and password
+        pgstac_admin_credentials (Dict[str, str]): PgSTAC admin username and password
+        pgstac_ingest_credentials (Dict[str, str]): PgSTAC ingest username and password
+        pgstac_read_credentials (Dict[str, str]): PgSTAC read-only username and password
+        tags (dict): Tags to apply to all secrets
 
+    Example:
+        ```python
+        secrets = SecretsManagerConstruct(
+            self,
+            "secrets",
+            project_prefix="myapp",
+            environment="prod",
+            db_admin_credentials={
+                "username": "admin",
+                "password": generated_password
+            },
+            pgstac_admin_credentials={
+                "username": "pgstac_admin",
+                "password": generated_password
+            },
+            pgstac_ingest_credentials={
+                "username": "pgstac_ingest",
+                "password": generated_password
+            },
+            pgstac_read_credentials={
+                "username": "pgstac_read",
+                "password": generated_password
+            },
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Secrets are created with initial versions
+        - Credentials stored in JSON format
+        - Secret names include project and environment prefix
+        - All secrets are tagged for management
+        - Secrets can be referenced by ARN in other resources
+        - Suitable for use with ECS task definitions
+        - Integrated with AWS IAM for access control
     """
 
     def __init__(

@@ -10,27 +10,73 @@ from .base_stack import BaseStack
 
 class DatabaseStack(BaseStack):
     """
-    A stack to deploy database infrastructure, including RDS and networking configurations.
+    A stack that creates and configures the PostgreSQL database infrastructure.
 
-    This stack sets up necessary components for a relational database system, including networking resources
-    like VPC, subnets, and security groups, and provisions the RDS instance. It ensures proper network isolation,
-    high availability, and security settings for the database infrastructure.
+    This stack manages:
+    1. Password generation for database users
+    2. Secrets management in AWS Secrets Manager
+    3. RDS PostgreSQL instance deployment
+    4. Database user credentials and roles
+
+    Database Users:
+    - DB Admin: Root database administrator
+    - PgSTAC Admin: Schema owner and migrations
+    - PgSTAC Ingest: Write access for data ingestion
+    - PgSTAC Read: Read-only access for queries
+
+    Infrastructure Components:
+    - Random Password Generator:
+        * Secure password generation
+        * Configurable length and complexity
+        * Special character support
+
+    - Secrets Manager:
+        * Stores all database credentials
+        * Username/password pairs as JSON
+        * Managed access through IAM
+
+    - RDS Instance:
+        * PostgreSQL 17.2 engine
+        * Custom parameter group
+        * Automated backups
+        * Encryption at rest
 
     Attributes:
-        networking (NetworkingConstruct): The networking resources required for RDS deployment.
-        rds (RdsConstruct): The RDS instance managed by this stack.
+        random_passwords (RandomPasswordConstruct): Password generation resource
+        secrets (SecretsManagerConstruct): AWS Secrets Manager resources
+        rds (RdsConstruct): RDS instance and configuration
 
     Parameters:
-        scope (Construct): The scope in which this stack is defined.
-        id (str): A unique identifier for the stack.
-        config (EnvironmentConfig): The environment configuration object containing project settings.
-        private_subnets (List[str]): A list of private subnet IDs for the RDS instance.
-        public_subnets (List[str]): A list of public subnet IDs for the RDS instance.
-        rds_security_group (str): The security group ID for the RDS instance.
+        scope (Construct): The scope in which this stack is defined
+        id (str): The scoped construct ID
+        config (EnvironmentConfig): Environment configuration settings
+        subnet_ids (List[str]): List of subnet IDs for RDS placement
+        rds_security_group_id (str): Security group ID for RDS instance
 
-    Methods:
-        __init__(self, scope, id, config): Initializes the database stack, setting up networking and RDS resources.
+    Example:
+        ```python
+        db_stack = DatabaseStack(
+            app,
+            "myapp-prod-database",
+            config,
+            subnet_ids=["subnet-1", "subnet-2"],
+            rds_security_group_id="sg-123"
+        )
+        ```
 
+    Outputs:
+        - RDS endpoint
+        - DB admin secret ARN
+        - PgSTAC admin secret ARN
+        - PgSTAC ingest secret ARN
+        - PgSTAC read secret ARN
+
+    Notes:
+        - Passwords are 20 characters with special characters
+        - RDS configuration from DatabaseConfig
+        - Dependencies managed to ensure proper creation order
+        - Secret ARNs available for other stacks
+        - All resources tagged for management
     """
 
     def __init__(

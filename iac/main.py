@@ -10,26 +10,65 @@ from config import get_config
 
 def main():
     """
-    The main entry point for the CDKTF deployment script.
+    Main entry point for deploying the complete infrastructure using CDKTF.
 
-    This script initializes the CDKTF application, retrieves the configuration for the specified environment, and
-    creates the necessary infrastructure stacks (DatabaseStack and ApplicationStack) using the provided configuration.
-    It also manages the relationships between the stacks, ensuring correct dependencies are established.
+    This function orchestrates the deployment of a multi-tier application infrastructure including:
+    1. Network infrastructure (VPC, subnets, security groups)
+    2. Database infrastructure (RDS PostgreSQL, Secrets)
+    3. Application infrastructure (ECS, ALB, STAC API, Streamlit)
 
-    Steps:
-        1. Retrieve the deployment environment from the `ENVIRONMENT` environment variable, defaulting to "development".
-        2. Fetch the configuration settings for the specified environment using `get_config`.
-        3. Initialize the CDKTF application.
-        4. Create the `DatabaseStack`, which provisions networking, VPC, and RDS resources.
-        5. Create the `ApplicationStack`, which builds application-specific resources, using the outputs
-            from the DatabaseStack.
-        6. Establish the dependency between the ApplicationStack and DatabaseStack.
-        7. Synthesize the application, generating the Terraform configurations.
+    Stack Dependencies:
+    - Network Stack
+        └── Database Stack
+            └── Application Stack
 
-    Raises:
-        ValueError: If the specified environment is not recognized by `get_config`.
+    Components:
+    - Network Stack:
+        * VPC and subnets
+        * Security groups
+        * Routing configuration
 
+    - Database Stack:
+        * RDS PostgreSQL instance
+        * Database credentials
+        * PgSTAC user setup
+
+    - Application Stack:
+        * ECS cluster and services
+        * Application Load Balancer
+        * STAC API and Streamlit services
+
+    Environment:
+        - Determined by ENVIRONMENT environment variable
+        - Defaults to "dev" if not specified
+        - Supported values: "dev", "prod"
+        - Configuration loaded dynamically based on environment
+
+    Configuration:
+        - Project prefix for resource naming
+        - Environment-specific settings
+        - Network CIDR and AZ configuration
+        - Database instance settings
+        - ECS service configurations
+
+    Example Usage:
+        ```bash
+        # Deploy to development
+        ENVIRONMENT=dev TF_VAR_stormlit_tag=dev cdktf deploy stormlit-dev-network stormlit-dev-database stormlit-dev-application
+
+        # Deploy to production
+        ENVIRONMENT=prod TF_VAR_stormlit_tag=latest cdktf deploy stormlit-prod-network stormlit-prod-database stormlit-prod-application
+        ```
+
+    Notes:
+        - Maintains proper stack dependencies
+        - Uses token passing for cross-stack references
+        - Supports multiple environments
+        - Infrastructure as Code using CDKTF
+        - Follows AWS best practices
+        - All resources properly tagged
     """
+
     # Initialize the CDKTF app
     app = App()
 
