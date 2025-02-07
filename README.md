@@ -278,7 +278,7 @@ To deploy this infrastructure, you must deploy the stacks in the following order
      ./migration/migrate.sh
      ```
 
-     Note that this script must be run from within the VPC that the database is deployed in. This can be done by SSHing into the bastion host and then SSHing into the database instance.
+     Note that this script must be run from within the VPC that the database is deployed in. This can be done by SSHing into the bastion host.
 
      Note that you will need to modify this script to include the correct database endpoint, username, password, etc. Uncomment the commented out lines and replace the values with the correct values.
      
