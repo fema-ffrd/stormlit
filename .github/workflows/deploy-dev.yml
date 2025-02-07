@@ -73,7 +73,7 @@ jobs:
       - name: Deploy with CDKTF
         working-directory: ./iac
         env:
-          ENVIRONMENT: prod
+          ENVIRONMENT: dev
           AWS_REGION: us-east-1
           TF_VAR_stormlit_tag: dev
         run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-dev-network stormlit-dev-database stormlit-dev-application --auto-approve
