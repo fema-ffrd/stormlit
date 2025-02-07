@@ -8,8 +8,8 @@ services:
     env_file:
       - ./app/.env
     environment:
-      - PGHOST=stormlit-postgis
-      - PGUSER=admin
+      - PGHOST=stormlit-pgstac
+      - PGUSER=postgres
       - PGPASSWORD=password
       - PGDATABASE=postgis
       - PGSTAC_ADMIN_PASSWORD=password
@@ -24,17 +24,17 @@ services:
     networks:
       - stormlit-network
 
-  stormlit-postgis:
-    container_name: stormlit-postgis
-    image: postgis/postgis:17-3.5
+  stormlit-pgstac:
+    container_name: stormlit-pgstac
+    image: ghcr.io/stac-utils/pgstac:v0.9.2
     environment:
       POSTGRES_DB: postgis
-      POSTGRES_USER: admin
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
       - "55432:5432"
     volumes:
-      - stormlit-postgis-data:/var/lib/postgresql/data
+      - stormlit-pgstac-data:/var/lib/postgresql/data
     networks:
       - stormlit-network
 
@@ -49,7 +49,7 @@ services:
     networks:
       - stormlit-network
     depends_on:
-      - stormlit-postgis
+      - stormlit-pgstac
 
   stormlit-stac-api:
     container_name: stormlit-stac-api
@@ -59,11 +59,11 @@ services:
       - APP_PORT=8080
       - RELOAD=true
       - ENVIRONMENT=local
-      - POSTGRES_USER=admin
+      - POSTGRES_USER=postgres
       - POSTGRES_PASS=password
       - POSTGRES_DBNAME=postgis
-      - POSTGRES_HOST_READER=stormlit-postgis
-      - POSTGRES_HOST_WRITER=stormlit-postgis
+      - POSTGRES_HOST_READER=stormlit-pgstac
+      - POSTGRES_HOST_WRITER=stormlit-pgstac
       - POSTGRES_PORT=5432
       - WEB_CONCURRENCY=10
       - VSI_CACHE=TRUE
@@ -77,12 +77,12 @@ services:
     networks:
       - stormlit-network
     depends_on:
-      - stormlit-postgis
+      - stormlit-pgstac
 
 networks:
   stormlit-network:
     name: stormlit-network
 
 volumes:
-  stormlit-postgis-data:
-    name: stormlit-postgis-data
+  stormlit-pgstac-data:
+    name: stormlit-pgstac-data

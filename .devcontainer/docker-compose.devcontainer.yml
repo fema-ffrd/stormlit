@@ -7,8 +7,8 @@ services:
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
     environment:
-      - PGHOST=stormlit-postgis
-      - PGUSER=admin
+      - PGHOST=stormlit-pgstac
+      - PGUSER=postgres
       - PGPASSWORD=password
       - PGDATABASE=postgis
       - PGSTAC_ADMIN_PASSWORD=password
