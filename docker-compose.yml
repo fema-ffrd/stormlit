@@ -20,6 +20,7 @@ services:
     volumes:
       - .:/workspace:cached
       - ./app:/app
+      - ./migration:/migration
     networks:
       - stormlit-network
 

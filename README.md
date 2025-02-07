@@ -43,20 +43,26 @@ code .
 Continue to [Verify Services](#verify-services).
 
 #### Docker Compose Setup
-2. Build Docker images for the environment.
+1. Build Docker images for the environment.
 ```bash
 docker compose build
 ```
 
-3. Start the application and services.
+2. Start the application and services.
 ```bash
 docker compose up
 ```
 
+3. Run migration scripts to initialize the database (only needs to be done once unless you remove you volumes).
+
+```bash
+docker exec stormlit-app bash -c "micromamba run -n base /migration/migrate.sh"
+```
+
+
 #### Verify Services
 4. Verify services:
-   - Open browser: http://localhost:50080 (Keycloak)
-     - Login: admin/admin
+   - Open browser: http://localhost:8080 (PgStac API)
    - Open browser: http://localhost:55050 (pgAdmin)
      - Login: admin@example.com/admin
      - Add server:
@@ -111,23 +117,22 @@ SSL_CERT_FILE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
 
 ### Services
 
-#### Keycloak (Identity and Access Management)
-- Container: `stormlit-keycloak`
-- URL: http://localhost:50080
-- Admin credentials: admin/admin
-- Backed by PostgreSQL
+#### PgStac API
+- Container: `stormlit-stac-api`
+- URL: http://localhost:8080
+- Backed by PostgreSQL with PostGIS extension and PgStac Schema
 
 #### PostgreSQL
 - Container: `stormlit-postgres`
 - Port: 55432
-- Database: stormlit_keycloak_db
-- Credentials: keycloak/keycloak
-- Volume: stormlit-postgres-data
+- Database: postgis
+- Credentials: admin/password
+- Volume: stormlit-postgis-data
 
 #### pgAdmin (Database Management)
 - Container: `stormlit-pgadmin`
 - URL: http://localhost:55050
-- Login: admin/admin
+- Login: admin@example.com/admin
 
 ### Environment Configurations
 - Python path: `/opt/conda/envs/stormlit/bin/python`
@@ -150,7 +155,7 @@ The container automatically:
 All services are connected via `stormlit-network` for internal communication.
 
 ### Data Persistence
-- PostgreSQL data: `stormlit-postgres-data` volume
+- PostgreSQL data: `stormlit-postgis-data` volume
 - Project files: Mounted from host at `/workspace`
 
 
@@ -205,24 +210,18 @@ Pushes to the `dev` branch trigger:
 2. CDKTF infrastructure synthesis
 3. Docker image build and push to GitHub Container Registry with the `dev` tag
 4. Deployment to the development environment via CDKTF
-   - Deploys only the application stack with development-specific configurations
-   - Uses the `--ignore-missing-stack-dependencies` flag to update just the application
 
 ### Staging Deployment
 Pushes to the `main` branch trigger:
 1. Complete test suite execution
 2. CDKTF infrastructure synthesis
 3. Docker image build and push to GitHub Container Registry with the `latest` tag
-4. Full infrastructure deployment including:
-   - Network stack (VPC, subnets, gateways)
-   - Database stack (RDS, secrets)
-   - Application stack (ECS, load balancer)
+4. Deployment to the production environment via CDKTF
 
 ### Environment Variables
 The CI/CD pipeline uses the following environment variables:
 - `AWS_REGION`: Set to us-east-1 for all deployments
-- `TF_VAR_streamlit_tag`: Docker image tag for staging (`latest`)
-- `TF_VAR_streamlit_dev_tag`: Docker image tag for development (`dev`)
+- `TF_VAR_stormlit_tag`: Docker image tag for stormlit image (`latest` or `dev`)
 
 ### Infrastructure Deployment Order
 The CI/CD pipeline maintains the correct deployment order for infrastructure components:
@@ -262,21 +261,28 @@ There is only a single environment defined. This is the test environment deploye
 cdktf deploy <stack names>
 ```
 
-There are currently 5 stacks defined in the `main.py` file:
+There are currently 3 stacks defined in the `main.py` file:
 
-- `stormlit-development-network`: The base network infrastructure for the development environment. This includes the VPC, subnets, internet gateway, NAT gateway, elastic IPs, and security groups.
-- `stormlit-development-database`: The database infrastructure for the development environment. This includes the RDS instance and secrets manager for the database credentials.
-- `stormlit-development-postgres-init`: The database initialization for the development environment. This stack must be deployed after the database stack from within the development VPC. We have set up a jump box for this purpose inside the development VPC. This stack will create the database schema.
-- `stormlit-development-application`: The application infrastructure for the development environment. This includes the ECS cluster, IAM Roles, task definitions, services, and load balancer.
-- `stormlit-development-application-dev`: The development environment for the application. This stack will deploy the dev application container to the ECS cluster.
+- `stormlit-<environment>-network`: The base network infrastructure for the environment. This includes the VPC, subnets, internet gateway, NAT gateway, elastic IPs, and security groups.
+- `stormlit-<environment>-database`: The database infrastructure for the environment. This includes the RDS instance and secrets manager for the database credentials.
+- `stormlit-<environment>-application`: The application infrastructure for the environment. This includes the ECS cluster, IAM Roles, task definitions, services, and load balancer.
+
 
 To deploy this infrastructure, you must deploy the stacks in the following order:
 
-1. `stormlit-development-network`
-2. `stormlit-development-database`
-3. `stormlit-development-postgres-init` (from inside the VPC created by stack 1)
-4. `stormlit-development-application`
-5. `stormlit-development-application-dev` (only needed for the development environment, must include the `--ignore-missing-stack-dependencies` flag)
+1. `stormlit-<environment>-network`
+2. `stormlit-<environment>-database`
+   - After deploying the database stack, you must manually run the migration script to initialize the database. This can be done by running the following command:
+
+     ```
+     ./migration/migrate.sh
+     ```
+
+     Note that this script must be run from within the VPC that the database is deployed in. This can be done by SSHing into the bastion host and then SSHing into the database instance.
+
+     Note that you will need to modify this script to include the correct database endpoint, username, password, etc. Uncomment the commented out lines and replace the values with the correct values.
+     
+3. `stormlit-<environment>-application`
 
 You can also test a deployment with `synth` during development:
 
