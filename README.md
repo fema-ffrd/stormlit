@@ -2,7 +2,7 @@
 A streamlit application designed for interacting with probabilistic flood hazards modeling data 
 
 ## Stormlit Development Environment
-The development container provides a consistent environment for Stormlit development with Python (via Micromamba), Node.js, AWS CLI, CDKTF, Keycloak, and PostgreSQL.
+The development container provides a consistent environment for Stormlit development with Python (via Micromamba), Node.js, AWS CLI, CDKTF, PgStac API, and PostgreSQL.
 
 ### Prerequisites Installation
 
@@ -53,12 +53,6 @@ docker compose build
 docker compose up
 ```
 
-3. Run migration scripts to initialize the database (only needs to be done once unless you remove you volumes).
-
-```bash
-docker exec stormlit-app bash -c "micromamba run -n base /migration/migrate.sh"
-```
-
 
 #### Verify Services
 4. Verify services:
@@ -69,10 +63,10 @@ docker exec stormlit-app bash -c "micromamba run -n base /migration/migrate.sh"
        1. Right click "Servers" → "Register" → "Server"
        2. Name: "Stormlit DB"
        3. Connection tab:
-          - Host: stormlit-postgis
+          - Host: stormlit-pgstac
           - Port: 5432
           - Database: postgis
-          - Username: admin
+          - Username: postgres
           - Password: password
 
 5. Start developing:
@@ -123,11 +117,11 @@ SSL_CERT_FILE=/workspace/.devcontainer/zscaler-certifi-ca-bundle.crt
 - Backed by PostgreSQL with PostGIS extension and PgStac Schema
 
 #### PostgreSQL
-- Container: `stormlit-postgres`
+- Container: `stormlit-pgstac`
 - Port: 55432
 - Database: postgis
-- Credentials: admin/password
-- Volume: stormlit-postgis-data
+- Credentials: postgres/password
+- Volume: stormlit-pgstac-data
 
 #### pgAdmin (Database Management)
 - Container: `stormlit-pgadmin`
@@ -155,7 +149,7 @@ The container automatically:
 All services are connected via `stormlit-network` for internal communication.
 
 ### Data Persistence
-- PostgreSQL data: `stormlit-postgis-data` volume
+- PostgreSQL data: `stormlit-pgstac-data` volume
 - Project files: Mounted from host at `/workspace`
 
 
