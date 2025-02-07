@@ -11,6 +11,7 @@ from cdktf_cdktf_provider_aws.lb_listener_rule import (
     LbListenerRuleAction,
     LbListenerRuleCondition,
 )
+from cdktf_cdktf_provider_aws.lb_listener_certificate import LbListenerCertificate
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
 from .acm import AcmRoute53Construct
 from config import ApplicationConfig
@@ -109,18 +110,29 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create ACM certificate and Route53 records
-        self.acm = AcmRoute53Construct(
+        # Create ACM certificates and Route53 records for both domains
+        self.stormlit_acm = AcmRoute53Construct(
             self,
-            "acm",
+            "stormlit-acm",
             domain_name=app_config.domain_name,
-            subdomain=app_config.subdomain,
+            subdomain=app_config.stormlit_subdomain,
             alb_dns_name=self.alb.dns_name,
             alb_zone_id=self.alb.zone_id,
             tags=tags,
         )
 
-        self.acm.node.add_dependency(self.alb)
+        self.stac_api_acm = AcmRoute53Construct(
+            self,
+            "stac-api-acm",
+            domain_name=app_config.domain_name,
+            subdomain=app_config.stac_api_subdomain,
+            alb_dns_name=self.alb.dns_name,
+            alb_zone_id=self.alb.zone_id,
+            tags=tags,
+        )
+
+        self.stormlit_acm.node.add_dependency(self.alb)
+        self.stac_api_acm.node.add_dependency(self.alb)
 
         # Create target groups for each service
         self.stac_api_target_group = LbTargetGroup(
@@ -173,7 +185,7 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create HTTPS listener that forwards to Streamlit by default
+        # Create single HTTPS listener with multiple certificates
         self.https_listener = LbListener(
             self,
             "https-listener",
@@ -181,7 +193,7 @@ class AlbConstruct(Construct):
             port=443,
             protocol="HTTPS",
             ssl_policy="ELBSecurityPolicy-2016-08",
-            certificate_arn=self.acm.certificate.arn,
+            certificate_arn=self.stormlit_acm.certificate.arn,
             default_action=[
                 LbListenerDefaultAction(
                     type="forward",
@@ -191,7 +203,20 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        self.https_listener.node.add_dependency(self.acm.certificate_validation)
+        # Add additional certificate for STAC API domain
+        LbListenerCertificate(
+            self,
+            "stac-api-certificate",
+            listener_arn=self.https_listener.arn,
+            certificate_arn=self.stac_api_acm.certificate.arn,
+        )
+
+        self.https_listener.node.add_dependency(
+            self.stormlit_acm.certificate_validation
+        )
+        self.https_listener.node.add_dependency(
+            self.stac_api_acm.certificate_validation
+        )
 
         # Create HTTP listener that redirects to HTTPS
         self.http_listener = LbListener(
@@ -213,14 +238,20 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create listener rule for stac api path
+        # Add listener rules to route based on host header
         LbListenerRule(
             self,
-            "stac-api-rule",
+            "stac-api-host-rule",
             listener_arn=self.https_listener.arn,
             priority=1,
             condition=[
-                LbListenerRuleCondition(path_pattern={"values": ["/stac/*", "/stac"]})
+                LbListenerRuleCondition(
+                    host_header={
+                        "values": [
+                            f"{app_config.stac_api_subdomain}.{app_config.domain_name}"
+                        ]
+                    }
+                )
             ],
             action=[
                 LbListenerRuleAction(

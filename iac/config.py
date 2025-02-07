@@ -89,13 +89,14 @@ class ApplicationConfig:
 
     Attributes:
         domain_name (str): The domain name of the application.
-        subdomain (str): The subdomain of the application.
+        stormlit_subdomain (str): The subdomain for the Stormlit application.
+        stac_api_subdomain (str): The subdomain for the STAC API.
         enable_deletion_protection (bool): Indicates whether deletion protection is enabled for the ALB.
-
     """
 
     domain_name: str
-    subdomain: str
+    stormlit_subdomain: str
+    stac_api_subdomain: str
     enable_deletion_protection: bool
 
 
@@ -195,7 +196,8 @@ def get_development_config() -> EnvironmentConfig:
         ),
         application=ApplicationConfig(
             domain_name="arc-apps.net",
-            subdomain="stormlit-dev",
+            stormlit_subdomain="stormlit-dev",
+            stac_api_subdomain="stac-api-dev",
             enable_deletion_protection=False,
         ),
         ecs=EcsConfig(
@@ -266,7 +268,8 @@ def get_production_config() -> EnvironmentConfig:
         ),
         application=ApplicationConfig(
             domain_name="arc-apps.net",
-            subdomain="stormlit",
+            stormlit_subdomain="stormlit",
+            stac_api_subdomain="stac-api",
             enable_deletion_protection=True,
         ),
         ecs=EcsConfig(

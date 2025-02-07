@@ -7,7 +7,6 @@ from ..constructs.ecs_iam import EcsIamConstruct
 from ..constructs.alb import AlbConstruct
 from ..constructs.ecs_cluster import EcsClusterConstruct
 from ..constructs.ecs_services import EcsServicesConstruct
-from ..constructs.cloud_watch import CloudWatchConstruct
 
 from config import ServiceRoles
 
@@ -156,15 +155,6 @@ class ApplicationStack(BaseStack):
             tags=config.tags,
         )
 
-        # Create CloudWatch Log Groups
-        CloudWatchConstruct(
-            self,
-            "cloudwatch",
-            project_prefix=config.project_prefix,
-            environment=config.environment,
-            tags=config.tags,
-        )
-
         # Create ECS Cluster with EC2 instances
         self.ecs_cluster = EcsClusterConstruct(
             self,
@@ -213,7 +203,7 @@ class ApplicationStack(BaseStack):
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
-            host_name=f"{config.application.subdomain}.{config.application.domain_name}",
+            app_config=config.application,
             project_prefix=config.project_prefix,
             environment=config.environment,
             cluster_id=self.ecs_cluster.cluster.id,

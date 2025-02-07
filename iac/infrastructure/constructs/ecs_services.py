@@ -8,7 +8,7 @@ from cdktf_cdktf_provider_aws.ecs_service import (
     EcsServiceLoadBalancer,
     EcsServiceNetworkConfiguration,
 )
-from config import ServiceRoles, EcsConfig, EcsServiceConfig
+from config import ServiceRoles, EcsConfig, EcsServiceConfig, ApplicationConfig
 
 
 class EcsServicesConstruct(Construct):
@@ -43,7 +43,7 @@ class EcsServicesConstruct(Construct):
     Parameters:
         scope (Construct): The scope in which this construct is defined
         id (str): The scoped construct ID
-        host_name (str): FQDN for the application
+        app_config (ApplicationConfig): Application configuration settings
         project_prefix (str): Prefix for resource names
         environment (str): Environment name (e.g., "prod", "dev")
         cluster_id (str): ECS cluster identifier
@@ -61,7 +61,7 @@ class EcsServicesConstruct(Construct):
         services = EcsServicesConstruct(
             self,
             "ecs-services",
-            host_name="app.example.com",
+            app_config=app_config,
             project_prefix="myapp",
             environment="prod",
             cluster_id=cluster.id,
@@ -103,7 +103,7 @@ class EcsServicesConstruct(Construct):
         scope: Construct,
         id: str,
         *,
-        host_name: str,
+        app_config: ApplicationConfig,
         project_prefix: str,
         environment: str,
         cluster_id: str,
@@ -148,7 +148,7 @@ class EcsServicesConstruct(Construct):
                         },
                         {
                             "name": "STAC_API_URL",
-                            "value": f"https://{host_name}/stac",
+                            "value": f"https://{app_config.stac_api_subdomain}.{app_config.domain_name}",
                         },
                         {
                             "name": "STAC_BROWSER_URL",
@@ -209,8 +209,6 @@ class EcsServicesConstruct(Construct):
                         {"name": "POSTGRES_HOST_WRITER", "value": rds_host or ""},
                         {"name": "POSTGRES_PORT", "value": "5432"},
                         {"name": "POSTGRES_DBNAME", "value": "postgres"},
-                        {"name": "UVICORN_ROOT_PATH", "value": "/stac/"},
-                        {"name": "FASTAPI_ROOT_PATH", "value": "/stac/"},
                     ],
                     "logConfiguration": {
                         "logDriver": "awslogs",
