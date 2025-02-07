@@ -263,8 +263,8 @@ def get_production_config() -> EnvironmentConfig:
             publicly_accessible=False,
             skip_final_snapshot=False,
             apply_immediately=False,
-            monitoring_interval=60,
-            performance_insights_enabled=True,
+            monitoring_interval=0,
+            performance_insights_enabled=False,
         ),
         application=ApplicationConfig(
             domain_name="arc-apps.net",
