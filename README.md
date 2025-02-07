@@ -193,7 +193,7 @@ ruff format
 
 ## CI/CD Pipeline
 
-Stormlit uses GitHub Actions for continuous integration and deployment, with separate workflows for pull requests, development, and staging environments.
+Stormlit uses GitHub Actions for continuous integration and deployment, with separate workflows for pull requests, development, and production environments.
 
 ### Pull Request Workflow
 When a pull request is opened against the `main` or `dev` branches, the following checks run automatically:
@@ -211,7 +211,7 @@ Pushes to the `dev` branch trigger:
 3. Docker image build and push to GitHub Container Registry with the `dev` tag
 4. Deployment to the development environment via CDKTF
 
-### Staging Deployment
+### Production Deployment
 Pushes to the `main` branch trigger:
 1. Complete test suite execution
 2. CDKTF infrastructure synthesis

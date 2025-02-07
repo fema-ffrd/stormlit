@@ -38,7 +38,7 @@ jobs:
   deploy-infrastructure:
     needs: [test, synth, build]
     runs-on: ubuntu-latest
-    environment: staging
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
