@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 
 # custom imports
 from src.pages.home_page import home_page
-from src.pages.view_gages import view_gages
-from src.pages.view_storms import view_storms
+from src.pages.view_map import view_map
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
@@ -35,7 +34,6 @@ class MultiApp:
 app = MultiApp()
 
 app.add_app("Home Page", home_page)
-app.add_app("View Gages", view_gages)
-app.add_app("View Storms", view_storms)
+app.add_app("View Map", view_map)
 
 app.run()

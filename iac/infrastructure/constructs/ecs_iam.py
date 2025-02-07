@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Optional, Dict, Union
 from constructs import Construct
 from cdktf import TerraformOutput
 from cdktf_cdktf_provider_aws.iam_role import IamRole
@@ -10,29 +10,78 @@ from cdktf_cdktf_provider_aws.iam_instance_profile import IamInstanceProfile
 
 class EcsIamConstruct(Construct):
     """
-    A Construct to create IAM resources for an ECS setup, including instance roles, task roles, and execution roles.
+    A construct for managing IAM roles and policies for ECS services.
 
-    This construct manages the creation of IAM roles and instance profiles necessary for ECS EC2 instances,
-    ECS task execution, and ECS tasks. It ensures the appropriate policies are attached to roles for accessing ECS
-    services, AWS APIs, and other required resources.
+    This construct creates and manages IAM resources required for running ECS services, including:
+    1. EC2 instance role and profile for ECS container hosts
+    2. Task execution roles for each service (for pulling images and accessing secrets)
+    3. Task roles for each service (for application-specific AWS API access)
+    4. Service-specific IAM policies and permissions
+
+    The construct supports:
+    - Multiple ECS services with different permission sets
+    - Custom IAM policy statements for each service
+    - Granular secrets access control
+    - Common instance role for ECS hosts
+    - Dynamic policy generation based on service requirements
 
     Attributes:
-        instance_role (IamRole): The IAM role assigned to ECS EC2 instances.
-        instance_profile (IamInstanceProfile): The IAM instance profile associated with ECS EC2 instances.
-        execution_role (IamRole): The IAM role assigned to ECS task execution.
-        task_role (IamRole): The IAM role assigned to ECS tasks.
+        instance_role (IamRole): The IAM role for EC2 instances in the ECS cluster
+        instance_profile (IamInstanceProfile): The instance profile for EC2 instances
+        service_execution_roles (Dict[str, IamRole]): Map of service names to their execution roles
+        service_task_roles (Dict[str, IamRole]): Map of service names to their task roles
 
     Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): A unique identifier for the construct.
-        project_prefix (str): A prefix for naming resources, helping to differentiate between environments.
-        environment (str): The environment name (e.g., `development`, `production`) to ensure resources are
-            appropriately tagged.
-        tags (dict): A dictionary of tags to apply to all IAM resources created by this construct.
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names (e.g., "project-name")
+        environment (str): Environment name (e.g., "prod", "dev")
+        secret_arns (List[str]): List of secret ARNs that ECS tasks need access to
+        tags (dict): Tags to apply to all resources
+        services (Dict[str, Dict[str, Union[List[dict], List[str]]]]): Service-specific configurations:
+            {
+                "service_name": {
+                    "task_role_statements": [{"Effect": "Allow", ...}],
+                    "execution_role_statements": [{"Effect": "Allow", ...}],
+                    "secret_arns": ["arn:aws:secretsmanager:..."]
+                }
+            }
 
     Methods:
-        __init__(self, scope, id, ...): Initializes the IAM roles and instance profile for ECS instances,
-            task execution, and tasks.
+        add_policy_to_task_role(service_name: str, policy_name: str, policy_document: dict) -> None:
+            Adds a new policy to a service's task role
+
+        add_policy_to_execution_role(service_name: str, policy_name: str, policy_document: dict) -> None:
+            Adds a new policy to a service's execution role
+
+    Example:
+        ```python
+        iam = EcsIamConstruct(
+            self,
+            "ecs-iam",
+            project_prefix="myapp",
+            environment="prod",
+            secret_arns=["arn:aws:secretsmanager:region:account:secret:name"],
+            services={
+                "api": {
+                    "task_role_statements": [{
+                        "Effect": "Allow",
+                        "Action": ["s3:GetObject"],
+                        "Resource": ["arn:aws:s3:::my-bucket/*"]
+                    }],
+                    "execution_role_statements": []
+                }
+            },
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Instance role includes AmazonEC2ContainerServiceforEC2Role and AmazonSSMManagedInstanceCore
+        - Execution roles include permissions for ECR, CloudWatch Logs, and specified Secrets Manager secrets
+        - Task roles are customizable per service with specific AWS API permissions
+        - All roles follow AWS security best practices with least privilege access
+        - Role ARNs are exported as TerraformOutputs for reference
     """
 
     def __init__(
@@ -44,191 +93,247 @@ class EcsIamConstruct(Construct):
         environment: str,
         secret_arns: List[str],
         tags: dict,
+        services: Dict[str, Dict[str, Union[List[dict], List[str]]]] = None,
     ) -> None:
+        """
+        Initialize the ECS IAM construct.
+
+        Args:
+            scope: The scope in which this construct is defined
+            id: The scoped construct ID
+            project_prefix: Prefix for resource names
+            environment: Environment name (e.g., prod, dev)
+            secret_arns: List of secret ARNs that ECS tasks need access to
+            tags: Tags to apply to all resources
+            services: Dictionary of service configurations in the format:
+                {
+                    "service_name": {
+                        "task_role_statements": [{"Effect": "Allow", ...}],
+                        "execution_role_statements": [{"Effect": "Allow", ...}],
+                        "secret_arns": ["arn:aws:secretsmanager:..."]  # Optional secrets for this service
+                    }
+                }
+        """
         super().__init__(scope, id)
 
-        resource_prefix = f"{project_prefix}-{environment}"
+        self.project_prefix = project_prefix
+        self.environment = environment
+        self.secret_arns = secret_arns
+        self.tags = tags
+        self.resource_prefix = f"{project_prefix}-{environment}"
+        self.services = services or {}
 
-        # Create ECS instance role
+        # Store roles for each service
+        self.service_execution_roles: Dict[str, IamRole] = {}
+        self.service_task_roles: Dict[str, IamRole] = {}
+
+        # Create common instance role and profile
+        self._create_instance_role_and_profile()
+
+        # Create roles for each service
+        for service_name, service_config in self.services.items():
+            self._create_service_roles(
+                service_name,
+                service_config.get("task_role_statements", []),
+                service_config.get("execution_role_statements", []),
+                service_config.get("secret_arns", self.secret_arns),
+            )
+
+        # Output all role ARNs
+        self._create_role_outputs()
+
+    def _create_instance_role_and_profile(self) -> None:
+        """Creates the common ECS instance role and profile."""
         self.instance_role = IamRole(
             self,
             "instance-role",
-            name=f"{resource_prefix}-ecs-instance-role",
-            assume_role_policy="""{
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Action": "sts:AssumeRole",
-                        "Principal": {
-                            "Service": "ec2.amazonaws.com"
-                        },
-                        "Effect": "Allow"
-                    }
-                ]
-            }""",
-            tags=tags,
+            name=f"{self.resource_prefix}-ecs-instance-role",
+            assume_role_policy=self._get_assume_role_policy("ec2.amazonaws.com"),
+            tags=self.tags,
         )
 
-        # Attach ECS instance role policy
-        IamRolePolicyAttachment(
-            self,
-            "instance-policy",
-            role=self.instance_role.name,
-            policy_arn="arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-        )
+        # Attach policies to instance role
+        for idx, policy_arn in enumerate(
+            [
+                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+                "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+            ]
+        ):
+            IamRolePolicyAttachment(
+                self,
+                f"instance-policy-{idx + 1}",
+                role=self.instance_role.name,
+                policy_arn=policy_arn,
+            )
 
-        # Add SSM policy for troubleshooting
-        IamRolePolicyAttachment(
-            self,
-            "instance-policy-2",
-            role=self.instance_role.name,
-            policy_arn="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
-        )
-
-        # Create instance profile
         self.instance_profile = IamInstanceProfile(
             self,
             "instance-profile",
-            name=f"{resource_prefix}-ecs-instance-profile",
+            name=f"{self.resource_prefix}-ecs-instance-profile",
             role=self.instance_role.name,
         )
 
-        # Create ECS task execution role
+    def _create_service_roles(
+        self,
+        service_name: str,
+        task_role_statements: List[dict],
+        execution_role_statements: List[dict],
+        service_secret_arns: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Creates execution and task roles for a specific service.
+
+        Args:
+            service_name: Name of the service
+            task_role_statements: List of IAM policy statements for the task role
+            execution_role_statements: List of IAM policy statements for the execution role
+        """
+        # Create execution role
+        execution_role = self._create_execution_role(
+            service_name, execution_role_statements, service_secret_arns
+        )
+        self.service_execution_roles[service_name] = execution_role
+
+        # Create task role
+        task_role = self._create_task_role(service_name, task_role_statements)
+        self.service_task_roles[service_name] = task_role
+
+    def _create_execution_role(
+        self,
+        service_name: str,
+        additional_statements: List[dict],
+        service_secret_arns: Optional[List[str]] = None,
+    ) -> IamRole:
+        """Creates an execution role for a specific service."""
+        # Base execution role policy with required permissions
+        base_statements = [
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                ],
+                "Resource": "*",
+            },
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:DescribeSecret",
+                ],
+                "Resource": service_secret_arns or self.secret_arns,
+            },
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "ecr:GetAuthorizationToken",
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:BatchGetImage",
+                ],
+                "Resource": "*",
+            },
+        ]
+
+        # Combine base statements with additional statements
         execution_role_policy = {
             "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "logs:CreateLogGroup",
-                        "logs:CreateLogStream",
-                        "logs:PutLogEvents",
-                        "logs:DescribeLogGroups",
-                        "logs:DescribeLogStreams",
-                    ],
-                    "Resource": "*",
-                },
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "secretsmanager:GetSecretValue",
-                        "secretsmanager:DescribeSecret",
-                    ],
-                    "Resource": secret_arns,
-                },
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "ecr:GetAuthorizationToken",
-                        "ecr:BatchCheckLayerAvailability",
-                        "ecr:GetDownloadUrlForLayer",
-                        "ecr:BatchGetImage",
-                    ],
-                    "Resource": "*",
-                },
-            ],
+            "Statement": base_statements + additional_statements,
         }
 
-        self.execution_role = IamRole(
+        execution_role = IamRole(
             self,
-            "execution-role",
-            name=f"{resource_prefix}-ecs-execution-role",
-            assume_role_policy="""{
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Action": "sts:AssumeRole",
-                        "Principal": {
-                            "Service": "ecs-tasks.amazonaws.com"
-                        },
-                        "Effect": "Allow"
-                    }
-                ]
-            }""",
+            f"{service_name}-execution-role",
+            name=f"{self.resource_prefix}-{service_name}-execution-role",
+            assume_role_policy=self._get_assume_role_policy("ecs-tasks.amazonaws.com"),
             inline_policy=[
                 {
-                    "name": "ecs-execution-policy",
+                    "name": f"{service_name}-execution-policy",
                     "policy": json.dumps(execution_role_policy),
                 }
             ],
-            tags=tags,
+            tags=self.tags,
         )
 
-        # Attach ECS task execution role policy
+        # Attach ECS execution role policy
         IamRolePolicyAttachment(
             self,
-            "execution-policy",
-            role=self.execution_role.name,
+            f"{service_name}-execution-policy",
+            role=execution_role.name,
             policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
         )
 
-        # Add CloudWatch Logs policy for execution role
-        cloudwatch_policy = {
-            "Version": "2012-10-17",
-            "Statement": [
+        return execution_role
+
+    def _create_task_role(self, service_name: str, statements: List[dict]) -> IamRole:
+        """Creates a task role for a specific service."""
+        task_policy = {"Version": "2012-10-17", "Statement": statements}
+
+        return IamRole(
+            self,
+            f"{service_name}-task-role",
+            name=f"{self.resource_prefix}-{service_name}-task-role",
+            assume_role_policy=self._get_assume_role_policy("ecs-tasks.amazonaws.com"),
+            inline_policy=[
                 {
-                    "Effect": "Allow",
-                    "Action": [
-                        "logs:CreateLogGroup",
-                        "logs:CreateLogStream",
-                        "logs:PutLogEvents",
-                        "logs:DescribeLogGroups",
-                        "logs:DescribeLogStreams",
-                    ],
-                    "Resource": "*",
+                    "name": f"{service_name}-task-policy",
+                    "policy": json.dumps(task_policy),
                 }
-            ],
-        }
+            ]
+            if statements
+            else None,
+            tags=self.tags,
+        )
+
+    def add_policy_to_task_role(
+        self, service_name: str, policy_name: str, policy_document: dict
+    ) -> None:
+        """
+        Adds a new policy to a service's task role.
+
+        Args:
+            service_name: Name of the service
+            policy_name: Name of the policy to add
+            policy_document: Policy document as a dictionary
+        """
+        if service_name not in self.service_task_roles:
+            raise ValueError(f"No task role found for service: {service_name}")
 
         IamRolePolicy(
             self,
-            "execution-cloudwatch-policy",
-            name=f"{resource_prefix}-ecs-cloudwatch-policy",
-            role=self.execution_role.name,
-            policy=json.dumps(cloudwatch_policy),
+            f"{service_name}-{policy_name}",
+            name=f"{self.resource_prefix}-{service_name}-{policy_name}",
+            role=self.service_task_roles[service_name].name,
+            policy=json.dumps(policy_document),
         )
 
-        ecs_task_policy = {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "s3:GetObject",
-                        "s3:ListBucket",
-                    ],
-                    "Resource": "*",
-                }
-            ],
-        }
+    def add_policy_to_execution_role(
+        self, service_name: str, policy_name: str, policy_document: dict
+    ) -> None:
+        """
+        Adds a new policy to a service's execution role.
 
-        # Create ECS task role
-        self.task_role = IamRole(
+        Args:
+            service_name: Name of the service
+            policy_name: Name of the policy to add
+            policy_document: Policy document as a dictionary
+        """
+        if service_name not in self.service_execution_roles:
+            raise ValueError(f"No execution role found for service: {service_name}")
+
+        IamRolePolicy(
             self,
-            "task-role",
-            name=f"{resource_prefix}-ecs-task-role",
-            assume_role_policy="""{
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Action": "sts:AssumeRole",
-                        "Principal": {
-                            "Service": "ecs-tasks.amazonaws.com"
-                        },
-                        "Effect": "Allow"
-                    }
-                ]
-            }""",
-            inline_policy=[
-                {
-                    "name": "ecs-task-policy",
-                    "policy": json.dumps(ecs_task_policy),
-                }
-            ],
-            tags=tags,
+            f"{service_name}-{policy_name}",
+            name=f"{self.resource_prefix}-{service_name}-{policy_name}",
+            role=self.service_execution_roles[service_name].name,
+            policy=json.dumps(policy_document),
         )
 
-        # output the ARNs of the roles
+    def _create_role_outputs(self) -> None:
+        """Creates TerraformOutputs for all roles."""
         TerraformOutput(
             self,
             "instance-role-arn",
@@ -236,16 +341,33 @@ class EcsIamConstruct(Construct):
             description="Instance Role ARN",
         )
 
-        TerraformOutput(
-            self,
-            "execution-role-arn",
-            value=self.execution_role.arn,
-            description="Execution Role ARN",
-        )
+        for service_name in self.service_execution_roles:
+            TerraformOutput(
+                self,
+                f"{service_name}-execution-role-arn",
+                value=self.service_execution_roles[service_name].arn,
+                description=f"{service_name} Execution Role ARN",
+            )
 
-        TerraformOutput(
-            self,
-            "task-role-arn",
-            value=self.task_role.arn,
-            description="Task Role ARN",
+            TerraformOutput(
+                self,
+                f"{service_name}-task-role-arn",
+                value=self.service_task_roles[service_name].arn,
+                description=f"{service_name} Task Role ARN",
+            )
+
+    @staticmethod
+    def _get_assume_role_policy(service: str) -> str:
+        """Returns the assume role policy for a given service."""
+        return json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Action": "sts:AssumeRole",
+                        "Principal": {"Service": service},
+                        "Effect": "Allow",
+                    }
+                ],
+            }
         )

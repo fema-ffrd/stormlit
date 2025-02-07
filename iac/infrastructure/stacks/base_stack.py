@@ -7,25 +7,56 @@ from cdktf_cdktf_provider_aws.data_aws_region import DataAwsRegion
 
 class BaseStack(TerraformStack):
     """
-    A base stack that sets up common infrastructure for Terraform deployments.
+    A foundational stack that provides common infrastructure configuration.
 
-    This stack provides the foundational setup required for deploying Terraform-managed infrastructure,
-    including AWS provider configuration, region selection, and S3 backend setup for storing Terraform state.
-    It ensures consistency and reusability across multiple stacks by managing shared AWS provider configurations
-    and backend configurations.
+    This base stack establishes core infrastructure settings including:
+    1. AWS provider configuration
+    2. S3 backend for Terraform state
+    3. DynamoDB table for state locking
+    4. Region settings and data
+
+    Purpose:
+    - Provides consistent infrastructure configuration
+    - Ensures proper state management
+    - Enables stack composition
+    - Standardizes provider setup
+
+    Features:
+    - S3 Backend:
+        * Encrypted state storage
+        * State locking via DynamoDB
+        * Environment-specific state paths
+
+    - AWS Provider:
+        * Region configuration
+        * Standard provider settings
+        * Region data accessibility
 
     Attributes:
-        current_region (DataAwsRegion): The current AWS region data.
+        current_region (DataAwsRegion): Information about the current AWS region
 
     Parameters:
-        scope (Construct): The scope in which this stack is defined.
-        id (str): A unique identifier for the stack.
-        config (EnvironmentConfig): The environment configuration object containing project settings.
+        scope (Construct): The scope in which this stack is defined
+        id (str): The scoped construct ID
+        config (EnvironmentConfig): Environment configuration containing:
+            - project_prefix: Resource naming prefix
+            - environment: Environment name
+            - region: AWS region
+            - backend: S3 and DynamoDB configuration
 
-    Methods:
-        __init__(self, scope, id, config): Initializes the base stack, setting up AWS provider and backend
-            configurations.
+    Example:
+        ```python
+        class MyStack(BaseStack):
+            def __init__(self, scope: Construct, id: str, config: EnvironmentConfig):
+                super().__init__(scope, id, config)
+                # Add stack-specific resources
+        ```
 
+    Notes:
+        - Used as base class for other stacks
+        - Configures remote state management
+        - Ensures consistent provider setup
+        - Supports multi-environment deployments
     """
 
     def __init__(

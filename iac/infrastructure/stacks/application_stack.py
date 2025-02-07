@@ -7,45 +7,88 @@ from ..constructs.ecs_iam import EcsIamConstruct
 from ..constructs.alb import AlbConstruct
 from ..constructs.ecs_cluster import EcsClusterConstruct
 from ..constructs.ecs_services import EcsServicesConstruct
-from ..constructs.cloud_watch import CloudWatchConstruct
+
+from config import ServiceRoles
 
 
 class ApplicationStack(BaseStack):
     """
-    A stack to deploy an AWS application environment, including ECS, ECR, ALB, and associated IAM roles and services.
+    A stack that deploys the complete application infrastructure on AWS ECS.
 
-    This stack orchestrates the creation of critical AWS resources like ECS clusters, ECR repositories, ALB,
-    CloudWatch, and IAM roles, configuring them to ensure seamless communication and monitoring. It establishes
-    ECS services for applications like Keycloak and Streamlit, integrates RDS, and handles networking resources
-    like VPCs and subnets. The stack also manages dependencies between ECS services, ensuring that all components
-    are deployed in the correct sequence.
+    This stack orchestrates the deployment of a STAC API and Streamlit application using:
+    1. ECS cluster with EC2 capacity providers
+    2. Application Load Balancer for traffic distribution
+    3. IAM roles and policies for ECS tasks
+    4. CloudWatch log groups for monitoring
+    5. Service discovery and networking configuration
+
+    Application Components:
+    - Streamlit Service:
+        * Web interface for data visualization
+        * S3 bucket access for data retrieval
+        * Sticky sessions enabled
+        * Custom container configuration
+
+    - STAC API Service:
+        * STAC FastAPI PGSTAC implementation
+        * PostgreSQL database integration
+        * Path-based routing (/stac/*)
+        * Secure credentials management
+
+    Infrastructure:
+    - Load Balancer:
+        * HTTPS termination
+        * Path-based routing
+        * Health checks
+        * SSL/TLS certificates
+
+    - ECS Cluster:
+        * EC2 capacity providers
+        * Auto-registration
+        * CloudWatch integration
+        * Task definitions
 
     Attributes:
-        ecs_services (EcsServicesConstruct): The ECS services construct managing Keycloak and Streamlit.
-        ecs_cluster (EcsClusterConstruct): The ECS cluster constructed for EC2 instances.
-        alb (AlbConstruct): The Application Load Balancer construct.
-        cloudwatch (CloudWatchConstruct): The CloudWatch construct for logging and monitoring.
-        ecr (EcrConstruct): The ECR repository construct for container images.
-        iam (EcsIamConstruct): The IAM roles and instance profiles for ECS services.
-        rds_endpoint (str): The endpoint of the RDS database.
+        iam (EcsIamConstruct): IAM roles and policies
+        ecs_cluster (EcsClusterConstruct): ECS cluster and instances
+        alb (AlbConstruct): Application Load Balancer configuration
 
     Parameters:
-        scope (Construct): The scope in which this stack is defined.
-        id (str): A unique identifier for the stack.
-        config (EnvironmentConfig): The environment configuration object containing project settings.
-        vpc_id (str): The ID of the VPC to which this stack belongs.
-        public_subnet_ids (List[str]): A list of IDs for public subnets.
-        private_subnet_ids (List[str]): A list of IDs for private subnets.
-        alb_security_group_id (str): The ID of the security group for the ALB.
-        rds_endpoint (str): The endpoint of the RDS database to connect to.
-        database_secret_arn (str): The ARN of the secret containing the database credentials.
-        keycloak_secret_arn (str): The ARN of the secret containing the Keycloak credentials.
-        streamlit_secret_arn (str): The ARN of the secret containing the Streamlit credentials.
+        scope (Construct): The scope in which this stack is defined
+        id (str): The scoped construct ID
+        config (EnvironmentConfig): Environment configuration settings
+        vpc_id (str): ID of the VPC for resource placement
+        public_subnet_ids (List[str]): Public subnet IDs for ALB
+        private_subnet_ids (List[str]): Private subnet IDs for ECS tasks
+        alb_security_group_id (str): Security group ID for ALB
+        ecs_security_group_id (str): Security group ID for ECS tasks
+        rds_host (str): RDS instance hostname
+        pgstac_read_secret_arn (str): ARN of PgSTAC read credentials secret
 
-    Methods:
-        __init__(self, scope, id, config, vpc_id, public_subnet_ids, private_subnet_ids, alb_security_group_id,
-            rds_endpoint): Initializes the application stack, setting up ECS, ECR, ALB, and other AWS resources.
+    Example:
+        ```python
+        app_stack = ApplicationStack(
+            app,
+            "myapp-prod-application",
+            config,
+            vpc_id=vpc.id,
+            public_subnet_ids=["subnet-1", "subnet-2"],
+            private_subnet_ids=["subnet-3", "subnet-4"],
+            alb_security_group_id="sg-123",
+            ecs_security_group_id="sg-456",
+            rds_host="db.example.com",
+            pgstac_read_secret_arn="arn:aws:secretsmanager:..."
+        )
+        ```
 
+    Notes:
+        - Services run in private subnets with NAT Gateway access
+        - Container images pulled from GitHub Container Registry
+        - Streamlit tag configurable via TF_VAR_stormlit_tag
+        - Services depend on RDS database deployment
+        - IAM roles follow least privilege principle
+        - CloudWatch logs retained for 30 days
+        - Load balancer DNS exported as stack output
     """
 
     def __init__(
@@ -59,22 +102,24 @@ class ApplicationStack(BaseStack):
         private_subnet_ids: List[str],
         alb_security_group_id: str,
         ecs_security_group_id: str,
-        rds_endpoint: str,
-        database_secret_arn: str,
-        keycloak_secret_arn: str,
-        keycloak_db_secret_arn: str,
-        pgstac_db_secret_arn: str,
-        streamlit_repository_url: str,
+        rds_host: str,
+        pgstac_read_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
-        streamlit_tag = TerraformVariable(
-            self,
-            "streamlit_tag",
-            type="string",
-            description="Version tag for the streamlit image",
-            default="latest",  # fallback to 'latest' if not provided
+        stormlit_tag = (
+            TerraformVariable(
+                self,
+                "stormlit_tag",
+                type="string",
+                description="Version tag for the stormlit image",
+                default="latest",  # fallback to 'latest' if not provided
+            ).string_value
+            if config.ecs.stormlit_config.image_tag is None
+            else config.ecs.stormlit_config.image_tag
         )
+
+        config.ecs.stormlit_config.image_tag = stormlit_tag
 
         # Create IAM roles and instance profile
         self.iam = EcsIamConstruct(
@@ -83,20 +128,30 @@ class ApplicationStack(BaseStack):
             project_prefix=config.project_prefix,
             environment=config.environment,
             secret_arns=[
-                database_secret_arn,
-                keycloak_secret_arn,
-                keycloak_db_secret_arn,
-                pgstac_db_secret_arn,
+                pgstac_read_secret_arn,
             ],
-            tags=config.tags,
-        )
-
-        # Create CloudWatch Log Groups
-        CloudWatchConstruct(
-            self,
-            "cloudwatch",
-            project_prefix=config.project_prefix,
-            environment=config.environment,
+            services={
+                "streamlit": {
+                    "task_role_statements": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetObject",
+                                "s3:ListBucket",
+                            ],
+                            "Resource": "*",
+                        }
+                    ],
+                    "execution_role_statements": [],
+                },
+                "stac-api": {
+                    "task_role_statements": [],
+                    "execution_role_statements": [],
+                    "secret_arns": [
+                        pgstac_read_secret_arn,
+                    ],
+                },
+            },
             tags=config.tags,
         )
 
@@ -120,34 +175,45 @@ class ApplicationStack(BaseStack):
             "alb",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            domain_name=config.application.domain_name,
+            app_config=config.application,
             vpc_id=vpc_id,
             public_subnet_ids=public_subnet_ids,
             security_group_id=alb_security_group_id,
             tags=config.tags,
         )
 
-        # Create ECS Services (Keycloak and Streamlit)
+        # Create ECS Services (stac-api and stormlit)
+        service_roles = {
+            "stormlit": ServiceRoles(
+                execution_role_arn=self.iam.service_execution_roles["streamlit"].arn,
+                task_role_arn=self.iam.service_task_roles["streamlit"].arn,
+            ),
+            "stac-api": ServiceRoles(
+                execution_role_arn=self.iam.service_execution_roles["stac-api"].arn,
+                task_role_arn=self.iam.service_task_roles["stac-api"].arn,
+            ),
+        }
+
+        # Create target groups mapping
+        target_groups = {
+            "stormlit": self.alb.app_target_group.arn,
+            "stac-api": self.alb.stac_api_target_group.arn,
+        }
+
         ecs_services = EcsServicesConstruct(
             self,
             "ecs-services",
-            host_name=f"stormlit.{config.application.domain_name}",
+            app_config=config.application,
             project_prefix=config.project_prefix,
             environment=config.environment,
             cluster_id=self.ecs_cluster.cluster.id,
-            execution_role_arn=self.iam.execution_role.arn,
-            task_role_arn=self.iam.task_role.arn,
+            service_roles=service_roles,
             private_subnet_ids=private_subnet_ids,
             security_group_id=ecs_security_group_id,
-            keycloak_target_group_arn=self.alb.keycloak_target_group.arn,
-            streamlit_target_group_arn=self.alb.streamlit_target_group.arn,
-            keycloak_image=config.application.keycloak_image,
-            streamlit_repository_url=streamlit_repository_url,
-            streamlit_tag=streamlit_tag.string_value,
-            rds_endpoint=rds_endpoint,
-            keycloak_secret_arn=keycloak_secret_arn,
-            keycloak_db_secret_arn=keycloak_db_secret_arn,
-            streamlit_container_count=config.ecs.streamlit_container_count,
+            target_groups=target_groups,
+            ecs_config=config.ecs,
+            rds_host=rds_host,
+            pgstac_read_secret_arn=pgstac_read_secret_arn,
             tags=config.tags,
         )
 

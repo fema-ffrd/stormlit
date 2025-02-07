@@ -1,6 +1,6 @@
 {
 	"name": "stormlit-devcontainer",
-	"dockerComposeFile": "docker-compose.yml",
+	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.devcontainer.yml"],
 	"service": "stormlit-app",
 	"workspaceFolder": "/workspace",
 	"features": {
@@ -31,7 +31,9 @@
 			"extensions": [
 				"ms-python.python",
 				"charliermarsh.ruff",
-				"GitHub.copilot"
+				"GitHub.copilot",
+				"-ms-vscode.azure-account", // deprecated
+				"-ms-azuretools.vscode-azureterraform"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "/opt/conda/envs/stormlit/bin/python"

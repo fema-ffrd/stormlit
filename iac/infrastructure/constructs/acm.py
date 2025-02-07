@@ -9,6 +9,42 @@ from cdktf_cdktf_provider_aws.data_aws_route53_zone import DataAwsRoute53Zone
 class AcmRoute53Construct(Construct):
     """
     A construct for managing ACM certificates and Route53 DNS records.
+
+    This construct handles the creation and validation of SSL/TLS certificates through AWS Certificate Manager (ACM)
+    and sets up the necessary DNS records in Route53. It automates the process of:
+    1. Looking up an existing Route53 hosted zone
+    2. Creating an ACM certificate for a specific subdomain
+    3. Creating DNS validation records to prove domain ownership
+    4. Validating the certificate
+    5. Creating an alias record to point the subdomain to an Application Load Balancer
+
+    Attributes:
+        hosted_zone (DataAwsRoute53Zone): Reference to the existing Route53 hosted zone
+        certificate (AcmCertificate): The ACM certificate for the domain
+        certificate_validation (AcmCertificateValidation): The certificate validation resource
+        alias_record (Route53Record): The A record pointing to the ALB
+
+    Parameters:
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        domain_name (str): The apex domain name (e.g., "example.com")
+        subdomain (str): The subdomain prefix (e.g., "api" for "api.example.com")
+        alb_dns_name (str): The DNS name of the Application Load Balancer
+        alb_zone_id (str): The hosted zone ID of the Application Load Balancer
+        tags (dict): Tags to apply to the created resources
+
+    Example:
+        ```python
+        AcmRoute53Construct(
+            self,
+            "acm",
+            domain_name="example.com",
+            subdomain="api",
+            alb_dns_name=alb.dns_name,
+            alb_zone_id=alb.zone_id,
+            tags={"Environment": "production"}
+        )
+        ```
     """
 
     def __init__(

@@ -1,9 +1,10 @@
+import geopandas as gpd
 import pandas as pd
 import streamlit as st
 
 
 def generate_stac_item_link(base_url, collection_id, item_id):
-    return f"{st.session_state.stac_browser}/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
+    return f"{st.session_state.stac_browser_url}/#/external/{base_url}/collections/{collection_id}/items/{item_id}"
 
 
 @st.cache_data
@@ -15,7 +16,7 @@ def fetch_collection_data(collection_id, _progress_bar):
     total_items = len(items)
 
     for idx, item in enumerate(items):
-        stac_item_link = f"{st.session_state.stac_browser}/#/external/{st.session_state.stac_api_url}/collections/{collection_id}/items/{item.id}"
+        stac_item_link = f"{st.session_state.stac_browser_url}/#/external/{st.session_state.stac_api_url}/collections/{collection_id}/items/{item.id}"
 
         event = item.properties.get("event", "N/A")
         block_group = item.properties.get("block_group", "N/A")
@@ -74,3 +75,44 @@ def init_gage_data(gages_pq_path: str):
 @st.cache_data
 def init_computation_data(comp_pq_path: str):
     st.computation = pd.read_parquet(comp_pq_path, engine="pyarrow")
+
+
+def prep_df(df: pd.DataFrame):
+    """
+    Prepares a GeoDataFrame for plotting on a folium map.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        A GeoDataFrame containing the map data
+
+    Returns
+    -------
+    pd.DataFrame
+        A GeoDataFrame with the necessary columns for plotting on a folium map
+    """
+    # Convert the CRS to EPSG:4326
+    df = df.to_crs(epsg=4326)
+    df.index.name = "id"
+    df["id"] = df.index.astype(str)
+    # Find the center of the map data
+    centroids = df.geometry.centroid
+    df["lat"] = centroids.y.astype(float)
+    df["lon"] = centroids.x.astype(float)
+    return df
+
+
+@st.cache_data
+def init_map_data(map_layer_dict: dict):
+    if "Subbasins" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Subbasins"])
+        st.subbasins = prep_df(df)
+    if "Reaches" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Reaches"])
+        st.reaches = prep_df(df)
+    if "Junctions" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Junctions"])
+        st.junctions = prep_df(df)
+    if "Reservoirs" in map_layer_dict:
+        df = gpd.read_file(map_layer_dict["Reservoirs"])
+        st.reservoirs = prep_df(df)

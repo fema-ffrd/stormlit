@@ -38,7 +38,7 @@ jobs:
   deploy-infrastructure:
     needs: [test, synth, build]
     runs-on: ubuntu-latest
-    environment: staging
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,8 +75,7 @@ jobs:
       - name: Deploy with CDKTF
         working-directory: ./iac
         env:
-          ENVIRONMENT: development
+          ENVIRONMENT: prod
           AWS_REGION: us-east-1
-          TF_VAR_streamlit_tag: latest
-          TF_VAR_streamlit_dev_tag: dev
-        run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-development-network stormlit-development-database stormlit-development-application --auto-approve
+          TF_VAR_stormlit_tag: latest
+        run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-prod-network stormlit-prod-database stormlit-prod-application --auto-approve
