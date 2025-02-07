@@ -1,5 +1,11 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List
+
+
+@dataclass
+class ServiceRoles:
+    execution_role_arn: str
+    task_role_arn: str
 
 
 @dataclass
@@ -15,6 +21,7 @@ class DatabaseConfig:
         multi_az (bool): Indicates if the RDS instance should be deployed in multiple Availability Zones for
             high availability.
         backup_retention_period (int): The number of days to retain backups.
+        publicly_accessible (bool): Indicates whether the RDS instance should be publicly accessible
 
     """
 
@@ -24,6 +31,11 @@ class DatabaseConfig:
     deletion_protection: bool
     multi_az: bool
     backup_retention_period: int
+    publicly_accessible: bool
+    skip_final_snapshot: bool
+    apply_immediately: bool
+    monitoring_interval: int
+    performance_insights_enabled: bool
 
 
 @dataclass
@@ -42,6 +54,16 @@ class BackendConfig:
 
 
 @dataclass
+class EcsServiceConfig:
+    image_repository: str
+    image_tag: str
+    container_count: int
+    cpu: int
+    memory: int
+    container_port: int
+
+
+@dataclass
 class EcsConfig:
     """
     Configuration class for ECS cluster settings.
@@ -49,13 +71,15 @@ class EcsConfig:
     Attributes:
         instance_type (str): The type of EC2 instances used by ECS.
         instance_count (int): The number of ECS instances.
-        streamlit_container_count (int): The number of Streamlit containers to run.
+        stormlit_config (EcsServiceConfig): Configuration for the Stormlit service.
+        stac_api_config (EcsServiceConfig): Configuration for the STAC FastAPI PGSTAC service.
 
     """
 
     instance_type: str
     instance_count: int
-    streamlit_container_count: int
+    stormlit_config: EcsServiceConfig
+    stac_api_config: EcsServiceConfig
 
 
 @dataclass
@@ -65,14 +89,15 @@ class ApplicationConfig:
 
     Attributes:
         domain_name (str): The domain name of the application.
-        keycloak_image (str): The Docker image of Keycloak.
-        stormlit_repo_url (str): The URL of the Stormlit repository.
-
+        stormlit_subdomain (str): The subdomain for the Stormlit application.
+        stac_api_subdomain (str): The subdomain for the STAC API.
+        enable_deletion_protection (bool): Indicates whether deletion protection is enabled for the ALB.
     """
 
     domain_name: str
-    keycloak_image: str
-    stormlit_repo_url: str
+    stormlit_subdomain: str
+    stac_api_subdomain: str
+    enable_deletion_protection: bool
 
 
 @dataclass
@@ -112,9 +137,10 @@ class EnvironmentConfig:
 
     Attributes:
         project_prefix (str): A prefix for naming resources to help differentiate between environments.
-        environment (str): The environment type (e.g., development, production).
+        environment (str): The environment type (e.g., dev, prod).
         region (str): The AWS region where resources will be deployed.
         vpc_cidr (str): The CIDR block for the VPC.
+        vpc_subnet_azs (List[str]): The availability zones for the VPC subnets.
         backend (BackendConfig): The configuration for backend storage (S3 bucket, DynamoDB table).
         database (DatabaseConfig): The configuration for RDS database settings.
         application (ApplicationConfig): The configuration for application-specific settings.
@@ -128,6 +154,7 @@ class EnvironmentConfig:
     environment: str
     region: str
     vpc_cidr: str
+    vpc_subnet_azs: List[str]
     backend: BackendConfig
     database: DatabaseConfig
     application: ApplicationConfig
@@ -146,9 +173,10 @@ def get_development_config() -> EnvironmentConfig:
     """
     return EnvironmentConfig(
         project_prefix="stormlit",
-        environment="development",
+        environment="dev",
         region="us-east-1",
         vpc_cidr="10.0.0.0/16",
+        vpc_subnet_azs=["us-east-1a", "us-east-1b"],
         backend=BackendConfig(
             s3_bucket="cdktf-state-fema-ffrd",
             dynamodb_table="cdktf-state-lock-fema-ffrd",
@@ -160,16 +188,37 @@ def get_development_config() -> EnvironmentConfig:
             deletion_protection=False,
             multi_az=False,
             backup_retention_period=7,
+            publicly_accessible=False,
+            skip_final_snapshot=True,
+            apply_immediately=True,
+            monitoring_interval=0,
+            performance_insights_enabled=False,
         ),
         application=ApplicationConfig(
             domain_name="arc-apps.net",
-            keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            stormlit_repo_url="ghcr.io/fema-ffrd/stormlit",
+            stormlit_subdomain="stormlit-dev",
+            stac_api_subdomain="stac-api-dev",
+            enable_deletion_protection=False,
         ),
         ecs=EcsConfig(
-            instance_type="t4g.medium",
-            instance_count=2,
-            streamlit_container_count=2,
+            instance_type="t3.medium",
+            instance_count=1,
+            stormlit_config=EcsServiceConfig(
+                image_repository="ghcr.io/fema-ffrd/stormlit",
+                image_tag=None,  # from TF_VAR_stormlit_tag
+                container_count=1,
+                cpu=1024,
+                memory=2560,
+                container_port=8501,
+            ),
+            stac_api_config=EcsServiceConfig(
+                image_repository="ghcr.io/stac-utils/stac-fastapi-pgstac",
+                image_tag="4.0.0",
+                container_count=1,
+                cpu=512,
+                memory=1024,
+                container_port=8080,
+            ),
         ),
         secrets=SecretsConfig(
             database_admin_username="stormlit_admin",
@@ -179,7 +228,7 @@ def get_development_config() -> EnvironmentConfig:
             ),
         ),
         tags={
-            "Environment": "development",
+            "Environment": "dev",
             "Project": "stormlit",
             "ManagedBy": "cdktf",
         },
@@ -196,40 +245,62 @@ def get_production_config() -> EnvironmentConfig:
     """
     return EnvironmentConfig(
         project_prefix="stormlit",
-        environment="production",
-        region="us-gov-east-1",
-        vpc_cidr="10.1.0.0/16",
+        environment="prod",
+        region="us-east-1",
+        vpc_cidr="10.0.0.0/16",
+        vpc_subnet_azs=["us-east-1a", "us-east-1b", "us-east-1c"],
         backend=BackendConfig(
-            s3_bucket="",  # TODO: Change bucket name
-            dynamodb_table="",  # TODO: Change table name
+            s3_bucket="cdktf-state-fema-ffrd",
+            dynamodb_table="cdktf-state-lock-fema-ffrd",
         ),
         database=DatabaseConfig(
-            instance_class="db.t3.medium",
-            allocated_storage=50,
-            max_allocated_storage=200,
-            deletion_protection=True,
-            multi_az=True,
-            backup_retention_period=30,
+            instance_class="db.t4g.medium",
+            allocated_storage=20,
+            max_allocated_storage=100,
+            deletion_protection=False,
+            multi_az=False,
+            backup_retention_period=7,
+            publicly_accessible=False,
+            skip_final_snapshot=False,
+            apply_immediately=False,
+            monitoring_interval=0,
+            performance_insights_enabled=False,
         ),
         application=ApplicationConfig(
-            domain_name="prod.example.com",  # TODO Change domain name
-            keycloak_image="quay.io/keycloak/keycloak:26.0.6",
-            stormlit_repo_url="ghcr.io/fema-ffrd/stormlit",
+            domain_name="arc-apps.net",
+            stormlit_subdomain="stormlit",
+            stac_api_subdomain="stac-api",
+            enable_deletion_protection=True,
         ),
         ecs=EcsConfig(
-            instance_type="t3.large",
-            instance_count=2,
-            streamlit_container_count=2,
+            instance_type="t3.medium",
+            instance_count=1,
+            stormlit_config=EcsServiceConfig(
+                image_repository="ghcr.io/fema-ffrd/stormlit",
+                image_tag=None,  # from TF_VAR_stormlit_tag
+                container_count=1,
+                cpu=1024,
+                memory=2560,
+                container_port=8501,
+            ),
+            stac_api_config=EcsServiceConfig(
+                image_repository="ghcr.io/stac-utils/stac-fastapi-pgstac",
+                image_tag="4.0.0",
+                container_count=1,
+                cpu=512,
+                memory=1024,
+                container_port=8080,
+            ),
         ),
         secrets=SecretsConfig(
             database_admin_username="stormlit_admin",
             passwords=PasswordConfig(
-                length=32,
+                length=16,
                 use_special=True,
             ),
         ),
         tags={
-            "Environment": "production",
+            "Environment": "prod",
             "Project": "stormlit",
             "ManagedBy": "cdktf",
         },
@@ -241,7 +312,7 @@ def get_config(environment: str) -> EnvironmentConfig:
     Retrieves the appropriate environment configuration based on the given environment type.
 
     Args:
-        environment (str): The environment type (development or production).
+        environment (str): The environment type (dev or prod).
 
     Returns:
         EnvironmentConfig: The corresponding configuration object for the specified environment.
@@ -251,8 +322,8 @@ def get_config(environment: str) -> EnvironmentConfig:
 
     """
     configs = {
-        "development": get_development_config,
-        "production": get_production_config,
+        "dev": get_development_config,
+        "prod": get_production_config,
     }
 
     if environment not in configs:

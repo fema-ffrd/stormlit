@@ -9,31 +9,79 @@ from cdktf_cdktf_provider_aws.secretsmanager_secret_version import (
 
 class SecretsManagerConstruct(Construct):
     """
-    A Construct for managing sensitive credentials using AWS Secrets Manager.
+    A construct for managing database credentials in AWS Secrets Manager.
 
-    This construct facilitates the creation and management of secrets in AWS Secrets Manager,
-    providing a secure way to store and access sensitive information such as database credentials,
-    API keys, and application secrets. It supports both single-value secrets and JSON-structured
-    secrets with multiple key-value pairs.
+    This construct creates and manages secrets for database access credentials:
+    1. Database admin credentials
+    2. PgSTAC admin credentials
+    3. PgSTAC ingest user credentials
+    4. PgSTAC read-only user credentials
+
+    Each secret:
+    - Stores username and password as JSON
+    - Has a unique name with environment prefix
+    - Includes description and tags
+    - Creates initial secret version
+    - Format: {"username": "user", "password": "pass"}
+
+    Secret Hierarchy:
+    - Database Admin: Root database administrator
+    - PgSTAC Admin: PgSTAC schema owner and migrations
+    - PgSTAC Ingest: Write access for data ingestion
+    - PgSTAC Read: Read-only access for queries
 
     Attributes:
-        database_secret (SecretsmanagerSecret): The secret containing database credentials.
-        keycloak_secret (SecretsmanagerSecret): The secret containing Keycloak admin credentials.
+        db_admin_secret (SecretsmanagerSecret): Database admin credentials secret
+        pgstac_admin_secret (SecretsmanagerSecret): PgSTAC admin credentials secret
+        pgstac_ingest_secret (SecretsmanagerSecret): PgSTAC ingest credentials secret
+        pgstac_read_secret (SecretsmanagerSecret): PgSTAC read-only credentials secret
 
     Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): The unique identifier of the construct.
-        project_prefix (str): A prefix for project-related resource names to ensure uniqueness.
-        environment (str): The environment name (e.g., `development`, `production`) for resource differentiation.
-        database_credentials (Dict[str, str]): Dictionary containing database credentials (username, password).
-        keycloak_credentials (Dict[str, str]): Dictionary containing Keycloak admin credentials.
-        tags (dict): A dictionary of tags to apply to all resources created by this construct.
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names
+        environment (str): Environment name (e.g., "prod", "dev")
+        db_admin_credentials (Dict[str, str]): Database admin username and password
+        pgstac_admin_credentials (Dict[str, str]): PgSTAC admin username and password
+        pgstac_ingest_credentials (Dict[str, str]): PgSTAC ingest username and password
+        pgstac_read_credentials (Dict[str, str]): PgSTAC read-only username and password
+        tags (dict): Tags to apply to all secrets
 
-    Methods:
-        __init__(self, scope, id, ...): Initializes the Secrets Manager construct, creating necessary secrets
-            and their versions.
-        _create_secret_with_version(self, secret_id: str, name: str, secret_value: Dict[str, str]): Helper method
-            to create a secret and its initial version.
+    Example:
+        ```python
+        secrets = SecretsManagerConstruct(
+            self,
+            "secrets",
+            project_prefix="myapp",
+            environment="prod",
+            db_admin_credentials={
+                "username": "admin",
+                "password": generated_password
+            },
+            pgstac_admin_credentials={
+                "username": "pgstac_admin",
+                "password": generated_password
+            },
+            pgstac_ingest_credentials={
+                "username": "pgstac_ingest",
+                "password": generated_password
+            },
+            pgstac_read_credentials={
+                "username": "pgstac_read",
+                "password": generated_password
+            },
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Secrets are created with initial versions
+        - Credentials stored in JSON format
+        - Secret names include project and environment prefix
+        - All secrets are tagged for management
+        - Secrets can be referenced by ARN in other resources
+        - Suitable for use with ECS task definitions
+        - Integrated with AWS IAM for access control
     """
 
     def __init__(
@@ -43,10 +91,10 @@ class SecretsManagerConstruct(Construct):
         *,
         project_prefix: str,
         environment: str,
-        database_credentials: Dict[str, str],
-        keycloak_credentials: Dict[str, str],
-        keycloak_db_credentials: Dict[str, str],
-        pgstac_db_credentials: Dict[str, str],
+        db_admin_credentials: Dict[str, str],
+        pgstac_admin_credentials: Dict[str, str],
+        pgstac_ingest_credentials: Dict[str, str],
+        pgstac_read_credentials: Dict[str, str],
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
@@ -54,34 +102,32 @@ class SecretsManagerConstruct(Construct):
         resource_prefix = f"{project_prefix}-{environment}"
 
         # Create database admin credentials secret
-        self.database_secret = self._create_secret_with_version(
-            "database-secret",
-            f"{resource_prefix}-db-creds",
-            database_credentials,
+        self.db_admin_secret = self._create_secret_with_version(
+            "db-admin-secret",
+            f"{resource_prefix}-db-admin-creds",
+            db_admin_credentials,
             tags,
         )
 
-        # Create Keycloak admin credentials secret
-        self.keycloak_secret = self._create_secret_with_version(
-            "keycloak-secret",
-            f"{resource_prefix}-kc-creds",
-            keycloak_credentials,
+        # Create PgSTAC credentials secrets
+        self.pgstac_admin_secret = self._create_secret_with_version(
+            "pgstac-admin-secret",
+            f"{resource_prefix}-pgstac-admin-creds",
+            pgstac_admin_credentials,
             tags,
         )
 
-        # Create Keycloak database user credentials secret
-        self.keycloak_db_secret = self._create_secret_with_version(
-            "keycloak-db-secret",
-            f"{resource_prefix}-kc-db-creds",
-            keycloak_db_credentials,
+        self.pgstac_ingest_secret = self._create_secret_with_version(
+            "pgstac-ingest-secret",
+            f"{resource_prefix}-pgstac-ingest-creds",
+            pgstac_ingest_credentials,
             tags,
         )
 
-        # Create PGSTAC database user credentials secret
-        self.pgstac_db_secret = self._create_secret_with_version(
-            "pgstac-db-secret",
-            f"{resource_prefix}-pgstac-db-creds",
-            pgstac_db_credentials,
+        self.pgstac_read_secret = self._create_secret_with_version(
+            "pgstac-read-secret",
+            f"{resource_prefix}-pgstac-read-creds",
+            pgstac_read_credentials,
             tags,
         )
 

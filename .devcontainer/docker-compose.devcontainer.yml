@@ -6,5 +6,13 @@ services:
       context: .
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
+    environment:
+      - PGHOST=stormlit-pgstac
+      - PGUSER=postgres
+      - PGPASSWORD=password
+      - PGDATABASE=postgis
+      - PGSTAC_ADMIN_PASSWORD=password
+      - PGSTAC_INGEST_PASSWORD=password
+      - PGSTAC_READ_PASSWORD=password
     volumes:
       - .:/workspace:cached

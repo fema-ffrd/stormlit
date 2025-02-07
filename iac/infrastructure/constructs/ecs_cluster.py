@@ -8,30 +8,64 @@ from cdktf_cdktf_provider_aws.data_aws_ssm_parameter import DataAwsSsmParameter
 
 class EcsClusterConstruct(Construct):
     """
-    A Construct for creating an ECS cluster along with EC2 instances to serve as its capacity providers.
+    A construct for creating an ECS cluster and its EC2 capacity providers.
 
-    This construct manages the setup of an ECS cluster in AWS, along with EC2 instances configured as
-    capacity providers. It ensures the necessary infrastructure is provisioned to run ECS tasks efficiently,
-    leveraging Amazon ECS-optimized AMIs, instance profiles, and network configurations.
+    This construct creates an Amazon ECS cluster and provisions EC2 instances to serve as container hosts.
+    It handles the complete setup of the cluster infrastructure including:
+    1. ECS cluster creation with container insights enabled
+    2. EC2 instances using the latest ECS-optimized Amazon Linux 2 AMI
+    3. Auto-registration of instances with the ECS cluster
+    4. Instance metadata service v2 (IMDSv2) configuration
+    5. EBS volume encryption and configuration
+    6. Integration with CloudWatch for container insights
+
+    The EC2 instances are configured with:
+    - ECS container agent and configuration
+    - Container metadata enabled
+    - Root volume encryption
+    - IMDSv2 requirement for enhanced security
+    - Round-robin distribution across specified subnets
+    - User data script for ECS cluster registration
 
     Attributes:
-        cluster (EcsCluster): The ECS cluster created by this construct.
-        instances (List[Instance]): List of EC2 instances serving as capacity providers for the ECS cluster.
+        cluster (EcsCluster): The ECS cluster resource
+        instances (List[Instance]): List of EC2 instances serving as container hosts
 
     Parameters:
-        scope (Construct): The scope in which this construct is defined.
-        id (str): The unique identifier of the construct.
-        project_prefix (str): A prefix for project-related resource names to ensure uniqueness.
-        environment (str): The environment name (e.g., `development`, `production`) to differentiate resources.
-        instance_type (str): The EC2 instance type used for capacity provisioning.
-        instance_count (int): The number of EC2 instances to provision for the ECS cluster.
-        subnet_ids (List[str]): A list of subnet IDs where the ECS instances will be deployed.
-        security_group_id (str): The security group ID to apply to the ECS instances.
-        instance_profile_name (str): The IAM instance profile name to attach to the ECS instances.
-        tags (dict): A dictionary of tags to apply to all resources created by this construct.
+        scope (Construct): The scope in which this construct is defined
+        id (str): The scoped construct ID
+        project_prefix (str): Prefix for resource names (e.g., "project-name")
+        environment (str): Environment name (e.g., "prod", "dev")
+        instance_type (str): EC2 instance type (e.g., "t3.medium")
+        instance_count (int): Number of EC2 instances to provision
+        subnet_ids (List[str]): List of subnet IDs for instance placement
+        security_group_id (str): Security group ID for the EC2 instances
+        instance_profile_name (str): IAM instance profile name for EC2 instances
+        tags (dict): Tags to apply to all resources
 
-    Methods:
-        __init__(self, scope, id, ...): Initializes the ECS cluster and EC2 instances.
+    Example:
+        ```python
+        cluster = EcsClusterConstruct(
+            self,
+            "ecs-cluster",
+            project_prefix="myapp",
+            environment="prod",
+            instance_type="t3.medium",
+            instance_count=2,
+            subnet_ids=["subnet-1", "subnet-2"],
+            security_group_id="sg-123",
+            instance_profile_name="ecs-instance-profile",
+            tags={"Environment": "production"}
+        )
+        ```
+
+    Notes:
+        - Uses the latest ECS-optimized AMI from SSM Parameter Store
+        - Instances are distributed across subnets in a round-robin fashion
+        - Root volumes are encrypted and sized to 30GB using gp3
+        - Container insights are enabled on the cluster by default
+        - Each instance automatically joins the cluster via user data script
+        - Instance IDs are exported as TerraformOutputs for reference
     """
 
     def __init__(
@@ -65,7 +99,7 @@ class EcsClusterConstruct(Construct):
         latest_ecs_ami = DataAwsSsmParameter(
             self,
             "ecs-ami",
-            name="/aws/service/ecs/optimized-ami/amazon-linux-2/arm64/recommended/image_id",
+            name="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
         )
 
         # Create EC2 instances for ECS cluster

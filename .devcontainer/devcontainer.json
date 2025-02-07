@@ -31,7 +31,9 @@
 			"extensions": [
 				"ms-python.python",
 				"charliermarsh.ruff",
-				"GitHub.copilot"
+				"GitHub.copilot",
+				"-ms-vscode.azure-account", // deprecated
+				"-ms-azuretools.vscode-azureterraform"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "/opt/conda/envs/stormlit/bin/python"
