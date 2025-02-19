@@ -32,7 +32,7 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
                 position: relative;
                 text-decoration: none;
                 border-radius: 4px;
-                border-width: 1px;
+                border-width: 2px;
                 border-style: solid;
                 border-color: rgb(230, 234, 241);
                 border-image: initial;
