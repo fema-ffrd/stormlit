@@ -32,7 +32,7 @@ def home_page():
 
     st.sidebar.markdown("## Database")
     for link_text, link_url in database_link_dict.items():
-        create_st_button(link_text, link_url, st_col=st.sidebar)
+        create_st_button(link_text, link_url, st_col=st.sidebar, hover_color="#1c66e8")
 
     literature_link_dict = {
         "Application of SST": "https://link.springer.com/article/10.1007/s00477-024-02853-6",
@@ -42,7 +42,7 @@ def home_page():
 
     st.sidebar.markdown("## Literature")
     for link_text, link_url in literature_link_dict.items():
-        create_st_button(link_text, link_url, st_col=st.sidebar)
+        create_st_button(link_text, link_url, st_col=st.sidebar, hover_color="#1c66e8")
 
     software_link_dict = {
         "FEMA-FFRD": "https://github.com/fema-ffrd",
@@ -64,7 +64,7 @@ def home_page():
         if i == len(link_col_dict.keys()):
             i = 0
 
-        create_st_button(link_text, link_url, st_col=st_col)
+        create_st_button(link_text, link_url, st_col=st_col, hover_color="#1c66e8")
 
     st.markdown("---")
 
