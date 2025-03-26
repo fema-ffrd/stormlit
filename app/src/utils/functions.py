@@ -2,9 +2,16 @@ import re
 import folium
 import uuid
 import streamlit as st
+import geopandas as gpd
 
 
-def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_col=None):
+def create_st_button(
+    link_text: str,
+    link_url: str,
+    background_color="rgb(255, 255, 255)",
+    hover_color="#f2f3f4",
+    st_col=None,
+):
     """
     Create a Streamlit button with a hover effect
 
@@ -26,7 +33,7 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
     button_css = f"""
         <style>
             #{button_id} {{
-                background-color: rgb(255, 255, 255);
+                background-color: {background_color};
                 color: rgb(38, 39, 48);
                 padding: 0.25em 0.38em;
                 position: relative;
@@ -57,16 +64,160 @@ def create_st_button(link_text: str, link_url: str, hover_color="#e78ac3", st_co
         st_col.markdown(button_css + html_str, unsafe_allow_html=True)
 
 
-def style_reservoir(feature):
-    return {"markerColor": "blue"}
+def add_polygons_fg(
+    gdf: gpd.GeoDataFrame,
+    layer_name: str,
+    tooltip_fields: list,
+    style_function: callable,
+):
+    """
+    Add polygons to a folium map as a feature group
+
+    Parameters
+    ----------
+    gdf: gpd.GeoDataFrame
+        A GeoDataFrame with polygon geometries
+    layer_name: str
+        The name of the layer to add to the map
+    tooltip_fields: list
+        A list of fields to display in the tooltip
+    style_function: callable
+        A function to style the polygons
+
+    Returns
+    -------
+    folium.FeatureGroup
+        A folium feature group containing the polygons
+    """
+
+    fg_polygons = folium.FeatureGroup(name=layer_name)
+    fg_polygons.add_child(
+        folium.GeoJson(
+            gdf,
+            name=layer_name,
+            zoom_on_click=True,
+            style_function=style_function,
+            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        )
+    )
+    return fg_polygons
 
 
-def style_junction(feature):
-    return {"markerColor": "green"}
+def add_markers_fg(
+    gdf: gpd.GeoDataFrame,
+    layer_name: str,
+    tooltip_fields: list,
+    style_function: callable,
+):
+    """
+    Add markers to a folium map as a feature group
+
+    Parameters
+    ----------
+    gdf: gpd.GeoDataFrame
+        A GeoDataFrame with point geometries
+    layer_name: str
+        The name of the layer to add to the map
+    tooltip_fields: list
+        A list of fields to display in the tooltip
+    style_function: callable
+        A function to style the markers
+
+    Returns
+    -------
+    folium.FeatureGroup
+        A folium feature group containing the markers
+    """
+    fg_markers = folium.FeatureGroup(name=layer_name)
+    fg_markers.add_child(
+        folium.GeoJson(
+            gdf,
+            marker=folium.Marker(icon=folium.Icon()),
+            name=layer_name,
+            zoom_on_click=True,
+            style_function=style_function,
+            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        )
+    )
+    return fg_markers
+
+
+def add_circles_fg(
+    gdf: gpd.GeoDataFrame,
+    layer_name: str,
+    tooltip_fields: list,
+    style_function: callable,
+):
+    """
+    Add circles to a folium map as a feature group
+
+    Parameters
+    ----------
+    gdf: gpd.GeoDataFrame
+        A GeoDataFrame with point geometries
+    layer_name: str
+        The name of the layer to add to the map
+    tooltip_fields: list
+        A list of fields to display in the tooltip
+    style_function: callable
+        A function to style the circles
+
+    Returns
+    -------
+    folium.FeatureGroup
+        A folium feature group containing the circles
+    """
+    fg_circles = folium.FeatureGroup(name=layer_name)
+    fg_circles.add_child(
+        folium.GeoJson(
+            gdf,
+            marker=folium.Circle(
+                radius=1500,
+                fill_color="blue",
+                fill_opacity=0.5,
+                color="black",
+                weight=1,
+            ),
+            style_function=style_function,
+            name=layer_name,
+            zoom_on_click=True,
+            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        )
+    )
+    return fg_circles
+
+
+def style_basins(feature):
+    return {"fillColor": "#1e90ff"}
+
+
+def style_dams(feature):
+    return {"fillColor": "#e32636"}
+
+
+def style_gages(feature):
+    return {"fillColor": "#32cd32"}
+
+
+def style_storms(feature):
+    return {"fillColor": "#ed9121"}
+
+
+def style_ref_lines(feature):
+    return {"fillColor": "#1e90ff"}
+
+
+def style_ref_points(feature):
+    return {"fillColor": "#1e90ff"}
 
 
 @st.cache_data
-def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
+def prep_fmap(
+    sel_layers: list,
+    basemap: str = "OpenStreetMap",
+    basin_name: str = None,
+    storm_rank: int = None,
+):
     """
     Prep a folium map object given a geojson with a specificed basemap
 
@@ -77,6 +228,10 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
     basemap: str
         Basemap to use for the map.
         Options are "OpenStreetMap", "ESRI Satellite", and "Google Satellite"
+    basin_name: str
+        The basin name to plot additional data for
+    storm_rank: int
+        The rank of the storm to plot
 
     Returns
     -------
@@ -85,20 +240,41 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
     """
     df_dict = {}
     for layer in sel_layers:
-        if layer == "Subbasins" and st.subbasins is not None:
-            df_dict["Subbasins"] = st.subbasins
-        elif layer == "Reaches" and st.reaches is not None:
-            df_dict["Reaches"] = st.reaches
-        elif layer == "Junctions" and st.junctions is not None:
-            df_dict["Junctions"] = st.junctions
-        elif layer == "Reservoirs" and st.reservoirs is not None:
-            df_dict["Reservoirs"] = st.reservoirs
+        if layer == "Basins" and st.basins is not None:
+            df_dict["Basins"] = st.basins
+        elif layer == "Dams" and st.dams is not None:
+            df_dict["Dams"] = st.dams
+        elif layer == "Gages" and st.gages is not None:
+            df_dict["Gages"] = st.gages
+        elif layer == "Storms" and st.storms is not None:
+            df_dict["Storms"] = st.storms
+        else:
+            pass
 
-    # Get the centroid from the first GeoDataFrame in the dictionary
-    c_df = df_dict[sel_layers[0]]
-    c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+    if basin_name is not None:
+        # Get the centroid from the selected basin
+        c_df = df_dict["Basins"]
+        c_lat, c_lon = (
+            c_df[c_df["NAME"] == basin_name]["lat"].mean(),
+            c_df[c_df["NAME"] == basin_name]["lon"].mean(),
+        )
+        c_zoom = 10
+    elif storm_rank is not None:
+        # Get the centroid from the selected storm
+        c_df = df_dict["Storms"]
+        c_lat, c_lon = (
+            c_df[c_df["rank"] == storm_rank]["lat"].mean(),
+            c_df[c_df["rank"] == storm_rank]["lon"].mean(),
+        )
+        c_zoom = 12
+    else:
+        # Get the centroid of the pilot study area
+        c_df = df_dict["Basins"]
+        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+        c_zoom = 8
+
     # Create a folium map centered at the mean latitude and longitude
-    m = folium.Map(location=[c_lat, c_lon], zoom_start=10)
+    m = folium.Map(location=[c_lat, c_lon], zoom_start=c_zoom)
     # Specify the basemap
     if basemap == "ESRI Satellite":
         folium.TileLayer(
@@ -124,59 +300,50 @@ def prep_fmap(sel_layers: list, basemap: str = "OpenStreetMap"):
     for key, df in df_dict.items():
         df["layer"] = key
         # Add the GeoDataFrames geometry to the map
-        if key == "Subbasins":
-            fg_subbasins = folium.FeatureGroup(name="Subbasins")
-            fg_subbasins.add_child(
-                folium.GeoJson(
-                    df,
-                    name=sel_layers[idx],
-                    zoom_on_click=True,
-                    color="blue",
-                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
-                )
+        if key == "Basins":
+            fg_basins = add_polygons_fg(
+                df, sel_layers[idx], ["layer", "HUC8", "NAME"], style_basins
             )
-            fg_subbasins.add_to(m)
-        elif key == "Reaches":
-            fg_reaches = folium.FeatureGroup(name="Reaches")
-            fg_reaches.add_child(
-                folium.GeoJson(
-                    df,
-                    name=sel_layers[idx],
-                    zoom_on_click=True,
-                    color="red",
-                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
-                )
+            fg_basins.add_to(m)
+        elif key == "Dams":
+            fg_dams = add_circles_fg(df, sel_layers[idx], ["layer", "id"], style_dams)
+            fg_dams.add_to(m)
+        elif key == "Gages":
+            fg_gages = add_circles_fg(
+                df, sel_layers[idx], ["layer", "site_no"], style_gages
             )
-            fg_reaches.add_to(m)
-        elif key == "Reservoirs":
-            fg_reservoirs = folium.FeatureGroup(name="Reservoirs")
-            fg_reservoirs.add_child(
-                folium.GeoJson(
-                    df,
-                    marker=folium.Marker(icon=folium.Icon()),
-                    name=sel_layers[idx],
-                    zoom_on_click=True,
-                    style_function=style_reservoir,
-                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
-                )
+            fg_gages.add_to(m)
+        elif key == "Storms":
+            fg_storms = add_circles_fg(
+                df, sel_layers[idx], ["layer", "rank", "storm_type"], style_storms
             )
-            fg_reservoirs.add_to(m)
-        elif key == "Junctions":
-            fg_junctions = folium.FeatureGroup(name="Junctions")
-            fg_junctions.add_child(
-                folium.GeoJson(
-                    df,
-                    marker=folium.Marker(icon=folium.Icon()),
-                    name=sel_layers[idx],
-                    zoom_on_click=True,
-                    style_function=style_junction,
-                    tooltip=folium.GeoJsonTooltip(fields=["layer", "id"]),
-                )
-            )
-            fg_junctions.add_to(m)
+            fg_storms.add_to(m)
         else:
-            raise ValueError(f"Error: invalid map layer {key}")
+            pass
         idx += 1
+
+    if basin_name is not None:
+        # plot the reference lines and points
+        if basin_name in st.ref_lines["NAME"].unique():
+            ref_lines = st.ref_lines.loc[st.ref_lines["NAME"] == basin_name]
+            ref_lines["layer"] = "Reference Lines"
+            fg_ref_lines = add_polygons_fg(
+                ref_lines,
+                "Reference Lines",
+                ["layer", "id", "line_type"],
+                style_ref_lines,
+            )
+            fg_ref_lines.add_to(m)
+        if basin_name in st.ref_points["NAME"].unique():
+            ref_points = st.ref_points.loc[st.ref_points["NAME"] == basin_name]
+            ref_points["layer"] = "Reference Points"
+            fg_ref_points = add_markers_fg(
+                ref_points,
+                "Reference Points",
+                ["layer", "id", "point_type"],
+                style_ref_points,
+            )
+            fg_ref_points.add_to(m)
     # Add the layer control to the map
     folium.LayerControl().add_to(m)
     return m
@@ -199,23 +366,34 @@ def get_map_sel(map_output: str):
     tooltip_text = map_output["last_object_clicked_tooltip"]
     # Split the tooltip multi line string into objects
     items = tooltip_text.split("\n")
+    # Remove any empty strings and spaces
     items = [item.replace(" ", "") for item in items if len(item.replace(" ", "")) > 0]
     layer_col = items[0]  # layer column
     layer_val = items[1]  # layer value
     id_col = items[2]  # id column
     id_val = items[3]  # id value
-    if layer_val == "Subbasins" and st.subbasins is not None:
-        df = st.subbasins
-    elif layer_val == "Reaches" and st.reaches is not None:
-        df = st.reaches
-    elif layer_val == "Junctions" and st.junctions is not None:
-        df = st.junctions
-    elif layer_val == "Reservoirs" and st.reservoirs is not None:
-        df = st.reservoirs
+    df = None
+
+    # Filter the GeoDataFrame based on the map selection
+    if layer_val == "Basins" and st.basins is not None:
+        df = st.basins
+        df = df[df["HUC8"] == id_val]
+    elif layer_val == "Dams" and st.dams is not None:
+        df = st.dams
+        df = df[df["id"] == id_val]
+    elif layer_val == "Gages" and st.gages is not None:
+        df = st.gages
+        df = df[df["site_no"] == id_val]
+    elif layer_val == "Storms" and st.storms is not None:
+        df = st.storms
+        df = df[df["rank"] == int(id_val)]
+    elif layer_val == "ReferenceLines" and st.ref_lines is not None:
+        df = st.ref_lines
+        df = df[df["id"] == id_val]
+    elif layer_val == "ReferencePoints" and st.ref_points is not None:
+        df = st.ref_points
+        df = df[df["id"] == id_val]
     else:
-        raise ValueError(
-            f"Invalid map layer {layer_col} with value {layer_val} and column {id_col} with value {id_val}"
-        )
-    # filter based on the map selection
-    df = df[df["id"] == id_val]
+        st.write(f"Pasing on layer {layer_val}")
+        pass
     return df
