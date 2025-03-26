@@ -6,16 +6,22 @@ https://fema-ffrd.github.io/stac-browser/#/external/duwamish-pilot.s3.amazonaws.
 from ..components.layout import render_footer
 from ..configs.settings import LOG_LEVEL
 from ..utils.session import init_session_state
-from ..utils.stac_data import init_map_data
+from ..utils.stac_data import (
+    init_pilot,
+    get_stac_img,
+    get_stac_meta,
+    define_gage_data,
+    define_storm_data,
+    define_dam_data,
+    get_ref_line_ts,
+    get_ref_pt_ts,
+)
 from ..utils.functions import prep_fmap, get_map_sel, create_st_button
-from ..utils.nwis_api import select_usgs_gages, get_nwis_streamflow
-from ..utils.plotting import create_time_series_plot
 
 
 # standard imports
 import os
 from streamlit_folium import st_folium
-import geopandas as gpd
 import streamlit as st
 from dotenv import load_dotenv
 import warnings
@@ -28,14 +34,6 @@ srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 load_dotenv()
 
-# global variables
-map_layer_dict = {
-    "Subbasins": "https://duwamish-pilot.s3.amazonaws.com/stac/Subbasin.geojson",
-    "Reaches": "https://duwamish-pilot.s3.amazonaws.com/stac/Reach.geojson",
-    "Junctions": "https://duwamish-pilot.s3.amazonaws.com/stac/Junction.geojson",
-    "Reservoirs": "https://duwamish-pilot.s3.amazonaws.com/stac/Reservoir.geojson",
-}
-
 
 def view_map():
     if "session_id" not in st.session_state:
@@ -43,49 +41,78 @@ def view_map():
 
     st.session_state.log_level = LOG_LEVEL
 
-    if st.session_state["init_map_data"] is False:
-        with st.spinner("Initializing datasets..."):
-            init_map_data(map_layer_dict)
-            st.session_state["init_map_data"] = True
-            st.success("Complete! Map data is now ready for exploration.")
-
     st.sidebar.markdown("## Toolbar")
+    st.session_state["pilot"] = st.sidebar.selectbox(
+        "Select a Pilot Study",
+        [
+            "Trinity",
+        ],
+        index=0,
+    )
+
+    if st.session_state["init_pilot"] is False:
+        with st.spinner("Initializing datasets..."):
+            init_pilot(st.session_state["pilot"])
+            st.session_state["init_pilot"] = True
+            st.success("Complete! Pilot data is now ready for exploration.")
+
     st.session_state["basemap"] = st.sidebar.selectbox(
-        "Select Basemap",
+        "Select a Basemap",
         ["OpenStreetMap", "ESRI Satellite", "Google Satellite"],
         index=0,
     )
-    st.session_state["gage_param"] = st.sidebar.selectbox(
-        "Select Gage Parameter",
-        ["Streamflow", "Stage", "Precipitation"],
+
+    st.session_state["gage_plot"] = st.sidebar.selectbox(
+        "Select a Gage Plot Type",
+        ["Flow Stats", "AMS", "AMS Seasons", "AMS LP3"],
         index=0,
     )
-    st.session_state["data_type"] = st.sidebar.selectbox(
-        "Select Data Type",
-        ["Daily", "Instantaneous"],
-        index=0,
+    storm_ranks = sorted(st.storms["rank"].unique())
+    st.session_state["storm_rank"] = st.sidebar.selectbox(
+        "Select a Storm Rank",
+        storm_ranks,
+        index=None,
     )
-    st.session_state["data_status"] = st.sidebar.selectbox(
-        "Select Data Status",
-        ["Active", "All"],
-        index=0,
+    basin_names = sorted(st.basins["NAME"].unique())
+    st.session_state["basin_name"] = st.sidebar.selectbox(
+        "Select a Basin",
+        basin_names,
+        index=None,
     )
 
     # add download buttons for each selected map layer
     st.subheader("Download Map Layers")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     create_st_button(
-        "Subbasins", map_layer_dict["Subbasins"], hover_color="#1c66e8", st_col=col1
+        "Basins", st.pilot_layers["Basins"], background_color="#1e90ff", st_col=col1
     )
+    col1.write("Polygons")
     create_st_button(
-        "Reaches", map_layer_dict["Reaches"], hover_color="#e8371c", st_col=col2
+        "Dams", st.pilot_layers["Dams"], background_color="#e32636", st_col=col2
     )
+    col2.write("Circles")
     create_st_button(
-        "Junctions", map_layer_dict["Junctions"], hover_color="#47c408", st_col=col3
+        "Gages", st.pilot_layers["Gages"], background_color="#32cd32", st_col=col3
     )
+    col3.write("Circles")
     create_st_button(
-        "Reservoirs", map_layer_dict["Reservoirs"], hover_color="#1bbdde", st_col=col4
+        "Storms", st.pilot_layers["Storms"], background_color="#ed9121", st_col=col4
     )
+    col4.write("Circles")
+    create_st_button(
+        "Reference Lines",
+        st.pilot_layers["Reference Lines"],
+        background_color="#1e90ff",
+        st_col=col5,
+    )
+    col5.write("Lines")
+    create_st_button(
+        "Reference Points",
+        st.pilot_layers["Reference Points"],
+        background_color="#1e90ff",
+        st_col=col6,
+    )
+    col6.write("Markers")
 
     st.markdown("## Map Viewer")
     st.write("""Select objects from the map to view their attributes. 
@@ -96,7 +123,12 @@ def view_map():
              """)
     # Display the map and map layers
     with st.spinner("Loading Map..."):
-        st.fmap = prep_fmap(list(map_layer_dict.keys()), st.session_state["basemap"])
+        st.fmap = prep_fmap(
+            list(st.pilot_layers.keys()),
+            st.session_state["basemap"],
+            st.session_state["basin_name"],
+            st.session_state["storm_rank"],
+        )
         st.map_output = st_folium(
             st.fmap,
             key="new_map",
@@ -108,47 +140,82 @@ def view_map():
         if st.map_output["last_object_clicked_tooltip"] is not None:
             st.sel_map_obj = get_map_sel(st.map_output)
             st.subheader("Selected Map Information")
-            st.dataframe(st.sel_map_obj.drop(columns=["geometry"]))
-            # query the NWIS API for gages within the selected geometry
-            if "Subbasins" in st.sel_map_obj["layer"].values:
-                st.gage_df = select_usgs_gages(
-                    st.sel_map_obj,
-                    parameter=st.session_state["gage_param"],
-                    realtime=st.session_state["data_status"],
-                    data_type=st.session_state["data_type"],
-                )
-    # Display the gage information within the selected subbasin
-    if st.map_output is not None:
-        if st.map_output["last_object_clicked_tooltip"] is not None:
-            if "Subbasins" in st.sel_map_obj["layer"].values:
-                st.subheader("USGS Gages within Selected Subbasin")
-                if isinstance(st.gage_df, str):
-                    st.error(st.gage_df)
-                else:
-                    st.dataframe(st.gage_df.drop(columns=["geometry"]))
-    if isinstance(st.gage_df, gpd.GeoDataFrame):
-        st.session_state["gage_id"] = st.sidebar.selectbox(
-            "Select a USGS Gage",
-            st.gage_df["site_no"].values,
-            index=None,
-        )
-    # Display the Period of Record (POR) for the selected gage
-    if st.session_state["gage_id"] is not None:
-        if isinstance(st.gage_df, gpd.GeoDataFrame):
-            filtered_df = st.gage_df[
-                st.gage_df["site_no"] == st.session_state["gage_id"]
-            ]
-            dates = (
-                filtered_df["begin_date"].values[0],
-                filtered_df["end_date"].values[0],
-            )
-            st.gage_df_por = get_nwis_streamflow(
-                st.session_state["gage_id"], dates, freq=st.session_state["data_type"]
-            )
-            # Create the Plotly figure
-            fig = create_time_series_plot(st.gage_df_por)
-            # Display the Plotly figure in Streamlit
-            st.plotly_chart(fig)
+
+    if st.sel_map_obj is not None:
+        # Display the gage information if a gage is selected
+        if "Gages" in st.sel_map_obj["layer"].values:
+            gage_id = st.sel_map_obj["site_no"].values[0]
+            gage_meta_url = define_gage_data(gage_id)["Metadata"]
+            gage_meta_status, gage_meta = get_stac_meta(gage_meta_url)
+            gage_plot_url = define_gage_data(gage_id)[st.session_state["gage_plot"]]
+            gage_plot_status, gage_plot_img = get_stac_img(gage_plot_url)
+            # display the metadata
+            if gage_meta_status:
+                with st.expander("View Metadata"):
+                    st.write(gage_meta["properties"])
+            else:
+                st.error("Error: Unable to retrieve the metadata.")
+                st.write(f"URL: {gage_meta_url}")
+            # display the img
+            if gage_plot_status:
+                st.write(f"""Collection of USGS streamflow gages in the {st.session_state["pilot"]}
+                          Watershed containing more than 15 years of annual maxima observations.
+                          Note that the LP-III computations do not include regional skew. This is
+                          a provisional collection, pending added datasets curated by engineers
+                          developing the hydrologic model.
+                         """)
+                st.image(gage_plot_img, use_container_width=True)
+            else:
+                st.error("Error: Unable to retrieve the plot.")
+                st.write(f"URL: {gage_plot_img}")
+        # Display the storm information if a storm is selected
+        elif "Storms" in st.sel_map_obj["layer"].values:
+            storm_rank = int(st.sel_map_obj["rank"].values[0])
+            storm_meta_url = define_storm_data(storm_rank)["Metadata"]
+            storm_meta_status, storm_meta = get_stac_meta(storm_meta_url)
+            # display the metadata
+            if storm_meta_status:
+                storm_plot_url = storm_meta["assets"]["thumbnail"]["href"]
+                storm_plot_status, storm_plot_img = get_stac_img(storm_plot_url)
+                with st.expander("View Metadata"):
+                    st.write(storm_meta["properties"])
+            else:
+                st.error("Error: Unable to retrieve the metadata.")
+                st.write(f"URL: {storm_meta_url}")
+            # display the img
+            if storm_meta_status and storm_plot_status:
+                st.write(f"""Collection of the top storms developed in the {st.session_state["pilot"]}
+                            Watershed for a 72-hour storm period.
+                            """)
+                st.image(storm_plot_img, use_container_width=True)
+            else:
+                st.error("Error: Unable to retrieve the plot.")
+                st.write(f"URL: {storm_plot_img}")
+        # Display the dam information if a dam is selected
+        elif "Dams" in st.sel_map_obj["layer"].values:
+            dam_id = st.sel_map_obj["id"].values[0]
+            dam_meta_url = define_dam_data(dam_id)["Metadata"]
+            dam_meta_status, dam_meta = get_stac_meta(dam_meta_url)
+            # display the metadata
+            if dam_meta_status:
+                with st.expander("View Metadata"):
+                    st.write(dam_meta["assets"])
+            else:
+                st.error("Error: Unable to retrieve the metadata.")
+                st.write(f"URL: {dam_meta_url}")
+        elif "Reference Lines" in st.sel_map_obj["layer"].values:
+            ref_line_id = st.sel_map_obj["id"].values[0]
+            st.write(f"Selected Reference Line: {ref_line_id}")
+            ref_line_ts = get_ref_line_ts(ref_line_id)
+            st.dataframe(ref_line_ts)
+        elif "Reference Points" in st.sel_map_obj["layer"].values:
+            ref_point_id = st.sel_map_obj["id"].values[0]
+            st.write(f"Selected Reference Point: {ref_point_id}")
+            ref_pt_ts = get_ref_pt_ts(ref_point_id)
+            st.dataframe(ref_pt_ts)
+        else:
+            pass
+
     # Display the session state
     with st.expander("View Session State"):
         st.write(st.session_state)
