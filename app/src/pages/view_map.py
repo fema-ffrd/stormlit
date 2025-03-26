@@ -1,7 +1,3 @@
-"""
-https://fema-ffrd.github.io/stac-browser/#/external/duwamish-pilot.s3.amazonaws.com/stac/duwamish/collection.json?.language=en
-"""
-
 # module imports
 from ..components.layout import render_footer
 from ..configs.settings import LOG_LEVEL
