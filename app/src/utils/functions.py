@@ -368,9 +368,9 @@ def get_map_sel(map_output: str):
     items = tooltip_text.split("\n")
     # Remove any empty strings and spaces
     items = [item.replace(" ", "") for item in items if len(item.replace(" ", "")) > 0]
-    layer_col = items[0]  # layer column
+    # layer_col = items[0]  # layer column
     layer_val = items[1]  # layer value
-    id_col = items[2]  # id column
+    # id_col = items[2]  # id column
     id_val = items[3]  # id value
     df = None
 
