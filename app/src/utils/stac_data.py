@@ -28,6 +28,10 @@ def prep_df(df: pd.DataFrame, layer: str):
     pd.DataFrame
         A GeoDataFrame with the necessary columns for plotting on a folium map
     """
+    # Get the original CRS and bbox
+    crs_str = df.crs.to_string()
+    bbox = df.total_bounds
+    bbox_str = f"{bbox[0]:.7f},{bbox[1]:.7f},{bbox[2]:.7f},{bbox[3]:.7f}"
     # Convert the CRS to EPSG:4326
     df = df.to_crs(epsg=4326)
     # Find the center of the map data
@@ -35,6 +39,8 @@ def prep_df(df: pd.DataFrame, layer: str):
     df["lat"] = centroids.y.astype(float)
     df["lon"] = centroids.x.astype(float)
     df["layer"] = layer
+    df["crs"] = crs_str
+    df["bbox"] = bbox_str
     return df
 
 
@@ -53,6 +59,11 @@ def init_pilot(pilot: str):
             "Storms": f"{st.pilot_base_url}/storms/72hr-events/storms.geojson",
             "Reference Lines": "/workspace/app/src/assets/ref_lines.geojson",
             "Reference Points": "/workspace/app/src/assets/ref_pts.geojson",
+        }
+        st.cog_layers = {
+            "Bedias Creek": "s3://trinity-pilot/stac/prod-support/models/testing/bediascreek-depth-max-aug2017.cog.tif",
+            "Kickapoo": "s3://trinity-pilot/stac/prod-support/models/testing/kickapoo-depth-max-aug2017.cog.tif",
+            "Livingston": "s3://trinity-pilot/stac/prod-support/models/testing/livingston-depth-max-aug2017.cog.tif"
         }
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
