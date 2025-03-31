@@ -12,8 +12,13 @@ from ..utils.stac_data import (
     get_ref_line_ts,
     get_ref_pt_ts,
 )
-from ..utils.functions import prep_fmap, get_map_sel, create_st_button
-
+from ..utils.functions import (prep_fmap,
+                               get_map_sel,
+                               create_st_button,
+                               init_cog,
+                               kill_cog,
+                               plot_ts
+)
 
 # standard imports
 import os
@@ -73,6 +78,12 @@ def view_map():
     st.session_state["basin_name"] = st.sidebar.selectbox(
         "Select a Basin",
         basin_names,
+        index=None,
+    )
+    cog_names = sorted(list(st.cog_layers.keys()))
+    st.session_state["cog_layer"] = st.sidebar.selectbox(
+        "Select a COG Layer",
+        cog_names,
         index=None,
     )
 
@@ -194,6 +205,9 @@ def view_map():
             dam_meta_status, dam_meta = get_stac_meta(dam_meta_url)
             # display the metadata
             if dam_meta_status:
+                # update the href in each asset to point to the full url for downloading
+                for key, asset in dam_meta["assets"].items():
+                    asset['href'] = f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{key}"
                 with st.expander("View Metadata"):
                     st.write(dam_meta["assets"])
             else:
@@ -203,14 +217,44 @@ def view_map():
             ref_line_id = st.sel_map_obj["id"].values[0]
             st.write(f"Selected Reference Line: {ref_line_id}")
             ref_line_ts = get_ref_line_ts(ref_line_id)
-            st.dataframe(ref_line_ts)
+            col1, col2 = st.columns(2)
+            with col1:
+                plot_ts(ref_line_ts, "water_surface")
+            with col2:
+                plot_ts(ref_line_ts, "flow")
         elif "Reference Points" in st.sel_map_obj["layer"].values:
             ref_point_id = st.sel_map_obj["id"].values[0]
             st.write(f"Selected Reference Point: {ref_point_id}")
             ref_pt_ts = get_ref_pt_ts(ref_point_id)
-            st.dataframe(ref_pt_ts)
+            col1, col2 = st.columns(2)
+            with col1:
+                plot_ts(ref_pt_ts, "water_surface")
+            with col2:
+                plot_ts(ref_pt_ts, "velocity")
+        elif "Basins" in st.sel_map_obj["layer"].values:
+            basin_id = st.sel_map_obj["HUC8"].values[0]
+            basin_gdf = st.basins[st.basins["HUC8"] == basin_id]
+            basin_bbox = basin_gdf["bbox"].values[0]
+            basin_bbox = [float(coord) for coord in basin_bbox.split(",")]
+            st.dataframe(basin_gdf.drop(columns=["geometry"]))
         else:
             pass
+
+    if st.session_state["cog_layer"] is not None:
+        cog_s3uri = st.cog_layers[st.session_state["cog_layer"]]
+        st.subheader("View Cloud Optimized GeoTIFF (COG)")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("Click the button to visualize the model results.")
+            if st.button("View COG", key="view_cog"):
+                # st.session_state["cog_url"], st.cog_process = init_cog(cog_s3uri)
+                init_cog(cog_s3uri)
+        with col2:
+            st.write("Click the button to terminate the COG server.")
+            if st.button("Kill COG", key="kill_cog"):
+                kill_cog()
+                # st.session_state["cog_url"] = None
+                # st.session_state["init_cog"] = False
 
     # Display the session state
     with st.expander("View Session State"):
