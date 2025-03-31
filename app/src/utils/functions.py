@@ -3,7 +3,11 @@ import folium
 import uuid
 import streamlit as st
 import geopandas as gpd
-
+import subprocess
+import pandas as pd
+import socket
+import random
+from plotly import express as px
 
 def create_st_button(
     link_text: str,
@@ -397,3 +401,95 @@ def get_map_sel(map_output: str):
         st.write(f"Pasing on layer {layer_val}")
         pass
     return df
+
+def is_port_available(port: int):
+    """
+    Check if a port is available.
+
+    Parameters
+    ----------
+    port : int
+        The port number to check.
+
+    Returns
+    -------
+    bool
+        True if the port is available, False otherwise.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) != 0
+
+def init_cog(path,
+             port=None):
+    """
+    Initializes a local server to visualize a COG file using rasterio's rio viz command.
+
+    Parameters
+    ----------
+    path : str
+        The path to the cog file.
+    port : int
+        The port to run the server on. Default is 8080.
+    
+    """
+    # Find an available port if none is provided
+    if port is None:
+        while True:
+            port = random.randint(1024, 65535)  # Use a port in the dynamic/private range
+            if is_port_available(port):
+                break
+
+    # Ensure the specified port is available
+    if not is_port_available(port):
+        raise ValueError(f"Port {port} is already in use. Please specify a different port.")
+
+    # Start the rio viz server in the background
+    subprocess.run(
+        ["rio", "viz", path, "--port", str(port)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+
+def kill_cog():
+    """
+    Kills the COG server process if it is running.
+    """
+    try:
+        subprocess.run(['pkill', '-f', 'rio viz'], check=True)
+        st.write("Server terminated successfully.")
+    except subprocess.CalledProcessError:
+        st.write("No running server found to terminate.")
+
+def plot_ts(df: pd.DataFrame, var: str):
+    """
+    Function for plotting time series data.
+    Columns in the DataFrame should be:
+    - 'id': str
+    - 'time': datetime
+    - 'velocity': float
+    - 'water_surface': float
+    - 'flow': float
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the time series data.
+    var : str
+        The variable to plot.
+    """
+    # Check if the DataFrame is empty
+    if df.empty:
+        st.warning("No data available for the selected variable.")
+        return
+
+    # Check if the required columns are present in the DataFrame
+    required_columns = ['id', 'time', var]
+    if not all(col in df.columns for col in required_columns):
+        st.error(f"DataFrame must contain the following columns: {required_columns}")
+        return
+
+    # Create a line plot using Streamlit
+    fig = px.line(df, x='time', y=var, title=f'Time Series Plot of {var}')
+    st.plotly_chart(fig)
