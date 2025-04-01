@@ -53,12 +53,12 @@ def init_pilot(pilot: str):
         st.pilot_base_url = "https://trinity-pilot.s3.amazonaws.com/stac/prod-support"
         ## TODO: Need to add local data to a STAC catalog
         st.pilot_layers = {
-            "Basins": "/workspace/app/src/assets/basins.geojson",
+            "Basins": os.path.join(assetsDir, "basins.geojson"),
             "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
             "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
             "Storms": f"{st.pilot_base_url}/storms/72hr-events/storms.geojson",
-            "Reference Lines": "/workspace/app/src/assets/ref_lines.geojson",
-            "Reference Points": "/workspace/app/src/assets/ref_pts.geojson",
+            "Reference Lines": os.path.join(assetsDir, "ref_lines.geojson"),
+            "Reference Points": os.path.join(assetsDir, "ref_pts.geojson"),
         }
         st.cog_layers = {
             "Bedias Creek": "s3://trinity-pilot/stac/prod-support/models/testing/bediascreek-depth-max-aug2017.cog.tif",
