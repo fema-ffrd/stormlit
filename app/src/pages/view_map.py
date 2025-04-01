@@ -255,9 +255,9 @@ def view_map():
             st.write("Click the button to terminate the COG server.")
             if st.button("Kill COG", key="kill_cog"):
                 if st.port is not None:
-                    kill_cog(st.port) # terminate the specified port
+                    kill_cog(st.port)  # terminate the specified port
                 else:
-                    kill_cog() # terminate all ports
+                    kill_cog()  # terminate all ports
 
     # Display the session state
     with st.expander("View Session State"):

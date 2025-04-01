@@ -436,6 +436,7 @@ def get_port():
         if is_port_available(port):
             return port
 
+
 def init_cog(path, port=8080):
     """
     Initializes a local server to visualize a COG file using rasterio's rio viz command.
@@ -456,6 +457,7 @@ def init_cog(path, port=8080):
         text=True,
         check=False,
     )
+
 
 def kill_cog(port=None):
     """
@@ -480,6 +482,7 @@ def kill_cog(port=None):
             st.write(f"No server found running on port {port}.")
         else:
             st.write("No running 'rio viz' servers found to terminate.")
+
 
 def plot_ts(df: pd.DataFrame, var: str):
     """
