@@ -12,12 +12,13 @@ from ..utils.stac_data import (
     get_ref_line_ts,
     get_ref_pt_ts,
 )
-from ..utils.functions import (prep_fmap,
-                               get_map_sel,
-                               create_st_button,
-                               init_cog,
-                               kill_cog,
-                               plot_ts
+from ..utils.functions import (
+    prep_fmap,
+    get_map_sel,
+    create_st_button,
+    init_cog,
+    kill_cog,
+    plot_ts,
 )
 
 # standard imports
@@ -207,7 +208,7 @@ def view_map():
             if dam_meta_status:
                 # update the href in each asset to point to the full url for downloading
                 for key, asset in dam_meta["assets"].items():
-                    asset['href'] = f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{key}"
+                    asset["href"] = f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{key}"
                 with st.expander("View Metadata"):
                     st.write(dam_meta["assets"])
             else:
