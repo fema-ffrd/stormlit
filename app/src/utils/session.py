@@ -42,3 +42,4 @@ def init_session_state():
     st.gage_df_por = None
     st.pilot_layers = None
     st.pilot_base_url = None
+    st.port = None
