@@ -19,6 +19,7 @@ from ..utils.functions import (
     init_cog,
     kill_cog,
     plot_ts,
+    get_port,
 )
 
 # standard imports
@@ -248,14 +249,15 @@ def view_map():
         with col1:
             st.write("Click the button to visualize the model results.")
             if st.button("View COG", key="view_cog"):
-                # st.session_state["cog_url"], st.cog_process = init_cog(cog_s3uri)
-                init_cog(cog_s3uri)
+                st.port = get_port()
+                init_cog(cog_s3uri, st.port)
         with col2:
             st.write("Click the button to terminate the COG server.")
             if st.button("Kill COG", key="kill_cog"):
-                kill_cog()
-                # st.session_state["cog_url"] = None
-                # st.session_state["init_cog"] = False
+                if st.port is not None:
+                    kill_cog(st.port) # terminate the specified port
+                else:
+                    kill_cog() # terminate all ports
 
     # Display the session state
     with st.expander("View Session State"):

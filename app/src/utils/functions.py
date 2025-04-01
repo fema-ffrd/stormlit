@@ -422,7 +422,21 @@ def is_port_available(port: int):
         return s.connect_ex(("127.0.0.1", port)) != 0
 
 
-def init_cog(path, port=None):
+def get_port():
+    """
+    Get an available port for the COG server.
+
+    Returns
+    -------
+    int
+        An available port number.
+    """
+    while True:
+        port = random.randint(1024, 65535)  # Use a port in the dynamic/private range
+        if is_port_available(port):
+            return port
+
+def init_cog(path, port=8080):
     """
     Initializes a local server to visualize a COG file using rasterio's rio viz command.
 
@@ -434,21 +448,6 @@ def init_cog(path, port=None):
         The port to run the server on. Default is 8080.
 
     """
-    # Find an available port if none is provided
-    if port is None:
-        while True:
-            port = random.randint(
-                1024, 65535
-            )  # Use a port in the dynamic/private range
-            if is_port_available(port):
-                break
-
-    # Ensure the specified port is available
-    if not is_port_available(port):
-        raise ValueError(
-            f"Port {port} is already in use. Please specify a different port."
-        )
-
     # Start the rio viz server in the background
     subprocess.run(
         ["rio", "viz", path, "--port", str(port)],
@@ -458,17 +457,29 @@ def init_cog(path, port=None):
         check=False,
     )
 
-
-def kill_cog():
+def kill_cog(port=None):
     """
     Kills the COG server process if it is running.
+
+    Parameters
+    ----------
+    port : int, optional
+        The port number of the COG server to terminate. If not specified, all 'rio viz' processes will be terminated.
     """
     try:
-        subprocess.run(["pkill", "-f", "rio viz"], check=True)
-        st.write("Server terminated successfully.")
+        if port is not None:
+            # Terminate the process running on the specified port
+            subprocess.run(["pkill", "-f", f"rio viz.*--port {port}"], check=True)
+            st.write(f"Server running on port {port} terminated successfully.")
+        else:
+            # Terminate all 'rio viz' processes
+            subprocess.run(["pkill", "-f", "rio viz"], check=True)
+            st.write("All 'rio viz' servers terminated successfully.")
     except subprocess.CalledProcessError:
-        st.write("No running server found to terminate.")
-
+        if port is not None:
+            st.write(f"No server found running on port {port}.")
+        else:
+            st.write("No running 'rio viz' servers found to terminate.")
 
 def plot_ts(df: pd.DataFrame, var: str):
     """
