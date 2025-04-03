@@ -285,7 +285,9 @@ def prep_fmap(
         c_zoom = 8
 
     # Create a folium map centered at the mean latitude and longitude
-    m = folium.Map(location=[c_lat, c_lon], zoom_start=c_zoom, crs='EPSG3857') # default web mercator crs
+    m = folium.Map(
+        location=[c_lat, c_lon], zoom_start=c_zoom, crs="EPSG3857"
+    )  # default web mercator crs
 
     # Specify the basemap
     if basemap == "ESRI Satellite":
@@ -312,15 +314,13 @@ def prep_fmap(
         cog_s3uri = st.cog_layers[cog_layer]
 
         # Get the tile server URL from environment variable
-        titiler_url = os.getenv("TITILER_API_URL", "http://stormlit-titiler:80")
+        titiler_url = os.getenv("TITILER_API_URL", "http://stormlit-titiler")
 
         try:
             # First get COG statistics to determine min/max values for rescaling
             stats_url = f"{titiler_url}/cog/statistics"
             stats_response = requests.get(
-                stats_url,
-                params={"url": cog_s3uri},
-                timeout=10
+                stats_url, params={"url": cog_s3uri}, timeout=10
             )
             stats_data = stats_response.json()
             st.session_state[f"cog_stats_{cog_layer}"] = stats_data
@@ -336,9 +336,9 @@ def prep_fmap(
                 params={
                     "url": cog_s3uri,
                     "rescale": f"{min_value},{max_value}",
-                    "colormap_name": "viridis"
+                    "colormap_name": "viridis",
                 },
-                timeout=10
+                timeout=10,
             )
             tilejson_data = tilejson_response.json()
             st.session_state[f"cog_tilejson_{cog_layer}"] = tilejson_data
@@ -346,7 +346,10 @@ def prep_fmap(
             # Add the COG as a TileLayer to the map
             if "tiles" in tilejson_data:
                 tile_url = tilejson_data["tiles"][0]
-                tile_url = tile_url.replace("http://stormlit-titiler", "http://localhost:8000")
+                folium_titiler_url = os.getenv(
+                    "FOLIUM_TITILER_URL", "http://localhost:8000"
+                )
+                tile_url = tile_url.replace(titiler_url, folium_titiler_url)
                 folium.TileLayer(
                     tiles=tile_url,
                     attr=f"COG: {cog_layer}",
@@ -366,13 +369,16 @@ def prep_fmap(
                         ]
                     )
                 else:
-                    st.session_state[f"cog_error_{cog_layer}"] = "No bounds found in TileJSON response"
+                    st.session_state[f"cog_error_{cog_layer}"] = (
+                        "No bounds found in TileJSON response"
+                    )
             else:
-                st.session_state[f"cog_error_{cog_layer}"] = "No tiles found in TileJSON response"
-            
+                st.session_state[f"cog_error_{cog_layer}"] = (
+                    "No tiles found in TileJSON response"
+                )
+
         except Exception as e:
             st.session_state[f"cog_error_{cog_layer}"] = str(e)
-        
 
     idx = 0
 
