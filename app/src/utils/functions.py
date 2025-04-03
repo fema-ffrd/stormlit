@@ -1,4 +1,7 @@
 import re
+import os
+import json
+import requests
 import folium
 import uuid
 import streamlit as st
@@ -222,6 +225,7 @@ def prep_fmap(
     basemap: str = "OpenStreetMap",
     basin_name: str = None,
     storm_rank: int = None,
+    cog_layer: str = None,
 ):
     """
     Prep a folium map object given a geojson with a specificed basemap
@@ -237,6 +241,8 @@ def prep_fmap(
         The basin name to plot additional data for
     storm_rank: int
         The rank of the storm to plot
+    cog_layer: str
+        The name of the COG layer to add to the map
 
     Returns
     -------
@@ -279,7 +285,8 @@ def prep_fmap(
         c_zoom = 8
 
     # Create a folium map centered at the mean latitude and longitude
-    m = folium.Map(location=[c_lat, c_lon], zoom_start=c_zoom)
+    m = folium.Map(location=[c_lat, c_lon], zoom_start=c_zoom, crs='EPSG3857') # default web mercator crs
+
     # Specify the basemap
     if basemap == "ESRI Satellite":
         folium.TileLayer(
@@ -299,6 +306,73 @@ def prep_fmap(
         ).add_to(m)
     else:
         folium.TileLayer("openstreetmap").add_to(m)
+
+    # Add COG layer if selected
+    if cog_layer is not None and cog_layer in st.cog_layers:
+        cog_s3uri = st.cog_layers[cog_layer]
+
+        # Get the tile server URL from environment variable
+        titiler_url = os.getenv("TITILER_API_URL", "http://stormlit-titiler:80")
+
+        try:
+            # First get COG statistics to determine min/max values for rescaling
+            stats_url = f"{titiler_url}/cog/statistics"
+            stats_response = requests.get(
+                stats_url,
+                params={"url": cog_s3uri},
+                timeout=10
+            )
+            stats_data = stats_response.json()
+            st.session_state[f"cog_stats_{cog_layer}"] = stats_data
+
+            # Get min/max values for rescaling
+            min_value = stats_data["b1"]["min"]
+            max_value = stats_data["b1"]["max"]
+
+            # Get TileJSON for the COG
+            tilejson_url = f"{titiler_url}/cog/WebMercatorQuad/tilejson.json"
+            tilejson_response = requests.get(
+                tilejson_url,
+                params={
+                    "url": cog_s3uri,
+                    "rescale": f"{min_value},{max_value}",
+                    "colormap_name": "viridis"
+                },
+                timeout=10
+            )
+            tilejson_data = tilejson_response.json()
+            st.session_state[f"cog_tilejson_{cog_layer}"] = tilejson_data
+
+            # Add the COG as a TileLayer to the map
+            if "tiles" in tilejson_data:
+                tile_url = tilejson_data["tiles"][0]
+                tile_url = tile_url.replace("http://stormlit-titiler", "http://localhost:8000")
+                folium.TileLayer(
+                    tiles=tile_url,
+                    attr=f"COG: {cog_layer}",
+                    name=cog_layer,
+                    overlay=True,
+                    control=True,
+                    opacity=0.7,
+                ).add_to(m)
+
+                # zoom to the extent of the COG
+                if "bounds" in tilejson_data:
+                    bounds = tilejson_data["bounds"]
+                    m.fit_bounds(
+                        [
+                            [bounds[1], bounds[0]],
+                            [bounds[3], bounds[2]],
+                        ]
+                    )
+                else:
+                    st.session_state[f"cog_error_{cog_layer}"] = "No bounds found in TileJSON response"
+            else:
+                st.session_state[f"cog_error_{cog_layer}"] = "No tiles found in TileJSON response"
+            
+        except Exception as e:
+            st.session_state[f"cog_error_{cog_layer}"] = str(e)
+        
 
     idx = 0
 
@@ -349,6 +423,7 @@ def prep_fmap(
                 style_ref_points,
             )
             fg_ref_points.add_to(m)
+
     # Add the layer control to the map
     folium.LayerControl().add_to(m)
     return m
@@ -402,86 +477,6 @@ def get_map_sel(map_output: str):
         st.write(f"Pasing on layer {layer_val}")
         pass
     return df
-
-
-def is_port_available(port: int):
-    """
-    Check if a port is available.
-
-    Parameters
-    ----------
-    port : int
-        The port number to check.
-
-    Returns
-    -------
-    bool
-        True if the port is available, False otherwise.
-    """
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(("127.0.0.1", port)) != 0
-
-
-def get_port():
-    """
-    Get an available port for the COG server.
-
-    Returns
-    -------
-    int
-        An available port number.
-    """
-    while True:
-        port = random.randint(1024, 65535)  # Use a port in the dynamic/private range
-        if is_port_available(port):
-            return port
-
-
-def init_cog(path, port=8080):
-    """
-    Initializes a local server to visualize a COG file using rasterio's rio viz command.
-
-    Parameters
-    ----------
-    path : str
-        The path to the cog file.
-    port : int
-        The port to run the server on. Default is 8080.
-
-    """
-    # Start the rio viz server in the background
-    subprocess.run(
-        ["rio", "viz", path, "--port", str(port)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-
-
-def kill_cog(port=None):
-    """
-    Kills the COG server process if it is running.
-
-    Parameters
-    ----------
-    port : int, optional
-        The port number of the COG server to terminate. If not specified, all 'rio viz' processes will be terminated.
-    """
-    try:
-        if port is not None:
-            # Terminate the process running on the specified port
-            subprocess.run(["pkill", "-f", f"rio viz.*--port {port}"], check=True)
-            st.write(f"Server running on port {port} terminated successfully.")
-        else:
-            # Terminate all 'rio viz' processes
-            subprocess.run(["pkill", "-f", "rio viz"], check=True)
-            st.write("All 'rio viz' servers terminated successfully.")
-    except subprocess.CalledProcessError:
-        if port is not None:
-            st.write(f"No server found running on port {port}.")
-        else:
-            st.write("No running 'rio viz' servers found to terminate.")
 
 
 def plot_ts(df: pd.DataFrame, var: str):

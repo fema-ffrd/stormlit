@@ -16,10 +16,7 @@ from ..utils.functions import (
     prep_fmap,
     get_map_sel,
     create_st_button,
-    init_cog,
-    kill_cog,
     plot_ts,
-    get_port,
 )
 
 # standard imports
@@ -82,11 +79,13 @@ def view_map():
         basin_names,
         index=None,
     )
-    cog_names = sorted(list(st.cog_layers.keys()))
+
+    # COG layer selection in the sidebar
+    cog_names = ["None"] + sorted(list(st.cog_layers.keys()))
     st.session_state["cog_layer"] = st.sidebar.selectbox(
         "Select a COG Layer",
         cog_names,
-        index=None,
+        index=0,
     )
 
     # add download buttons for each selected map layer
@@ -130,6 +129,14 @@ def view_map():
              USGS gages. Afterwards, you may select a gage from the selected subbasin
              to view Period of Record (POR).
              """)
+
+    # Set the selected COG layer (convert "None" to None)
+    selected_cog = (
+        None
+        if st.session_state["cog_layer"] == "None"
+        else st.session_state["cog_layer"]
+    )
+
     # Display the map and map layers
     with st.spinner("Loading Map..."):
         st.fmap = prep_fmap(
@@ -137,6 +144,7 @@ def view_map():
             st.session_state["basemap"],
             st.session_state["basin_name"],
             st.session_state["storm_rank"],
+            selected_cog,
         )
         st.map_output = st_folium(
             st.fmap,
@@ -144,6 +152,7 @@ def view_map():
             height=500,
             use_container_width=True,
         )
+
     # Display the selected object information from the map
     if st.map_output is not None:
         if st.map_output["last_object_clicked_tooltip"] is not None:
@@ -241,23 +250,6 @@ def view_map():
             st.dataframe(basin_gdf.drop(columns=["geometry"]))
         else:
             pass
-
-    if st.session_state["cog_layer"] is not None:
-        cog_s3uri = st.cog_layers[st.session_state["cog_layer"]]
-        st.subheader("View Cloud Optimized GeoTIFF (COG)")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("Click the button to visualize the model results.")
-            if st.button("View COG", key="view_cog"):
-                st.port = get_port()
-                init_cog(cog_s3uri, st.port)
-        with col2:
-            st.write("Click the button to terminate the COG server.")
-            if st.button("Kill COG", key="kill_cog"):
-                if st.port is not None:
-                    kill_cog(st.port)  # terminate the specified port
-                else:
-                    kill_cog()  # terminate all ports
 
     # Display the session state
     with st.expander("View Session State"):
