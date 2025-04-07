@@ -226,6 +226,7 @@ def prep_fmap(
     basin_name: str = None,
     storm_rank: int = None,
     cog_layer: str = None,
+    cmap_name: str = "viridis",
 ):
     """
     Prep a folium map object given a geojson with a specificed basemap
@@ -243,6 +244,8 @@ def prep_fmap(
         The rank of the storm to plot
     cog_layer: str
         The name of the COG layer to add to the map
+    cmap_name: str
+        The colormap name to use for the COG layer
 
     Returns
     -------
@@ -336,7 +339,7 @@ def prep_fmap(
                 params={
                     "url": cog_s3uri,
                     "rescale": f"{min_value},{max_value}",
-                    "colormap_name": "viridis",
+                    "colormap_name": cmap_name,
                 },
                 timeout=10,
             )
@@ -356,7 +359,7 @@ def prep_fmap(
                     name=cog_layer,
                     overlay=True,
                     control=True,
-                    opacity=0.7,
+                    opacity=1,
                 ).add_to(m)
 
                 # zoom to the extent of the COG
@@ -516,3 +519,39 @@ def plot_ts(df: pd.DataFrame, var: str):
     # Create a line plot using Streamlit
     fig = px.line(df, x="time", y=var, title=f"Time Series Plot of {var}")
     st.plotly_chart(fig)
+
+
+def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):
+    """
+    Function for plotting histogram data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the histogram data.
+    x_col : str
+        The column name for the x-axis values.
+    y_col : str
+        The column name for the y-axis values.
+    nbins : int
+        The number of bins for the histogram.
+    """
+    # Check if the DataFrame is empty
+    if df.empty:
+        st.warning("No data available for the selected variable.")
+        return
+    fig = px.histogram(
+        df,
+        nbins=nbins,
+        x=x_col,
+        y=y_col,
+        title="Histogram of COG Values",
+        labels={x_col: "COG Value", y_col: "Count"},
+    )
+    fig.update_traces(marker_color="blue")
+    fig.update_layout(
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        showlegend=True,
+    )
+    return fig
