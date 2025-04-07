@@ -1,15 +1,11 @@
 import re
 import os
-import json
 import requests
 import folium
 import uuid
 import streamlit as st
 import geopandas as gpd
-import subprocess
 import pandas as pd
-import socket
-import random
 from plotly import express as px
 
 
