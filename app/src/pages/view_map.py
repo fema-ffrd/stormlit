@@ -16,14 +16,13 @@ from ..utils.functions import (
     prep_fmap,
     get_map_sel,
     create_st_button,
-    init_cog,
-    kill_cog,
     plot_ts,
-    get_port,
+    plot_hist,
 )
 
 # standard imports
 import os
+import pandas as pd
 from streamlit_folium import st_folium
 import streamlit as st
 from dotenv import load_dotenv
@@ -82,11 +81,32 @@ def view_map():
         basin_names,
         index=None,
     )
+
+    # COG layer selection in the sidebar
     cog_names = sorted(list(st.cog_layers.keys()))
     st.session_state["cog_layer"] = st.sidebar.selectbox(
         "Select a COG Layer",
         cog_names,
         index=None,
+    )
+
+    # COG cmap selection in the sidebar
+    cmap_names = [
+        "rainbow",
+        "viridis",
+        "plasma",
+        "cividis",
+        "magma",
+        "inferno",
+        "coolwarm",
+        "spectral",
+        "ocean",
+        "jet",
+    ]
+    st.session_state["cmap"] = st.sidebar.selectbox(
+        "Select a COG Colormap",
+        cmap_names,
+        index=0,
     )
 
     # add download buttons for each selected map layer
@@ -130,6 +150,7 @@ def view_map():
              USGS gages. Afterwards, you may select a gage from the selected subbasin
              to view Period of Record (POR).
              """)
+
     # Display the map and map layers
     with st.spinner("Loading Map..."):
         st.fmap = prep_fmap(
@@ -137,13 +158,16 @@ def view_map():
             st.session_state["basemap"],
             st.session_state["basin_name"],
             st.session_state["storm_rank"],
+            st.session_state["cog_layer"],
+            st.session_state["cmap"],
         )
         st.map_output = st_folium(
             st.fmap,
             key="new_map",
-            height=500,
+            height=700,
             use_container_width=True,
         )
+
     # Display the selected object information from the map
     if st.map_output is not None:
         if st.map_output["last_object_clicked_tooltip"] is not None:
@@ -215,6 +239,7 @@ def view_map():
             else:
                 st.error("Error: Unable to retrieve the metadata.")
                 st.write(f"URL: {dam_meta_url}")
+        # Display the reference line information if a reference line is selected
         elif "Reference Lines" in st.sel_map_obj["layer"].values:
             ref_line_id = st.sel_map_obj["id"].values[0]
             st.write(f"Selected Reference Line: {ref_line_id}")
@@ -224,6 +249,7 @@ def view_map():
                 plot_ts(ref_line_ts, "water_surface")
             with col2:
                 plot_ts(ref_line_ts, "flow")
+        # Display the reference point information if a reference point is selected
         elif "Reference Points" in st.sel_map_obj["layer"].values:
             ref_point_id = st.sel_map_obj["id"].values[0]
             st.write(f"Selected Reference Point: {ref_point_id}")
@@ -233,6 +259,7 @@ def view_map():
                 plot_ts(ref_pt_ts, "water_surface")
             with col2:
                 plot_ts(ref_pt_ts, "velocity")
+        # Display the basin information if a basin is selected
         elif "Basins" in st.sel_map_obj["layer"].values:
             basin_id = st.sel_map_obj["HUC8"].values[0]
             basin_gdf = st.basins[st.basins["HUC8"] == basin_id]
@@ -242,24 +269,31 @@ def view_map():
         else:
             pass
 
+    # Diaplay COG stats
     if st.session_state["cog_layer"] is not None:
-        cog_s3uri = st.cog_layers[st.session_state["cog_layer"]]
-        st.subheader("View Cloud Optimized GeoTIFF (COG)")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("Click the button to visualize the model results.")
-            if st.button("View COG", key="view_cog"):
-                st.port = get_port()
-                init_cog(cog_s3uri, st.port)
-        with col2:
-            st.write("Click the button to terminate the COG server.")
-            if st.button("Kill COG", key="kill_cog"):
-                if st.port is not None:
-                    kill_cog(st.port)  # terminate the specified port
-                else:
-                    kill_cog()  # terminate all ports
+        st.subheader("COG Statistics")
+        cog_stats = st.session_state[f"cog_stats_{st.session_state['cog_layer']}"]["b1"]
+        cog_hist = cog_stats["histogram"]
+        with st.expander("View COG Statistics"):
+            # plot a histogram of the COG
+            hist_df = pd.DataFrame(cog_hist).T
+            hist_df.columns = ["Count", "Value"]
+            st.session_state["cog_hist_nbins"] = st.slider(
+                "Select number of bins for histogram",
+                min_value=5,
+                max_value=100,
+                value=20,
+            )
+            hist_fig = plot_hist(
+                hist_df,
+                x_col="Value",
+                y_col="Count",
+                nbins=st.session_state["cog_hist_nbins"],
+            )
+            st.plotly_chart(hist_fig, use_container_width=True)
+            st.write(cog_stats)
 
-    # Display the session state
+    st.subheader("Session State")
     with st.expander("View Session State"):
         st.write(st.session_state)
     render_footer()

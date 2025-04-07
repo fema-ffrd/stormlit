@@ -27,6 +27,8 @@ def init_session_state():
     st.session_state["gage_id"] = None
     st.session_state["basin_name"] = None
     st.session_state["storm_rank"] = None
+    st.session_state["cog_layer"] = None
+    st.session_state["cmap_name"] = None
 
     st.basins = None
     st.reservoirs = None
