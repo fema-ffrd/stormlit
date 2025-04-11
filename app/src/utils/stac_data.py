@@ -46,7 +46,7 @@ def prep_df(df: pd.DataFrame, layer: str):
 
 @st.cache_data
 def init_pilot(pilot: str):
-    """ "
+    """
     Initialize the map data for the selected pilot study
     """
     if pilot == "Trinity":
