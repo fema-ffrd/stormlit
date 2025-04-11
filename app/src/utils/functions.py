@@ -150,7 +150,7 @@ def add_circles_fg(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
-    style_function: callable,
+    color: str,
 ):
     """
     Add circles to a folium map as a feature group
@@ -163,48 +163,49 @@ def add_circles_fg(
         The name of the layer to add to the map
     tooltip_fields: list
         A list of fields to display in the tooltip
-    style_function: callable
-        A function to style the circles
+    color: str
+        The color of the circles
 
     Returns
     -------
     folium.FeatureGroup
         A folium feature group containing the circles
     """
+    # Create a DivIcon marker
+    div_icon = folium.DivIcon(
+        html=f"""
+        <div style="
+            background-color: {color};
+            border: 1px solid black;
+            border-radius: 50%;
+            width: 10px;
+            height: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;">
+        </div>
+        """
+    )
+
     fg_circles = folium.FeatureGroup(name=layer_name)
     fg_circles.add_child(
         folium.GeoJson(
             gdf,
-            marker=folium.Circle(
-                radius=1500,
-                fill_color="blue",
-                fill_opacity=0.5,
-                color="black",
-                weight=1,
-            ),
-            style_function=style_function,
             name=layer_name,
-            zoom_on_click=True,
+            marker=folium.Marker(icon=div_icon),
             tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+            popup=folium.GeoJsonPopup(fields=tooltip_fields),
+            zoom_on_click=True,
         )
     )
+
     return fg_circles
 
 
 def style_basins(feature):
     return {"fillColor": "#1e90ff"}
-
-
-def style_dams(feature):
-    return {"fillColor": "#e32636"}
-
-
-def style_gages(feature):
-    return {"fillColor": "#32cd32"}
-
-
-def style_storms(feature):
-    return {"fillColor": "#ed9121"}
 
 
 def style_ref_lines(feature):
@@ -390,16 +391,16 @@ def prep_fmap(
             )
             fg_basins.add_to(m)
         elif key == "Dams":
-            fg_dams = add_circles_fg(df, sel_layers[idx], ["layer", "id"], style_dams)
+            fg_dams = add_circles_fg(df, sel_layers[idx], ["layer", "id"], "#e32636")
             fg_dams.add_to(m)
         elif key == "Gages":
             fg_gages = add_circles_fg(
-                df, sel_layers[idx], ["layer", "site_no"], style_gages
+                df, sel_layers[idx], ["layer", "site_no"], "#32cd32"
             )
             fg_gages.add_to(m)
         elif key == "Storms":
             fg_storms = add_circles_fg(
-                df, sel_layers[idx], ["layer", "rank", "storm_type"], style_storms
+                df, sel_layers[idx], ["layer", "rank", "storm_type"], "#ed9121"
             )
             fg_storms.add_to(m)
         else:
