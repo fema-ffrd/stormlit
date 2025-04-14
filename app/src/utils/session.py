@@ -30,6 +30,11 @@ def init_session_state():
     st.session_state["cog_layer"] = None
     st.session_state["cmap_name"] = None
 
+    # single event session
+    st.session_state["sel_gage_id"] = None
+    st.session_state["sel_storm_rank"] = None
+    st.session_state["sel_dam_id"] = None
+
     st.basins = None
     st.reservoirs = None
     st.fmap = None
