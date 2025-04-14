@@ -6,11 +6,11 @@ import streamlit as st
 
 def init_session_state():
     st.session_state["session_id"] = datetime.now()
+    st.session_state["pilot"] = None
     st.session_state["init_gage_data"] = False
-    st.session_state["init_map_data"] = False
+    st.session_state["init_pilot"] = False
     st.session_state["init_storm_data"] = False
     st.session_state["init_computation_data"] = False
-    st.session_state["init_map_data"] = False
     st.session_state["model_name"] = None
     st.session_state["gage_id"] = None
     st.session_state["variable"] = None
@@ -25,17 +25,23 @@ def init_session_state():
     st.session_state["data_status"] = "All"
     st.session_state["gage_param"] = "Streamflow"
     st.session_state["gage_id"] = None
+    st.session_state["basin_name"] = None
+    st.session_state["storm_rank"] = None
+    st.session_state["cog_layer"] = None
+    st.session_state["cmap_name"] = None
 
-    st.subbasins = None
-    st.reaches = None
-    st.junctions = None
+    st.basins = None
     st.reservoirs = None
     st.fmap = None
     st.map_output = None
     st.gages = None
+    st.dams = None
     st.storms = None
     st.computation = None
     st.gage_df = None
     st.sel_map_obj = None
     st.sel_gage = None
     st.gage_df_por = None
+    st.pilot_layers = None
+    st.pilot_base_url = None
+    st.port = None
