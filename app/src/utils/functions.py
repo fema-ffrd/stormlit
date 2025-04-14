@@ -219,7 +219,6 @@ def style_ref_points(feature):
 @st.cache_data
 def prep_fmap(
     sel_layers: list,
-    basemap: str = "OpenStreetMap",
     basin_name: str = None,
     storm_rank: int = None,
     cog_layer: str = None,
@@ -232,9 +231,6 @@ def prep_fmap(
     ----------
     sel_layers: dict
         A list of selected map layers to plot
-    basemap: str
-        Basemap to use for the map.
-        Options are "OpenStreetMap", "ESRI Satellite", and "Google Satellite"
     basin_name: str
         The basin name to plot additional data for
     storm_rank: int
@@ -289,25 +285,31 @@ def prep_fmap(
         location=[c_lat, c_lon], zoom_start=c_zoom, crs="EPSG3857"
     )  # default web mercator crs
 
-    # Specify the basemap
-    if basemap == "ESRI Satellite":
-        folium.TileLayer(
-            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            attr="Esri",
-            name="Esri Satellite",
-            overlay=False,
-            control=True,
+    # Google Basemap
+    folium.TileLayer(
+        tiles="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        attr="Google",
+        name="Google Satellite",
+        overlay=False,
+        control=True,
+        show=True,
+    ).add_to(m)
+    # ESRI Basemap
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri",
+        name="Esri Satellite",
+        overlay=False,
+        control=True,
+        show=False, # turn layer off
+    ).add_to(m)
+    # OpenStreetMap Basemap
+    folium.TileLayer(
+        "openstreetmap",
+        overlay=False,
+        control=True,
+        show=False
         ).add_to(m)
-    elif basemap == "Google Satellite":
-        folium.TileLayer(
-            tiles="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-            attr="Google",
-            name="Google Satellite",
-            overlay=False,
-            control=True,
-        ).add_to(m)
-    else:
-        folium.TileLayer("openstreetmap").add_to(m)
 
     # Add COG layer if selected
     if cog_layer is not None and cog_layer in st.cog_layers:

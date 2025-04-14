@@ -58,12 +58,6 @@ def view_map():
             st.session_state["init_pilot"] = True
             st.success("Complete! Pilot data is now ready for exploration.")
 
-    st.session_state["basemap"] = st.sidebar.selectbox(
-        "Select a Basemap",
-        ["OpenStreetMap", "ESRI Satellite", "Google Satellite"],
-        index=0,
-    )
-
     st.session_state["gage_plot"] = st.sidebar.selectbox(
         "Select a Gage Plot Type",
         ["Flow Stats", "AMS", "AMS Seasons", "AMS LP3"],
@@ -155,7 +149,6 @@ def view_map():
     with st.spinner("Loading Map..."):
         st.fmap = prep_fmap(
             list(st.pilot_layers.keys()),
-            st.session_state["basemap"],
             st.session_state["basin_name"],
             st.session_state["storm_rank"],
             st.session_state["cog_layer"],
