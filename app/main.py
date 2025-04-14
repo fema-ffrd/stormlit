@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 # custom imports
 from src.pages.home_page import home_page
 from src.pages.view_map import view_map
+from src.pages.single_event import single_event
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
@@ -34,6 +35,8 @@ class MultiApp:
 app = MultiApp()
 
 app.add_app("Home Page", home_page)
+app.add_app("Single Event", single_event)
 app.add_app("View Map", view_map)
+
 
 app.run()
