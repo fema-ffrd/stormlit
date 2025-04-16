@@ -4,26 +4,10 @@ from ..configs.settings import LOG_LEVEL
 from ..utils.session import init_session_state
 from ..utils.stac_data import (
     init_pilot,
-    get_stac_img,
-    get_stac_meta,
-    define_gage_data,
-    define_storm_data,
-    define_dam_data,
-    get_ref_line_ts,
-    get_ref_pt_ts,
-)
-from ..utils.functions import (
-    prep_fmap,
-    get_map_sel,
-    create_st_button,
-    plot_ts,
-    plot_hist,
 )
 
 # standard imports
 import os
-import pandas as pd
-from streamlit_folium import st_folium
 import streamlit as st
 from dotenv import load_dotenv
 import warnings
@@ -71,7 +55,7 @@ def single_event():
 
     st.session_state["sel_gage_id"] = st.sidebar.selectbox(
         "Select a Gage",
-        ['01234567', '01234568', '01234569'],
+        ["01234567", "01234568", "01234569"],
         index=None,
     )
     st.session_state["sel_storm_rank"] = st.sidebar.selectbox(
@@ -81,12 +65,12 @@ def single_event():
     )
     st.session_state["sel_dam_id"] = st.sidebar.selectbox(
         "Select a Dam",
-        ['Dam A', 'Dam B', 'Dam C'],
+        ["Dam A", "Dam B", "Dam C"],
         index=None,
     )
     st.session_state["sel_cog_layer"] = st.sidebar.selectbox(
         "Select a COG Layer",
-        ["Layer A","Layer B","Layer C"],
+        ["Layer A", "Layer B", "Layer C"],
         index=None,
     )
 
@@ -110,3 +94,6 @@ def single_event():
             st.write("view dam data analytics here")
         with st.expander("COG Data"):
             st.write("view cog data analytics here")
+
+    # Footer
+    render_footer()

@@ -301,15 +301,10 @@ def prep_fmap(
         name="Esri Satellite",
         overlay=False,
         control=True,
-        show=False, # turn layer off
+        show=False,  # turn layer off
     ).add_to(m)
     # OpenStreetMap Basemap
-    folium.TileLayer(
-        "openstreetmap",
-        overlay=False,
-        control=True,
-        show=False
-        ).add_to(m)
+    folium.TileLayer("openstreetmap", overlay=False, control=True, show=False).add_to(m)
 
     # Add COG layer if selected
     if cog_layer is not None and cog_layer in st.cog_layers:
