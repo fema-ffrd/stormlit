@@ -207,35 +207,34 @@ def single_event():
                 index=0,
             )
             # Gage Map Selection
-            if st.sel_map_obj is not None:
-                if "Gages" in st.sel_map_obj["layer"].values:
-                    gage_id = st.sel_map_obj["site_no"].values[0]
-                    gage_meta_url = define_gage_data(gage_id)["Metadata"]
-                    gage_meta_status, gage_meta = get_stac_meta(gage_meta_url)
-                    gage_plot_url = define_gage_data(gage_id)[
-                        st.session_state["gage_plot_type"]
-                    ]
-                    gage_plot_status, gage_plot_img = get_stac_img(gage_plot_url)
-                    # display the img
-                    if gage_plot_status:
-                        st.markdown("## Analytics")
-                        st.write(f"""Collection of USGS streamflow gages in the {st.session_state["pilot"]}
-                                Watershed containing more than 15 years of annual maxima observations.
-                                Note that the LP-III computations do not include regional skew. This is
-                                a provisional collection, pending added datasets curated by engineers
-                                developing the hydrologic model.
-                                """)
-                        st.image(gage_plot_img, use_container_width=True)
-                    else:
-                        st.error("Unable to retrieve the gage plot.")
-                        st.write(f"URL: {gage_plot_img}")
-                    # display the metadata
-                    if gage_meta_status:
-                        st.markdown("## Metadata")
-                        st.write(gage_meta["properties"])
-                    else:
-                        st.error("Unable to retrieve the gage metadata.")
-                        st.write(f"URL: {gage_meta_url}")
+            if st.sel_map_obj is not None and "Gages" in st.sel_map_obj["layer"].values:
+                gage_id = st.sel_map_obj["site_no"].values[0]
+                gage_meta_url = define_gage_data(gage_id)["Metadata"]
+                gage_meta_status, gage_meta = get_stac_meta(gage_meta_url)
+                gage_plot_url = define_gage_data(gage_id)[
+                    st.session_state["gage_plot_type"]
+                ]
+                gage_plot_status, gage_plot_img = get_stac_img(gage_plot_url)
+                # display the img
+                if gage_plot_status:
+                    st.markdown("## Analytics")
+                    st.write(f"""Collection of USGS streamflow gages in the {st.session_state["pilot"]}
+                            Watershed containing more than 15 years of annual maxima observations.
+                            Note that the LP-III computations do not include regional skew. This is
+                            a provisional collection, pending added datasets curated by engineers
+                            developing the hydrologic model.
+                            """)
+                    st.image(gage_plot_img, use_container_width=True)
+                else:
+                    st.error("Unable to retrieve the gage plot.")
+                    st.write(f"URL: {gage_plot_img}")
+                # display the metadata
+                if gage_meta_status:
+                    st.markdown("## Metadata")
+                    st.write(gage_meta["properties"])
+                else:
+                    st.error("Unable to retrieve the gage metadata.")
+                    st.write(f"URL: {gage_meta_url}")
             # Gage Dropdown Selection
             elif st.session_state["sel_gage_id"] is not None:
                 # Display the gage information if a gage is selected
@@ -276,28 +275,30 @@ def single_event():
                 "Storms", st.pilot_layers["Storms"], background_color="#ed9121"
             )
             # Storm Map Selection
-            if st.sel_map_obj is not None:
-                if "Storms" in st.sel_map_obj["layer"].values:
-                    storm_rank = int(st.sel_map_obj["rank"].values[0])
-                    storm_meta_url = define_storm_data(storm_rank)["Metadata"]
-                    storm_meta_status, storm_meta = get_stac_meta(storm_meta_url)
-                    # display the metadata
-                    if storm_meta_status:
-                        storm_plot_url = storm_meta["assets"]["thumbnail"]["href"]
-                        storm_plot_status, storm_plot_img = get_stac_img(storm_plot_url)
-                        st.write(storm_meta["properties"])
-                    else:
-                        st.error("Error: Unable to retrieve the metadata.")
-                        st.write(f"URL: {storm_meta_url}")
-                    # display the img
-                    if storm_meta_status and storm_plot_status:
-                        st.write(f"""Collection of the top storms developed in the {st.session_state["pilot"]}
-                                    Watershed for a 72-hour storm period.
-                                    """)
-                        st.image(storm_plot_img, use_container_width=True)
-                    else:
-                        st.error("Error: Unable to retrieve the plot.")
-                        st.write(f"URL: {storm_plot_img}")
+            if (
+                st.sel_map_obj is not None
+                and "Storms" in st.sel_map_obj["layer"].values
+            ):
+                storm_rank = int(st.sel_map_obj["rank"].values[0])
+                storm_meta_url = define_storm_data(storm_rank)["Metadata"]
+                storm_meta_status, storm_meta = get_stac_meta(storm_meta_url)
+                # display the metadata
+                if storm_meta_status:
+                    storm_plot_url = storm_meta["assets"]["thumbnail"]["href"]
+                    storm_plot_status, storm_plot_img = get_stac_img(storm_plot_url)
+                    st.write(storm_meta["properties"])
+                else:
+                    st.error("Error: Unable to retrieve the metadata.")
+                    st.write(f"URL: {storm_meta_url}")
+                # display the img
+                if storm_meta_status and storm_plot_status:
+                    st.write(f"""Collection of the top storms developed in the {st.session_state["pilot"]}
+                                Watershed for a 72-hour storm period.
+                                """)
+                    st.image(storm_plot_img, use_container_width=True)
+                else:
+                    st.error("Error: Unable to retrieve the plot.")
+                    st.write(f"URL: {storm_plot_img}")
             # Storm Dropdown Selection
             elif st.session_state["sel_storm_rank"] is not None:
                 # Display the storm information if a storm is selected
@@ -331,22 +332,21 @@ def single_event():
                 "Dams", st.pilot_layers["Dams"], background_color="#e32636"
             )
             # Dam Map Selection
-            if st.sel_map_obj is not None:
-                if "Dams" in st.sel_map_obj["layer"].values:
-                    dam_id = st.sel_map_obj["id"].values[0]
-                    dam_meta_url = define_dam_data(dam_id)["Metadata"]
-                    dam_meta_status, dam_meta = get_stac_meta(dam_meta_url)
-                    # display the metadata
-                    if dam_meta_status:
-                        # update the href in each asset to point to the full url for downloading
-                        for key, asset in dam_meta["assets"].items():
-                            asset["href"] = (
-                                f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{key}"
-                            )
-                        st.write(dam_meta["assets"])
-                    else:
-                        st.error("Error: Unable to retrieve the metadata.")
-                        st.write(f"URL: {dam_meta_url}")
+            if st.sel_map_obj is not None and "Dams" in st.sel_map_obj["layer"].values:
+                dam_id = st.sel_map_obj["id"].values[0]
+                dam_meta_url = define_dam_data(dam_id)["Metadata"]
+                dam_meta_status, dam_meta = get_stac_meta(dam_meta_url)
+                # display the metadata
+                if dam_meta_status:
+                    # update the href in each asset to point to the full url for downloading
+                    for key, asset in dam_meta["assets"].items():
+                        asset["href"] = (
+                            f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{key}"
+                        )
+                    st.write(dam_meta["assets"])
+                else:
+                    st.error("Error: Unable to retrieve the metadata.")
+                    st.write(f"URL: {dam_meta_url}")
             # Dam Dropdown Selection
             elif st.session_state["sel_dam_id"] is not None:
                 # Display the dam information if a dam is selected
@@ -419,14 +419,15 @@ def single_event():
                 st.pilot_layers["Reference Lines"],
                 background_color="#1e90ff",
             )
-            if st.sel_map_obj is not None:
-                # Display the reference line information if a reference line is selected
-                if "Reference Lines" in st.sel_map_obj["layer"].values:
-                    ref_line_id = st.sel_map_obj["id"].values[0]
-                    st.write(f"Selected Reference Line: {ref_line_id}")
-                    ref_line_ts = get_ref_line_ts(ref_line_id)
-                    plot_ts(ref_line_ts, "water_surface")
-                    plot_ts(ref_line_ts, "flow")
+            if (
+                st.sel_map_obj is not None
+                and "Reference Lines" in st.sel_map_obj["layer"].values
+            ):
+                ref_line_id = st.sel_map_obj["id"].values[0]
+                st.write(f"Selected Reference Line: {ref_line_id}")
+                ref_line_ts = get_ref_line_ts(ref_line_id)
+                plot_ts(ref_line_ts, "water_surface")
+                plot_ts(ref_line_ts, "flow")
             elif st.session_state["sel_ref_line_id"] is not None:
                 # Display the reference line information if a reference line is selected
                 ref_line_id = st.session_state["sel_ref_line_id"]
@@ -446,14 +447,15 @@ def single_event():
                 st.pilot_layers["Reference Points"],
                 background_color="#1e90ff",
             )
-            if st.sel_map_obj is not None:
-                # Display the reference point information if a reference point is selected
-                if "Reference Points" in st.sel_map_obj["layer"].values:
-                    ref_point_id = st.sel_map_obj["id"].values[0]
-                    st.write(f"Selected Reference Point: {ref_point_id}")
-                    ref_pt_ts = get_ref_pt_ts(ref_point_id)
-                    plot_ts(ref_pt_ts, "water_surface")
-                    plot_ts(ref_pt_ts, "velocity")
+            if (
+                st.sel_map_obj is not None
+                and "Reference Points" in st.sel_map_obj["layer"].values
+            ):
+                ref_point_id = st.sel_map_obj["id"].values[0]
+                st.write(f"Selected Reference Point: {ref_point_id}")
+                ref_pt_ts = get_ref_pt_ts(ref_point_id)
+                plot_ts(ref_pt_ts, "water_surface")
+                plot_ts(ref_pt_ts, "velocity")
             elif st.session_state["sel_ref_point_id"] is not None:
                 # Display the reference point information if a reference point is selected
                 ref_point_id = st.session_state["sel_ref_point_id"]
