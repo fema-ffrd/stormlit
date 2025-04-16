@@ -44,7 +44,6 @@ def prep_df(df: pd.DataFrame, layer: str):
     return df
 
 
-@st.cache_data
 def init_pilot(pilot: str):
     """
     Initialize the map data for the selected pilot study
