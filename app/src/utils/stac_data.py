@@ -88,6 +88,9 @@ def init_pilot(pilot: str):
 
 
 def define_gage_data(gage_id: str):
+    """
+    Define the gage data for the selected gage
+    """
     gage_data = {
         "Metadata": f"{st.pilot_base_url}/gages/{gage_id}/{gage_id}.json",
         "Flow Stats": f"{st.pilot_base_url}/gages/{gage_id}/{gage_id}-flow-stats.png",
@@ -99,6 +102,9 @@ def define_gage_data(gage_id: str):
 
 
 def define_storm_data(storm_id: str):
+    """
+    Define the storm data for the selected storm
+    """
     storm_data = {
         "Metadata": f"{st.pilot_base_url}/storms/72hr-events/{storm_id}/{storm_id}.json",
     }
@@ -106,6 +112,9 @@ def define_storm_data(storm_id: str):
 
 
 def define_dam_data(dam_id: str):
+    """
+    Define the dam data for the selected dam
+    """
     dam_data = {
         "Metadata": f"{st.pilot_base_url}/dams/non-usace/{dam_id}/{dam_id}.json",
     }
@@ -114,6 +123,20 @@ def define_dam_data(dam_id: str):
 
 @st.cache_data
 def get_stac_img(plot_url: str):
+    """
+    Get the image from the STAC API
+
+    Parameters
+    ----------
+    plot_url: str
+        The URL of the image to get
+    Returns
+    -------
+    bool
+        True if the image was successfully retrieved, False otherwise
+    Image
+        The image object if successful, None otherwise
+    """
     response = requests.get(plot_url)
     if response.status_code == 200:
         img = Image.open(BytesIO(response.content))
@@ -124,6 +147,20 @@ def get_stac_img(plot_url: str):
 
 @st.cache_data
 def get_stac_meta(url: str):
+    """
+    Get the metadata from the STAC API
+
+    Parameters
+    ----------
+    url: str
+        The URL of the metadata to get
+    Returns
+    -------
+    bool
+        True if the metadata was successfully retrieved, False otherwise
+    dict
+        The metadata object if successful, the url otherwise
+    """
     response = requests.get(url)
     if response.status_code == 200:
         data = json.loads(response.text)
@@ -134,6 +171,18 @@ def get_stac_meta(url: str):
 
 @st.cache_data
 def get_ref_line_ts(ref_line_id: str):
+    """
+    Get the time series data for a reference line
+
+    Parameters
+    ----------
+    ref_line_id: str
+        The ID of the reference line to get the time series data for
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the time series data for the reference line
+    """
     ## TODO: Need to add local data to a STAC catalog
     file_path = os.path.join(assetsDir, "ref_lines.parquet")
     ts = pd.read_parquet(
@@ -146,6 +195,18 @@ def get_ref_line_ts(ref_line_id: str):
 
 @st.cache_data
 def get_ref_pt_ts(ref_pt_id: str):
+    """
+    Get the time series data for a reference point
+
+    Parameters
+    ----------
+    ref_pt_id: str
+        The ID of the reference point to get the time series data for
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the time series data for the reference point
+    """
     ## TODO: Need to add local data to a STAC catalog
     file_path = os.path.join(assetsDir, "ref_pts.parquet")
     ts = pd.read_parquet(file_path, engine="pyarrow", filters=[("id", "=", ref_pt_id)])

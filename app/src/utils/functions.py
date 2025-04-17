@@ -68,6 +68,15 @@ def create_st_button(
         st_col.markdown(button_css + html_str, unsafe_allow_html=True)
 
 
+def highlight_function(feature):
+    return {
+        "fillColor": "yellow",
+        "color": "black",
+        "weight": 3,
+        "opacity": 0.5,
+    }
+
+
 def add_polygons_fg(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
@@ -101,6 +110,7 @@ def add_polygons_fg(
             name=layer_name,
             zoom_on_click=True,
             style_function=style_function,
+            highlight_function=highlight_function,
             tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
         )
     )
@@ -140,6 +150,7 @@ def add_markers_fg(
             name=layer_name,
             zoom_on_click=True,
             style_function=style_function,
+            highlight_function=highlight_function,
             tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
         )
     )
@@ -197,6 +208,7 @@ def add_circles_fg(
             marker=folium.Marker(icon=div_icon),
             tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
             popup=folium.GeoJsonPopup(fields=tooltip_fields),
+            highlight_function=highlight_function,
             zoom_on_click=True,
         )
     )
@@ -216,12 +228,65 @@ def style_ref_points(feature):
     return {"fillColor": "#1e90ff"}
 
 
+def get_map_pos(map_layer: str, layer_field: str):
+    """
+    Get the map position based on the selected layer and field.
+
+    Parameters
+    ----------
+    map_layer: str
+        The selected map layer
+    layer_field: str
+        The selected layer field
+    Returns
+    -------
+    tuple
+        A tuple containing the latitude, longitude, and zoom level
+    """
+    if map_layer == "Basins":
+        # Get the centroid from the selected basin
+        c_df = st.basins
+        c_lat, c_lon = (
+            c_df[c_df["NAME"] == layer_field]["lat"].mean(),
+            c_df[c_df["NAME"] == layer_field]["lon"].mean(),
+        )
+        c_zoom = 10
+    elif map_layer == "Gages":
+        # Get the centroid from the selected gage
+        c_df = st.gages
+        c_lat, c_lon = (
+            c_df[c_df["site_no"] == layer_field]["lat"].mean(),
+            c_df[c_df["site_no"] == layer_field]["lon"].mean(),
+        )
+        c_zoom = 14
+    elif map_layer == "Dams":
+        # Get the centroid from the selected dam
+        c_df = st.dams
+        c_lat, c_lon = (
+            c_df[c_df["id"] == layer_field]["lat"].mean(),
+            c_df[c_df["id"] == layer_field]["lon"].mean(),
+        )
+        c_zoom = 14
+    elif map_layer == "Storms":
+        # Get the centroid from the selected storm
+        c_df = st.storms
+        c_lat, c_lon = (
+            c_df[c_df["rank"] == layer_field]["lat"].mean(),
+            c_df[c_df["rank"] == layer_field]["lon"].mean(),
+        )
+        c_zoom = 14
+    else:
+        # Get the centroid of the pilot study area
+        c_df = st.basins
+        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+        c_zoom = 8
+
+    return c_lat, c_lon, c_zoom
+
+
 @st.cache_data
 def prep_fmap(
     sel_layers: list,
-    basemap: str = "OpenStreetMap",
-    basin_name: str = None,
-    storm_rank: int = None,
     cog_layer: str = None,
     cmap_name: str = "viridis",
 ):
@@ -232,13 +297,6 @@ def prep_fmap(
     ----------
     sel_layers: dict
         A list of selected map layers to plot
-    basemap: str
-        Basemap to use for the map.
-        Options are "OpenStreetMap", "ESRI Satellite", and "Google Satellite"
-    basin_name: str
-        The basin name to plot additional data for
-    storm_rank: int
-        The rank of the storm to plot
     cog_layer: str
         The name of the COG layer to add to the map
     cmap_name: str
@@ -259,55 +317,48 @@ def prep_fmap(
             df_dict["Gages"] = st.gages
         elif layer == "Storms" and st.storms is not None:
             df_dict["Storms"] = st.storms
+        elif layer == "Reference Lines" and st.ref_lines is not None:
+            df_dict["Reference Lines"] = st.ref_lines
+        elif layer == "Reference Points" and st.ref_points is not None:
+            df_dict["Reference Points"] = st.ref_points
         else:
             pass
 
-    if basin_name is not None:
-        # Get the centroid from the selected basin
-        c_df = df_dict["Basins"]
-        c_lat, c_lon = (
-            c_df[c_df["NAME"] == basin_name]["lat"].mean(),
-            c_df[c_df["NAME"] == basin_name]["lon"].mean(),
-        )
-        c_zoom = 10
-    elif storm_rank is not None:
-        # Get the centroid from the selected storm
-        c_df = df_dict["Storms"]
-        c_lat, c_lon = (
-            c_df[c_df["rank"] == storm_rank]["lat"].mean(),
-            c_df[c_df["rank"] == storm_rank]["lon"].mean(),
-        )
-        c_zoom = 12
-    else:
-        # Get the centroid of the pilot study area
-        c_df = df_dict["Basins"]
-        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
-        c_zoom = 8
+    c_df = st.basins
+    c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
 
     # Create a folium map centered at the mean latitude and longitude
     m = folium.Map(
-        location=[c_lat, c_lon], zoom_start=c_zoom, crs="EPSG3857"
+        location=[c_lat, c_lon], zoom_start=4, crs="EPSG3857"
     )  # default web mercator crs
 
-    # Specify the basemap
-    if basemap == "ESRI Satellite":
-        folium.TileLayer(
-            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            attr="Esri",
-            name="Esri Satellite",
-            overlay=False,
-            control=True,
-        ).add_to(m)
-    elif basemap == "Google Satellite":
-        folium.TileLayer(
-            tiles="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-            attr="Google",
-            name="Google Satellite",
-            overlay=False,
-            control=True,
-        ).add_to(m)
-    else:
-        folium.TileLayer("openstreetmap").add_to(m)
+    folium.plugins.Fullscreen(
+        position="topright",
+        title="Expand me",
+        title_cancel="Exit me",
+        force_separate_button=True,
+    ).add_to(m)
+
+    # Google Basemap
+    folium.TileLayer(
+        tiles="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        attr="Google",
+        name="Google Satellite",
+        overlay=False,
+        control=True,
+        show=True,
+    ).add_to(m)
+    # ESRI Basemap
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri",
+        name="Esri Satellite",
+        overlay=False,
+        control=True,
+        show=False,  # turn layer off
+    ).add_to(m)
+    # OpenStreetMap Basemap
+    folium.TileLayer("openstreetmap", overlay=False, control=True, show=False).add_to(m)
 
     # Add COG layer if selected
     if cog_layer is not None and cog_layer in st.cog_layers:
@@ -323,7 +374,7 @@ def prep_fmap(
                 stats_url, params={"url": cog_s3uri}, timeout=10
             )
             stats_data = stats_response.json()
-            st.session_state[f"cog_stats_{cog_layer}"] = stats_data
+            st.session_state["cog_stats"] = stats_data
 
             # Get min/max values for rescaling
             min_value = stats_data["b1"]["min"]
@@ -381,7 +432,6 @@ def prep_fmap(
             st.session_state[f"cog_error_{cog_layer}"] = str(e)
 
     idx = 0
-
     for key, df in df_dict.items():
         df["layer"] = key
         # Add the GeoDataFrames geometry to the map
@@ -403,32 +453,42 @@ def prep_fmap(
                 df, sel_layers[idx], ["layer", "rank", "storm_type"], "#ed9121"
             )
             fg_storms.add_to(m)
+        elif key == "Reference Lines":
+            fg_ref_lines = add_polygons_fg(
+                df, sel_layers[idx], ["layer", "id", "line_type"], style_ref_lines
+            )
+            fg_ref_lines.add_to(m)
+        elif key == "Reference Points":
+            fg_ref_points = add_markers_fg(
+                df, sel_layers[idx], ["layer", "id", "point_type"], style_ref_points
+            )
+            fg_ref_points.add_to(m)
         else:
             pass
         idx += 1
 
-    if basin_name is not None:
-        # plot the reference lines and points
-        if basin_name in st.ref_lines["NAME"].unique():
-            ref_lines = st.ref_lines.loc[st.ref_lines["NAME"] == basin_name]
-            ref_lines["layer"] = "Reference Lines"
-            fg_ref_lines = add_polygons_fg(
-                ref_lines,
-                "Reference Lines",
-                ["layer", "id", "line_type"],
-                style_ref_lines,
-            )
-            fg_ref_lines.add_to(m)
-        if basin_name in st.ref_points["NAME"].unique():
-            ref_points = st.ref_points.loc[st.ref_points["NAME"] == basin_name]
-            ref_points["layer"] = "Reference Points"
-            fg_ref_points = add_markers_fg(
-                ref_points,
-                "Reference Points",
-                ["layer", "id", "point_type"],
-                style_ref_points,
-            )
-            fg_ref_points.add_to(m)
+    # if basin_name is not None:
+    #     # plot the reference lines and points
+    #     if basin_name in st.ref_lines["NAME"].unique():
+    #         ref_lines = st.ref_lines.loc[st.ref_lines["NAME"] == basin_name]
+    #         ref_lines["layer"] = "Reference Lines"
+    #         fg_ref_lines = add_polygons_fg(
+    #             ref_lines,
+    #             "Reference Lines",
+    #             ["layer", "id", "line_type"],
+    #             style_ref_lines,
+    #         )
+    #         fg_ref_lines.add_to(m)
+    #     if basin_name in st.ref_points["NAME"].unique():
+    #         ref_points = st.ref_points.loc[st.ref_points["NAME"] == basin_name]
+    #         ref_points["layer"] = "Reference Points"
+    #         fg_ref_points = add_markers_fg(
+    #             ref_points,
+    #             "Reference Points",
+    #             ["layer", "id", "point_type"],
+    #             style_ref_points,
+    #         )
+    #         fg_ref_points.add_to(m)
 
     # Add the layer control to the map
     folium.LayerControl().add_to(m)
