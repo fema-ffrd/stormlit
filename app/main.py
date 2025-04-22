@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 # custom imports
 from src.pages.home_page import home_page
 from src.pages.single_event import single_event
+from src.pages.model_qc import model_qc
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
@@ -35,5 +36,6 @@ app = MultiApp()
 
 app.add_app("Home Page", home_page)
 app.add_app("Single Event", single_event)
+app.add_app("Model QC", model_qc)
 
 app.run()
