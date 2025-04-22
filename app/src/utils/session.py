@@ -25,6 +25,12 @@ def init_session_state():
     st.gage_meta_status = False
     st.gage_plot_status = False
 
+    # model qc session
+    st.session_state["model_qc_file_path"] = None
+    st.session_state["model_qc_suite"] = "FFRD"
+    st.session_state["model_qc_results"] = None
+    st.session_state["model_qc_status"] = True
+
     st.basins = None
     st.reservoirs = None
     st.fmap = None
