@@ -5,6 +5,7 @@ from ..utils.session import init_session_state
 
 # standard imports
 import os
+import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 import warnings
@@ -19,7 +20,49 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 
-def process_qc_results(qc_results, error_col, success_col):
+def create_tile(st_obj, qc_item, height, color):
+    """
+    Create a tile for displaying QC results.
+
+    Parameters
+    ----------
+    st_obj : streamlit.object
+        The Streamlit object to use for displaying the tile.
+    qc_item : RasqcResult
+        The QC item to display.
+    height : int
+        The height of the tile.
+    color : str
+        The background color of the tile as a hex code.
+        The color should be a valid CSS color value (e.g., "#B53737" for red).
+
+    Returns
+    -------
+    tile : streamlit.container
+        The tile container.
+    """
+    tile = st_obj.container()
+    tile.markdown(
+        f"""
+        <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black; height: {height}px;">
+            <h4 style="color: white;">Name: {qc_item.name}</h4>
+            <p style="color: white;">Filename: {qc_item.filename}</p>
+            <p style="color: white;">Message: {qc_item.message}</p>
+            <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
+            <p style="color: white; font-family: monospace;">Examples: {qc_item.examples}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    return tile
+
+
+def process_qc_results(
+    qc_results,
+    errors_exp,
+    warnings_exp,
+    successes_exp,
+):
     """
     Process the QC results.
 
@@ -27,40 +70,51 @@ def process_qc_results(qc_results, error_col, success_col):
     ----------
     qc_results : list[RasqcResult]
         The QC results to process.
-    error_col : streamlit.column
-        The container to display error results.
-    success_col : streamlit.column
-        The container to display success results.
+    errors_exp : streamlit.expander
+        The expander to display QC error details per result.
+    warnings_exp : streamlit.expander
+        The expander to display QC error details per result.
+    successes_exp : streamlit.expander
+        The expander to display QC error details per result.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        A DataFrame containing the summary of QC results.
     """
+    count_errors = 0
+    count_warnings = 0
+    count_successes = 0
+    all = 0
     for item in qc_results:
+        all += 1
         if item.result.value == "error":
-            tile = error_col.container()
-            tile.markdown(
-                f"""
-                <div style="background-color: #B53737; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                    <h4 style="color: white;">Name: {item.name}</h4>
-                    <p style="color: white;">Filename: {item.filename}</p>
-                    <p style="color: white;">Message: {item.message}</p>
-                    <p style="color: white;">Pattern: {item.pattern}</p>
-                    <p style="color: white;">Examples: {item.examples}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            count_errors += 1
+            create_tile(errors_exp, item, height=250, color="#B53737")
+        elif item.result.value == "ok":
+            count_successes += 1
+            create_tile(successes_exp, item, height=250, color="#2e6930")
+        elif item.result.value == "warning":
+            count_warnings += 1
+            create_tile(warnings_exp, item, height=250, color="#EFBF04")
         else:
-            tile = success_col.container()
-            tile.markdown(
-                f"""
-                <div style="background-color: #2e6930; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                    <h4 style="color: white;">Name: {item.name}</h4>
-                    <p style="color: white;">Filename: {item.filename}</p>
-                    <p style="color: white;">Message: {item.message}</p>
-                    <p style="color: white;">Pattern: {item.pattern}</p>
-                    <p style="color: white;">Examples: {item.examples}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.error(f"Unknown result type: {item.result.value}")
+            continue
+
+    if count_errors == 0:
+        errors_exp.write("No errors found.")
+    if count_warnings == 0:
+        warnings_exp.write("No warnings found.")
+    if count_successes == 0:
+        successes_exp.write("No successes found.")
+
+    df = pd.DataFrame(
+        {
+            "QC Check": ["Errors", "Warnings", "Successes"],
+            "Count": [count_errors, count_warnings, count_successes],
+        }
+    )
+    return df
 
 
 def model_qc():
@@ -71,7 +125,7 @@ def model_qc():
     st.write(
         """
         This app allows you to perform automated QA/QC checks on HEC-RAS models.
-        Each QC result is categorized as either an error or a success according the 
+        Each QC result is categorized as either an error, warning or a success according the 
         selected QC check suite. The file name, message, pattern, and examples are 
         provided for each result."""
     )
@@ -112,14 +166,19 @@ def model_qc():
                 st.session_state["model_qc_status"] = True
 
     col1, col2 = st.columns(2)
-    col1.subheader("Errors ❌")
-    col2.subheader("Successes ✅")
+    errors_bin = col1.expander("Errors", icon="❌")
+    warnings_bin = col1.expander("Warnings", icon="⚠️")
+    success_bin = col1.expander(label="Successes", icon="✅")
 
     if (
         st.session_state["model_qc_status"]
         and st.session_state["model_qc_results"] is not None
     ):
-        process_qc_results(st.session_state["model_qc_results"], col1, col2)
+        summary_df = process_qc_results(
+            st.session_state["model_qc_results"], errors_bin, warnings_bin, success_bin
+        )
+        col2.subheader("Summary of QC Results")
+        col2.dataframe(summary_df)
     else:
         st.write("No QC results available.")
 
