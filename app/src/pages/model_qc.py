@@ -20,7 +20,7 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 
-def create_tile(st_obj, qc_item, height, color):
+def create_tile(st_obj, qc_item, color):
     """
     Create a tile for displaying QC results.
 
@@ -30,8 +30,6 @@ def create_tile(st_obj, qc_item, height, color):
         The Streamlit object to use for displaying the tile.
     qc_item : RasqcResult
         The QC item to display.
-    height : int
-        The height of the tile.
     color : str
         The background color of the tile as a hex code.
         The color should be a valid CSS color value (e.g., "#B53737" for red).
@@ -42,19 +40,56 @@ def create_tile(st_obj, qc_item, height, color):
         The tile container.
     """
     tile = st_obj.container()
-    tile.markdown(
-        f"""
-        <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black; height: {height}px;">
-            <h4 style="color: white;">Name: {qc_item.name}</h4>
-            <p style="color: white;">Filename: {qc_item.filename}</p>
-            <p style="color: white;">Message: {qc_item.message}</p>
-            <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
-            <p style="color: white; font-family: monospace;">Examples: {qc_item.examples}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    return tile
+    if qc_item.message is None and qc_item.pattern is None and qc_item.examples is None:
+        tile.markdown(
+            f"""
+            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
+                <h4 style="color: white;">Name: {qc_item.name}</h4>
+                <p style="color: white;">Filename: {qc_item.filename}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return tile
+    elif qc_item.pattern is None and qc_item.examples is None:
+        tile.markdown(
+            f"""
+            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
+                <h4 style="color: white;">Name: {qc_item.name}</h4>
+                <p style="color: white;">Filename: {qc_item.filename}</p>
+                <p style="color: white;">Message: {qc_item.message}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return tile
+    elif qc_item.examples is None:
+        tile.markdown(
+            f"""
+            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
+                <h4 style="color: white;">Name: {qc_item.name}</h4>
+                <p style="color: white;">Filename: {qc_item.filename}</p>
+                <p style="color: white;">Message: {qc_item.message}</p>
+                <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return tile
+    else:
+        tile.markdown(
+            f"""
+            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
+                <h4 style="color: white;">Name: {qc_item.name}</h4>
+                <p style="color: white;">Filename: {qc_item.filename}</p>
+                <p style="color: white;">Message: {qc_item.message}</p>
+                <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
+                <p style="color: white; font-family: monospace;">Examples: {qc_item.examples}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return tile
 
 
 def process_qc_results(
@@ -90,13 +125,13 @@ def process_qc_results(
         all += 1
         if item.result.value == "error":
             count_errors += 1
-            create_tile(errors_exp, item, height=250, color="#B53737")
+            create_tile(errors_exp, item, color="#B53737")
         elif item.result.value == "ok":
             count_successes += 1
-            create_tile(successes_exp, item, height=250, color="#2e6930")
+            create_tile(successes_exp, item, color="#2e6930")
         elif item.result.value == "warning":
             count_warnings += 1
-            create_tile(warnings_exp, item, height=250, color="#EFBF04")
+            create_tile(warnings_exp, item, color="#EFBF04")
         else:
             st.error(f"Unknown result type: {item.result.value}")
             continue
