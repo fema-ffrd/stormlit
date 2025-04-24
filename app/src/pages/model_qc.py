@@ -19,7 +19,6 @@ srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 load_dotenv()
 
-
 def create_tile(st_obj, qc_item, color):
     """
     Create a tile for displaying QC results.
@@ -40,57 +39,22 @@ def create_tile(st_obj, qc_item, color):
         The tile container.
     """
     tile = st_obj.container()
-    if qc_item.message is None and qc_item.pattern is None and qc_item.examples is None:
-        tile.markdown(
-            f"""
-            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                <h4 style="color: white;">Name: {qc_item.name}</h4>
-                <p style="color: white;">Filename: {qc_item.filename}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        return tile
-    elif qc_item.pattern is None and qc_item.examples is None:
-        tile.markdown(
-            f"""
-            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                <h4 style="color: white;">Name: {qc_item.name}</h4>
-                <p style="color: white;">Filename: {qc_item.filename}</p>
-                <p style="color: white;">Message: {qc_item.message}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        return tile
-    elif qc_item.examples is None:
-        tile.markdown(
-            f"""
-            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                <h4 style="color: white;">Name: {qc_item.name}</h4>
-                <p style="color: white;">Filename: {qc_item.filename}</p>
-                <p style="color: white;">Message: {qc_item.message}</p>
-                <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        return tile
-    else:
-        tile.markdown(
-            f"""
-            <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
-                <h4 style="color: white;">Name: {qc_item.name}</h4>
-                <p style="color: white;">Filename: {qc_item.filename}</p>
-                <p style="color: white;">Message: {qc_item.message}</p>
-                <p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>
-                <p style="color: white; font-family: monospace;">Examples: {qc_item.examples}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        return tile
-
+    tile_text = f"""
+    <div style="background-color: {color}; padding: 10px; border-radius: 5px; border: 1px solid black;">
+        <h4 style="color: white;">Name: {qc_item.name}</h4>
+        <p style="color: white;">Filename: {qc_item.filename}</p>
+    """
+    if qc_item.message is not None:
+        tile_text += f'<p style="color: white;">Message: {qc_item.message}</p>'
+    if qc_item.pattern is not None:
+        tile_text += f'<p style="color: white; font-family: monospace;">Pattern: {qc_item.pattern}</p>'
+    if qc_item.examples is not None:
+        tile_text += f'<p style="color: white;">Examples: {qc_item.examples}</p>'
+    if qc_item.element is not None:
+        tile_text += f'<p style="color: white;">Elements: {qc_item.element}</p>'
+    tile_text += "</div>"
+    tile.markdown(tile_text, unsafe_allow_html=True)
+    return tile
 
 def process_qc_results(
     qc_results,
