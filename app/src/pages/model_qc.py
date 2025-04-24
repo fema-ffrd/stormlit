@@ -19,6 +19,7 @@ srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 load_dotenv()
 
+
 def create_tile(st_obj, qc_item, color):
     """
     Create a tile for displaying QC results.
@@ -55,6 +56,7 @@ def create_tile(st_obj, qc_item, color):
     tile_text += "</div>"
     tile.markdown(tile_text, unsafe_allow_html=True)
     return tile
+
 
 def process_qc_results(
     qc_results,
