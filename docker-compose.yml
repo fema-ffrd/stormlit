@@ -24,60 +24,60 @@ services:
     networks:
       - stormlit-network
 
-  # stormlit-pgstac:
-  #   container_name: stormlit-pgstac
-  #   image: ghcr.io/stac-utils/pgstac:v0.9.2
-  #   environment:
-  #     POSTGRES_DB: postgis
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: password
-  #   ports:
-  #     - "55432:5432"
-  #   volumes:
-  #     - stormlit-pgstac-data:/var/lib/postgresql/data
-  #   networks:
-  #     - stormlit-network
+  stormlit-pgstac:
+    container_name: stormlit-pgstac
+    image: ghcr.io/stac-utils/pgstac:v0.9.2
+    environment:
+      POSTGRES_DB: postgis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "55432:5432"
+    volumes:
+      - stormlit-pgstac-data:/var/lib/postgresql/data
+    networks:
+      - stormlit-network
 
-  # stormlit-pgadmin:
-  #   container_name: stormlit-pgadmin
-  #   image: dpage/pgadmin4
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
-  #     PGADMIN_DEFAULT_PASSWORD: admin
-  #   ports:
-  #     - "55050:80"
-  #   networks:
-  #     - stormlit-network
-  #   depends_on:
-  #     - stormlit-pgstac
+  stormlit-pgadmin:
+    container_name: stormlit-pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "55050:80"
+    networks:
+      - stormlit-network
+    depends_on:
+      - stormlit-pgstac
 
-  # stormlit-stac-api:
-  #   container_name: stormlit-stac-api
-  #   image: ghcr.io/stac-utils/stac-fastapi-pgstac:4.0.0
-  #   environment:
-  #     - APP_HOST=0.0.0.0
-  #     - APP_PORT=8080
-  #     - RELOAD=true
-  #     - ENVIRONMENT=local
-  #     - POSTGRES_USER=postgres
-  #     - POSTGRES_PASS=password
-  #     - POSTGRES_DBNAME=postgis
-  #     - POSTGRES_HOST_READER=stormlit-pgstac
-  #     - POSTGRES_HOST_WRITER=stormlit-pgstac
-  #     - POSTGRES_PORT=5432
-  #     - WEB_CONCURRENCY=10
-  #     - VSI_CACHE=TRUE
-  #     - GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
-  #     - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
-  #     - DB_MIN_CONN_SIZE=1
-  #     - DB_MAX_CONN_SIZE=1
-  #     - USE_API_HYDRATE=${USE_API_HYDRATE:-false}
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - stormlit-network
-  #   depends_on:
-  #     - stormlit-pgstac
+  stormlit-stac-api:
+    container_name: stormlit-stac-api
+    image: ghcr.io/stac-utils/stac-fastapi-pgstac:4.0.0
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      - RELOAD=true
+      - ENVIRONMENT=local
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASS=password
+      - POSTGRES_DBNAME=postgis
+      - POSTGRES_HOST_READER=stormlit-pgstac
+      - POSTGRES_HOST_WRITER=stormlit-pgstac
+      - POSTGRES_PORT=5432
+      - WEB_CONCURRENCY=10
+      - VSI_CACHE=TRUE
+      - GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
+      - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+      - DB_MIN_CONN_SIZE=1
+      - DB_MAX_CONN_SIZE=1
+      - USE_API_HYDRATE=${USE_API_HYDRATE:-false}
+    ports:
+      - "8080:8080"
+    networks:
+      - stormlit-network
+    depends_on:
+      - stormlit-pgstac
 
   stormlit-titiler:
     container_name: stormlit-titiler
