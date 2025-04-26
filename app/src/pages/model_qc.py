@@ -167,6 +167,8 @@ def model_qc():
                 st.session_state["model_qc_status"] = True
 
     col1, col2 = st.columns(2)
+    col1.subheader("Results")
+    col2.subheader("Summary")
     errors_bin = col1.expander("Errors", icon="❌")
     warnings_bin = col1.expander("Warnings", icon="⚠️")
     success_bin = col1.expander(label="Successes", icon="✅")
@@ -178,7 +180,6 @@ def model_qc():
         summary_df = process_qc_results(
             st.session_state["model_qc_results"], errors_bin, warnings_bin, success_bin
         )
-        col2.subheader("Summary of QC Results")
         col2.dataframe(summary_df)
     else:
         st.write("No QC results available.")
