@@ -324,9 +324,7 @@ class AlbConstruct(Construct):
             ],
             condition=[
                 stac_api_host_condition,
-                LbListenerRuleCondition(
-                    http_request_method={"values": ["POST"]}
-                ),
+                LbListenerRuleCondition(http_request_method={"values": ["POST"]}),
             ],
         )
 
@@ -346,9 +344,7 @@ class AlbConstruct(Construct):
             ],
             condition=[
                 stac_api_host_condition,
-                LbListenerRuleCondition(
-                    http_request_method={"values": ["DELETE"]}
-                ),
+                LbListenerRuleCondition(http_request_method={"values": ["DELETE"]}),
             ],
         )
 
