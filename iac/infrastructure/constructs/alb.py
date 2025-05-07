@@ -1,3 +1,4 @@
+import os
 from typing import List
 from constructs import Construct
 from cdktf import TerraformOutput
@@ -10,6 +11,7 @@ from cdktf_cdktf_provider_aws.lb_listener_rule import (
     LbListenerRule,
     LbListenerRuleAction,
     LbListenerRuleCondition,
+    LbListenerRuleActionAuthenticateOidc,
 )
 from cdktf_cdktf_provider_aws.lb_listener_certificate import LbListenerCertificate
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
@@ -96,6 +98,34 @@ class AlbConstruct(Construct):
         super().__init__(scope, id)
 
         resource_prefix = f"{project_prefix}-{environment}"
+
+        # Retrieve Keycloak configuration from environment variables
+        keycloak_issuer_url = os.getenv("KEYCLOAK_ISSUER_URL")
+        keycloak_authorization_endpoint = os.getenv("KEYCLOAK_AUTHORIZATION_ENDPOINT")
+        keycloak_token_endpoint = os.getenv("KEYCLOAK_TOKEN_ENDPOINT")
+        keycloak_user_info_endpoint = os.getenv("KEYCLOAK_USER_INFO_ENDPOINT")
+        keycloak_client_id = os.getenv("KEYCLOAK_CLIENT_ID")
+        keycloak_client_secret = os.getenv("KEYCLOAK_CLIENT_SECRET")  # Sensitive
+        keycloak_oidc_scope = os.getenv("KEYCLOAK_OIDC_SCOPE", "openid profile email")
+        keycloak_session_cookie_name = os.getenv(
+            "KEYCLOAK_SESSION_COOKIE_NAME", "AWSELBAuthSessionCookie"
+        )
+        keycloak_session_timeout = int(os.getenv("KEYCLOAK_SESSION_TIMEOUT", "3600"))
+
+        # Validation for Keycloak variables
+        if not all(
+            [
+                keycloak_issuer_url,
+                keycloak_authorization_endpoint,
+                keycloak_token_endpoint,
+                keycloak_user_info_endpoint,
+                keycloak_client_id,
+                keycloak_client_secret,
+            ]
+        ):
+            raise ValueError(
+                "One or more Keycloak environment variables are not set. Please check your .env file."
+            )
 
         # Create Application Load Balancer
         self.alb = Lb(
@@ -238,27 +268,103 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Add listener rules to route based on host header
+        # OIDC Authentication Rules for STAC API (PUT, POST, DELETE)
+        stac_api_host_condition = LbListenerRuleCondition(
+            host_header={
+                "values": [f"{app_config.stac_api_subdomain}.{app_config.domain_name}"]
+            }
+        )
+
+        oidc_auth_config = LbListenerRuleActionAuthenticateOidc(
+            issuer=keycloak_issuer_url,
+            authorization_endpoint=keycloak_authorization_endpoint,
+            token_endpoint=keycloak_token_endpoint,
+            user_info_endpoint=keycloak_user_info_endpoint,
+            client_id=keycloak_client_id,
+            client_secret=keycloak_client_secret,
+            on_unauthenticated_request="authenticate",
+            scope=keycloak_oidc_scope,
+            session_cookie_name=keycloak_session_cookie_name,
+            session_timeout=keycloak_session_timeout,
+        )
+
+        # Rule for PUT requests to STAC API (requires auth)
         LbListenerRule(
             self,
-            "stac-api-host-rule",
+            "stac-api-put-auth-rule",
             listener_arn=self.https_listener.arn,
             priority=1,
-            condition=[
-                LbListenerRuleCondition(
-                    host_header={
-                        "values": [
-                            f"{app_config.stac_api_subdomain}.{app_config.domain_name}"
-                        ]
-                    }
-                )
+            action=[
+                LbListenerRuleAction(
+                    type="authenticate-oidc", authenticate_oidc=oidc_auth_config
+                ),
+                LbListenerRuleAction(
+                    type="forward", target_group_arn=self.stac_api_target_group.arn
+                ),
             ],
+            condition=[
+                stac_api_host_condition,
+                LbListenerRuleCondition(http_request_method={"values": ["PUT"]}),
+            ],
+        )
+
+        # Rule for POST requests to STAC API (requires auth)
+        LbListenerRule(
+            self,
+            "stac-api-post-auth-rule",
+            listener_arn=self.https_listener.arn,
+            priority=2,
+            action=[
+                LbListenerRuleAction(
+                    type="authenticate-oidc", authenticate_oidc=oidc_auth_config
+                ),
+                LbListenerRuleAction(
+                    type="forward", target_group_arn=self.stac_api_target_group.arn
+                ),
+            ],
+            condition=[
+                stac_api_host_condition,
+                LbListenerRuleCondition(
+                    http_request_method={"values": ["POST"]}
+                ),
+            ],
+        )
+
+        # Rule for DELETE requests to STAC API (requires auth)
+        LbListenerRule(
+            self,
+            "stac-api-delete-auth-rule",
+            listener_arn=self.https_listener.arn,
+            priority=3,
+            action=[
+                LbListenerRuleAction(
+                    type="authenticate-oidc", authenticate_oidc=oidc_auth_config
+                ),
+                LbListenerRuleAction(
+                    type="forward", target_group_arn=self.stac_api_target_group.arn
+                ),
+            ],
+            condition=[
+                stac_api_host_condition,
+                LbListenerRuleCondition(
+                    http_request_method={"values": ["DELETE"]}
+                ),
+            ],
+        )
+
+        # General forwarding rule for STAC API (e.g., for GET requests or other methods not covered by auth)
+        LbListenerRule(
+            self,
+            "stac-api-host-forward-rule",
+            listener_arn=self.https_listener.arn,
+            priority=10,  # Lower priority than the auth rules for STAC
             action=[
                 LbListenerRuleAction(
                     type="forward",
                     target_group_arn=self.stac_api_target_group.arn,
                 )
             ],
+            condition=[stac_api_host_condition],
         )
 
         # Output ALB DNS name and zone ID
