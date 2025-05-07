@@ -100,32 +100,25 @@ class AlbConstruct(Construct):
         resource_prefix = f"{project_prefix}-{environment}"
 
         # Retrieve Keycloak configuration from environment variables
-        keycloak_issuer_url = os.getenv("KEYCLOAK_ISSUER_URL")
-        keycloak_authorization_endpoint = os.getenv("KEYCLOAK_AUTHORIZATION_ENDPOINT")
-        keycloak_token_endpoint = os.getenv("KEYCLOAK_TOKEN_ENDPOINT")
-        keycloak_user_info_endpoint = os.getenv("KEYCLOAK_USER_INFO_ENDPOINT")
-        keycloak_client_id = os.getenv("KEYCLOAK_CLIENT_ID")
-        keycloak_client_secret = os.getenv("KEYCLOAK_CLIENT_SECRET")  # Sensitive
-        keycloak_oidc_scope = os.getenv("KEYCLOAK_OIDC_SCOPE", "openid profile email")
+        keycloak_issuer_url = os.getenv("KEYCLOAK_ISSUER_URL", "localhost:8080")
+        keycloak_authorization_endpoint = os.getenv(
+            "KEYCLOAK_AUTHORIZATION_ENDPOINT",
+            "localhost:8080/protocol/openid-connect/auth",
+        )
+        keycloak_token_endpoint = os.getenv(
+            "KEYCLOAK_TOKEN_ENDPOINT", "localhost:8080/protocol/openid-connect/token"
+        )
+        keycloak_user_info_endpoint = os.getenv(
+            "KEYCLOAK_USER_INFO_ENDPOINT",
+            "localhost:8080/protocol/openid-connect/userinfo",
+        )
+        keycloak_client_id = os.getenv("KEYCLOAK_CLIENT_ID", "stormlit")
+        keycloak_client_secret = os.getenv("KEYCLOAK_CLIENT_SECRET", "stormlit")
+        keycloak_oidc_scope = os.getenv("KEYCLOAK_OIDC_SCOPE", "profile email")
         keycloak_session_cookie_name = os.getenv(
             "KEYCLOAK_SESSION_COOKIE_NAME", "AWSELBAuthSessionCookie"
         )
         keycloak_session_timeout = int(os.getenv("KEYCLOAK_SESSION_TIMEOUT", "3600"))
-
-        # Validation for Keycloak variables
-        if not all(
-            [
-                keycloak_issuer_url,
-                keycloak_authorization_endpoint,
-                keycloak_token_endpoint,
-                keycloak_user_info_endpoint,
-                keycloak_client_id,
-                keycloak_client_secret,
-            ]
-        ):
-            raise ValueError(
-                "One or more Keycloak environment variables are not set. Please check your .env file."
-            )
 
         # Create Application Load Balancer
         self.alb = Lb(
