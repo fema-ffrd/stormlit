@@ -63,7 +63,7 @@ class ApplicationStack(BaseStack):
         alb_security_group_id (str): Security group ID for ALB
         ecs_security_group_id (str): Security group ID for ECS tasks
         rds_host (str): RDS instance hostname
-        pgstac_read_secret_arn (str): ARN of PgSTAC read credentials secret
+        pgstac_admin_secret_arn (str): ARN of PgSTAC admin credentials secret
 
     Example:
         ```python
@@ -77,7 +77,7 @@ class ApplicationStack(BaseStack):
             alb_security_group_id="sg-123",
             ecs_security_group_id="sg-456",
             rds_host="db.example.com",
-            pgstac_read_secret_arn="arn:aws:secretsmanager:..."
+            pgstac_admin_secret_arn="arn:aws:secretsmanager:..."
         )
         ```
 
@@ -103,7 +103,7 @@ class ApplicationStack(BaseStack):
         alb_security_group_id: str,
         ecs_security_group_id: str,
         rds_host: str,
-        pgstac_read_secret_arn: str,
+        pgstac_admin_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -128,7 +128,7 @@ class ApplicationStack(BaseStack):
             project_prefix=config.project_prefix,
             environment=config.environment,
             secret_arns=[
-                pgstac_read_secret_arn,
+                pgstac_admin_secret_arn,
             ],
             services={
                 "streamlit": {
@@ -148,7 +148,7 @@ class ApplicationStack(BaseStack):
                     "task_role_statements": [],
                     "execution_role_statements": [],
                     "secret_arns": [
-                        pgstac_read_secret_arn,
+                        pgstac_admin_secret_arn,
                     ],
                 },
             },
@@ -213,7 +213,7 @@ class ApplicationStack(BaseStack):
             target_groups=target_groups,
             ecs_config=config.ecs,
             rds_host=rds_host,
-            pgstac_read_secret_arn=pgstac_read_secret_arn,
+            pgstac_admin_secret_arn=pgstac_admin_secret_arn,
             tags=config.tags,
         )
 

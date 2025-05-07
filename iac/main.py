@@ -114,8 +114,8 @@ def main():
         rds_host=Token.as_string(
             Fn.element(Fn.split(":", database_stack.rds.db_instance.endpoint), 0)
         ),
-        pgstac_read_secret_arn=Token.as_string(
-            database_stack.secrets.pgstac_read_secret.arn
+        pgstac_admin_secret_arn=Token.as_string(
+            database_stack.secrets.pgstac_admin_secret.arn
         ),
     )
 

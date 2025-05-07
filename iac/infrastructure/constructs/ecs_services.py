@@ -53,7 +53,7 @@ class EcsServicesConstruct(Construct):
         target_groups (Dict[str, str]): ALB target group ARNs for each service
         ecs_config (EcsConfig): Service-specific configurations
         rds_host (str): RDS instance hostname
-        pgstac_read_secret_arn (str): ARN of the PGSTAC read-only credentials secret
+        pgstac_admin_secret_arn (str): ARN of the PGSTAC admin credentials secret
         tags (dict): Tags to apply to all resources
 
     Example:
@@ -83,7 +83,7 @@ class EcsServicesConstruct(Construct):
             },
             ecs_config=ecs_config,
             rds_host="db.example.com",
-            pgstac_read_secret_arn="arn:aws:secretsmanager:...",
+            pgstac_admin_secret_arn="arn:aws:secretsmanager:...",
             tags={"Environment": "production"}
         )
         ```
@@ -113,7 +113,7 @@ class EcsServicesConstruct(Construct):
         target_groups: Dict[str, str],
         ecs_config: EcsConfig,
         rds_host: str,
-        pgstac_read_secret_arn: str,
+        pgstac_admin_secret_arn: str,
         tags: dict,
     ) -> None:
         super().__init__(scope, id)
@@ -197,11 +197,11 @@ class EcsServicesConstruct(Construct):
                     "secrets": [
                         {
                             "name": "POSTGRES_USER",
-                            "valueFrom": f"{pgstac_read_secret_arn}:username::",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:username::",
                         },
                         {
                             "name": "POSTGRES_PASS",
-                            "valueFrom": f"{pgstac_read_secret_arn}:password::",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:password::",
                         },
                     ],
                     "environment": [
