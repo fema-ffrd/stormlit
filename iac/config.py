@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 
@@ -22,7 +22,10 @@ class DatabaseConfig:
             high availability.
         backup_retention_period (int): The number of days to retain backups.
         publicly_accessible (bool): Indicates whether the RDS instance should be publicly accessible
-
+        skip_final_snapshot (bool): Indicates whether to skip final snapshot on deletion.
+        apply_immediately (bool): Indicates whether to apply changes immediately.
+        monitoring_interval (int): The interval, in seconds, between points when Enhanced Monitoring metrics are collected.
+        performance_insights_enabled (bool): Indicates whether Performance Insights are enabled.
     """
 
     instance_class: str
@@ -46,7 +49,6 @@ class BackendConfig:
     Attributes:
         s3_bucket (str): The name of the S3 bucket where Terraform state will be stored.
         dynamodb_table (str): The name of the DynamoDB table for locking the state.
-
     """
 
     s3_bucket: str
@@ -73,13 +75,23 @@ class EcsConfig:
         instance_count (int): The number of ECS instances.
         stormlit_config (EcsServiceConfig): Configuration for the Stormlit service.
         stac_api_config (EcsServiceConfig): Configuration for the STAC FastAPI PGSTAC service.
-
     """
 
     instance_type: str
     instance_count: int
     stormlit_config: EcsServiceConfig
     stac_api_config: EcsServiceConfig
+
+
+@dataclass
+class ApiGatewayConfig: # New dataclass
+    """
+    Configuration class for API Gateway settings.
+
+    Attributes:
+        stac_api_jwt_audience (List[str]): List of audiences for STAC API JWT authorizer.
+    """
+    stac_api_jwt_audience: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -92,12 +104,14 @@ class ApplicationConfig:
         stormlit_subdomain (str): The subdomain for the Stormlit application.
         stac_api_subdomain (str): The subdomain for the STAC API.
         enable_deletion_protection (bool): Indicates whether deletion protection is enabled for the ALB.
+        api_gateway (ApiGatewayConfig): API Gateway specific configurations.
     """
 
     domain_name: str
     stormlit_subdomain: str
     stac_api_subdomain: str
     enable_deletion_protection: bool
+    api_gateway: ApiGatewayConfig = field(default_factory=ApiGatewayConfig) # Added api_gateway field
 
 
 @dataclass
@@ -147,7 +161,6 @@ class EnvironmentConfig:
         ecs (EcsConfig): The configuration for ECS instance settings.
         secrets (SecretsConfig): The configuration for AWS Secrets Manager settings.
         tags (Dict[str, str]): A dictionary of tags to apply to all resources.
-
     """
 
     project_prefix: str
@@ -169,7 +182,6 @@ def get_development_config() -> EnvironmentConfig:
 
     Returns:
         EnvironmentConfig: A pre-defined configuration for the development environment.
-
     """
     return EnvironmentConfig(
         project_prefix="stormlit",
@@ -199,13 +211,16 @@ def get_development_config() -> EnvironmentConfig:
             stormlit_subdomain="stormlit-dev",
             stac_api_subdomain="stac-api-dev",
             enable_deletion_protection=False,
+            api_gateway=ApiGatewayConfig(
+                stac_api_jwt_audience=["stormlit", "account", "ffrd-model-viewer-local"]
+            )
         ),
         ecs=EcsConfig(
             instance_type="t3.medium",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
-                image_tag=None,  # from TF_VAR_stormlit_tag
+                image_tag=None,
                 container_count=1,
                 cpu=1024,
                 memory=2560,
@@ -241,7 +256,6 @@ def get_production_config() -> EnvironmentConfig:
 
     Returns:
         EnvironmentConfig: A pre-defined configuration for the production environment.
-
     """
     return EnvironmentConfig(
         project_prefix="stormlit",
@@ -271,13 +285,16 @@ def get_production_config() -> EnvironmentConfig:
             stormlit_subdomain="stormlit",
             stac_api_subdomain="stac-api",
             enable_deletion_protection=True,
+            api_gateway=ApiGatewayConfig(
+                stac_api_jwt_audience=["stormlit", "account", "ffrd-model-viewer-local"]
+            )
         ),
         ecs=EcsConfig(
             instance_type="t3.medium",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
-                image_tag=None,  # from TF_VAR_stormlit_tag
+                image_tag=None,
                 container_count=1,
                 cpu=1024,
                 memory=2560,
@@ -319,7 +336,6 @@ def get_config(environment: str) -> EnvironmentConfig:
 
     Raises:
         ValueError: If the specified environment type is not recognized.
-
     """
     configs = {
         "dev": get_development_config,

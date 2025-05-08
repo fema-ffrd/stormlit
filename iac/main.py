@@ -68,11 +68,7 @@ def main():
         - Follows AWS best practices
         - All resources properly tagged
     """
-
-    # Initialize the CDKTF app
     app = App()
-
-    # Get environment from ENV var, default to development
     environment = os.getenv("ENVIRONMENT", "dev")
     config = get_config(environment)
 
@@ -82,44 +78,29 @@ def main():
         config,
     )
 
-    # Create the database stack
     database_stack = DatabaseStack(
         app,
         f"{config.project_prefix}-{environment}-database",
         config,
-        subnet_ids=[subnet.id for subnet in network_stack.networking.private_subnets],
-        rds_security_group_id=Token.as_string(
-            network_stack.networking.rds_security_group.id
-        ),
+        subnet_ids=Token.as_list(network_stack.private_subnet_ids_output.value),
+        rds_security_group_id=Token.as_string(network_stack.rds_security_group_id_output.value),
     )
 
-    # Create the application stack with references to database resources
     application_stack = ApplicationStack(
         app,
         f"{config.project_prefix}-{environment}-application",
         config,
-        vpc_id=Token.as_string(network_stack.networking.vpc.id),
-        public_subnet_ids=[
-            subnet.id for subnet in network_stack.networking.public_subnets
-        ],
-        private_subnet_ids=[
-            subnet.id for subnet in network_stack.networking.private_subnets
-        ],
-        alb_security_group_id=Token.as_string(
-            network_stack.networking.alb_security_group.id
-        ),
-        ecs_security_group_id=Token.as_string(
-            network_stack.networking.ecs_security_group.id
-        ),
+        vpc_id=Token.as_string(network_stack.vpc_id_output.value),
+        public_subnet_ids=Token.as_list(network_stack.public_subnet_ids_output.value),
+        private_subnet_ids=Token.as_list(network_stack.private_subnet_ids_output.value),
+        alb_security_group_id=Token.as_string(network_stack.alb_security_group_id_output.value),
+        ecs_security_group_id=Token.as_string(network_stack.ecs_security_group_id_output.value),
         rds_host=Token.as_string(
-            Fn.element(Fn.split(":", database_stack.rds.db_instance.endpoint), 0)
+            Fn.element(Fn.split(":", Token.as_string(database_stack.rds.db_instance.endpoint)), 0)
         ),
-        pgstac_admin_secret_arn=Token.as_string(
-            database_stack.secrets.pgstac_admin_secret.arn
-        ),
+        pgstac_admin_secret_arn=Token.as_string(database_stack.secrets.pgstac_admin_secret.arn),
     )
 
-    # # Add dependency between stacks
     database_stack.add_dependency(network_stack)
     application_stack.add_dependency(database_stack)
 

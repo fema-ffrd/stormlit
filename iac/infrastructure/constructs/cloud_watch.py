@@ -56,18 +56,18 @@ class CloudWatchConstruct(Construct):
         resource_prefix = f"{project_prefix}-{environment}"
 
         # Create log groups for each service
-        self.keycloak_log_group = CloudwatchLogGroup(
-            self,
-            "stac-api-logs",
-            name=f"/ecs/{resource_prefix}-stac-api",
-            retention_in_days=30,
-            tags=tags,
-        )
-
         self.streamlit_log_group = CloudwatchLogGroup(
             self,
             "stormlit-logs",
             name=f"/ecs/{resource_prefix}-stormlit",
+            retention_in_days=30,
+            tags=tags,
+        )
+
+        self.stac_api_log_group = CloudwatchLogGroup(
+            self,
+            "stac-api-logs",
+            name=f"/ecs/{resource_prefix}-stac-api",
             retention_in_days=30,
             tags=tags,
         )
