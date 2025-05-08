@@ -83,7 +83,9 @@ def main():
         f"{config.project_prefix}-{environment}-database",
         config,
         subnet_ids=Token.as_list(network_stack.private_subnet_ids_output.value),
-        rds_security_group_id=Token.as_string(network_stack.rds_security_group_id_output.value),
+        rds_security_group_id=Token.as_string(
+            network_stack.rds_security_group_id_output.value
+        ),
     )
 
     application_stack = ApplicationStack(
@@ -93,12 +95,21 @@ def main():
         vpc_id=Token.as_string(network_stack.vpc_id_output.value),
         public_subnet_ids=Token.as_list(network_stack.public_subnet_ids_output.value),
         private_subnet_ids=Token.as_list(network_stack.private_subnet_ids_output.value),
-        alb_security_group_id=Token.as_string(network_stack.alb_security_group_id_output.value),
-        ecs_security_group_id=Token.as_string(network_stack.ecs_security_group_id_output.value),
-        rds_host=Token.as_string(
-            Fn.element(Fn.split(":", Token.as_string(database_stack.rds.db_instance.endpoint)), 0)
+        alb_security_group_id=Token.as_string(
+            network_stack.alb_security_group_id_output.value
         ),
-        pgstac_admin_secret_arn=Token.as_string(database_stack.secrets.pgstac_admin_secret.arn),
+        ecs_security_group_id=Token.as_string(
+            network_stack.ecs_security_group_id_output.value
+        ),
+        rds_host=Token.as_string(
+            Fn.element(
+                Fn.split(":", Token.as_string(database_stack.rds.db_instance.endpoint)),
+                0,
+            )
+        ),
+        pgstac_admin_secret_arn=Token.as_string(
+            database_stack.secrets.pgstac_admin_secret.arn
+        ),
     )
 
     database_stack.add_dependency(network_stack)

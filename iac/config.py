@@ -84,13 +84,14 @@ class EcsConfig:
 
 
 @dataclass
-class ApiGatewayConfig: # New dataclass
+class ApiGatewayConfig:  # New dataclass
     """
     Configuration class for API Gateway settings.
 
     Attributes:
         stac_api_jwt_audience (List[str]): List of audiences for STAC API JWT authorizer.
     """
+
     stac_api_jwt_audience: List[str] = field(default_factory=list)
 
 
@@ -111,7 +112,9 @@ class ApplicationConfig:
     stormlit_subdomain: str
     stac_api_subdomain: str
     enable_deletion_protection: bool
-    api_gateway: ApiGatewayConfig = field(default_factory=ApiGatewayConfig) # Added api_gateway field
+    api_gateway: ApiGatewayConfig = field(
+        default_factory=ApiGatewayConfig
+    )  # Added api_gateway field
 
 
 @dataclass
@@ -213,7 +216,7 @@ def get_development_config() -> EnvironmentConfig:
             enable_deletion_protection=False,
             api_gateway=ApiGatewayConfig(
                 stac_api_jwt_audience=["stormlit", "account", "ffrd-model-viewer-local"]
-            )
+            ),
         ),
         ecs=EcsConfig(
             instance_type="t3.medium",
@@ -287,7 +290,7 @@ def get_production_config() -> EnvironmentConfig:
             enable_deletion_protection=True,
             api_gateway=ApiGatewayConfig(
                 stac_api_jwt_audience=["stormlit", "account", "ffrd-model-viewer-local"]
-            )
+            ),
         ),
         ecs=EcsConfig(
             instance_type="t3.medium",

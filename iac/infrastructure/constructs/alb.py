@@ -6,7 +6,7 @@ from cdktf_cdktf_provider_aws.lb import Lb
 from cdktf_cdktf_provider_aws.lb_listener import (
     LbListener,
     LbListenerDefaultAction,
-    LbListenerDefaultActionAuthenticateOidc, 
+    LbListenerDefaultActionAuthenticateOidc,
 )
 from cdktf_cdktf_provider_aws.lb_listener_certificate import LbListenerCertificate
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
@@ -40,21 +40,26 @@ class AlbConstruct(Construct):
         resource_prefix = f"{project_prefix}-{environment}"
 
         # Keycloak configuration from environment variables for Stormlit OIDC
-        keycloak_issuer_url = os.getenv("KEYCLOAK_ISSUER_URL", "http://localhost:8080/realms/your-realm")
+        keycloak_issuer_url = os.getenv(
+            "KEYCLOAK_ISSUER_URL", "http://localhost:8080/realms/your-realm"
+        )
         keycloak_authorization_endpoint = os.getenv(
             "KEYCLOAK_AUTHORIZATION_ENDPOINT",
             f"{keycloak_issuer_url}/protocol/openid-connect/auth",
         )
         keycloak_token_endpoint = os.getenv(
-            "KEYCLOAK_TOKEN_ENDPOINT", f"{keycloak_issuer_url}/protocol/openid-connect/token"
+            "KEYCLOAK_TOKEN_ENDPOINT",
+            f"{keycloak_issuer_url}/protocol/openid-connect/token",
         )
         keycloak_user_info_endpoint = os.getenv(
             "KEYCLOAK_USER_INFO_ENDPOINT",
             f"{keycloak_issuer_url}/protocol/openid-connect/userinfo",
         )
         stormlit_keycloak_client_id = os.getenv("KEYCLOAK_CLIENT_ID", "stormlit")
-        stormlit_keycloak_client_secret = os.getenv("KEYCLOAK_CLIENT_SECRET", "stormlit-secret")
-        
+        stormlit_keycloak_client_secret = os.getenv(
+            "KEYCLOAK_CLIENT_SECRET", "stormlit-secret"
+        )
+
         keycloak_oidc_scope = os.getenv("KEYCLOAK_OIDC_SCOPE", "openid profile email")
         keycloak_session_cookie_name = os.getenv(
             "KEYCLOAK_SESSION_COOKIE_NAME", "AWSELBAuthSessionCookieStormlit"
@@ -109,7 +114,6 @@ class AlbConstruct(Construct):
             description="Hosted Zone ID for the application's parent domain",
         )
 
-
         self.app_target_group = LbTargetGroup(
             self,
             "app-tg",
@@ -119,13 +123,21 @@ class AlbConstruct(Construct):
             vpc_id=vpc_id,
             target_type="ip",
             health_check={
-                "enabled": True, "healthy_threshold": 2, "interval": 30,
-                "matcher": "200", "path": "/healthz", "port": "traffic-port",
-                "protocol": "HTTP", "timeout": 5, "unhealthy_threshold": 10,
+                "enabled": True,
+                "healthy_threshold": 2,
+                "interval": 30,
+                "matcher": "200",
+                "path": "/healthz",
+                "port": "traffic-port",
+                "protocol": "HTTP",
+                "timeout": 5,
+                "unhealthy_threshold": 10,
             },
             stickiness={
-                "enabled": True, "type": "app_cookie",
-                "cookie_name": "streamlit_session_id", "cookie_duration": 86400,
+                "enabled": True,
+                "type": "app_cookie",
+                "cookie_name": "streamlit_session_id",
+                "cookie_duration": 86400,
             },
             tags=tags,
         )
@@ -142,7 +154,7 @@ class AlbConstruct(Construct):
             session_cookie_name=keycloak_session_cookie_name,
             session_timeout=keycloak_session_timeout,
         )
-        
+
         # Create HTTPS listener with OIDC for Stormlit as default
         self.https_listener = LbListener(
             self,
@@ -156,13 +168,11 @@ class AlbConstruct(Construct):
                 LbListenerDefaultAction(
                     type="authenticate-oidc",
                     authenticate_oidc=stormlit_oidc_auth_config,
-                    order=1
+                    order=1,
                 ),
                 LbListenerDefaultAction(
-                    type="forward",
-                    target_group_arn=self.app_target_group.arn,
-                    order=2
-                )
+                    type="forward", target_group_arn=self.app_target_group.arn, order=2
+                ),
             ],
             tags=tags,
         )
@@ -192,24 +202,31 @@ class AlbConstruct(Construct):
                 LbListenerDefaultAction(
                     type="redirect",
                     redirect={
-                        "port": "443", "protocol": "HTTPS", "status_code": "HTTP_301",
+                        "port": "443",
+                        "protocol": "HTTPS",
+                        "status_code": "HTTP_301",
                     },
                 )
             ],
             tags=tags,
         )
 
-
         # Output ALB DNS name and zone ID
         self.alb_dns_name_output = TerraformOutput(
-            self, "alb_dns_name", value=self.alb.dns_name,
+            self,
+            "alb_dns_name",
+            value=self.alb.dns_name,
             description="The DNS name of the Application Load Balancer",
         )
         self.alb_zone_id_output = TerraformOutput(
-            self, "alb_zone_id", value=self.alb.zone_id,
+            self,
+            "alb_zone_id",
+            value=self.alb.zone_id,
             description="The hosted zone ID of the Application Load Balancer",
         )
         self.https_listener_arn_output = TerraformOutput(
-            self, "https_listener_arn", value=self.https_listener.arn,
+            self,
+            "https_listener_arn",
+            value=self.https_listener.arn,
             description="The ARN of the HTTPS listener",
         )

@@ -58,14 +58,20 @@ class AcmRoute53Construct(Construct):
             validation_method="DNS",
             tags=tags,
         )
-        
+
         validation_option_list = self.certificate.domain_validation_options
-        
+
         first_validation_option = Fn.element(validation_option_list, 0)
 
-        validation_record_name = Token.as_string(Fn.lookup(first_validation_option, "resource_record_name", ""))
-        validation_record_type = Token.as_string(Fn.lookup(first_validation_option, "resource_record_type", ""))
-        validation_record_value = Token.as_string(Fn.lookup(first_validation_option, "resource_record_value", ""))
+        validation_record_name = Token.as_string(
+            Fn.lookup(first_validation_option, "resource_record_name", "")
+        )
+        validation_record_type = Token.as_string(
+            Fn.lookup(first_validation_option, "resource_record_type", "")
+        )
+        validation_record_value = Token.as_string(
+            Fn.lookup(first_validation_option, "resource_record_value", "")
+        )
 
         dns_validation_record = Route53Record(
             self,
@@ -75,7 +81,7 @@ class AcmRoute53Construct(Construct):
             type=validation_record_type,
             records=[validation_record_value],
             ttl=60,
-            allow_overwrite=True
+            allow_overwrite=True,
         )
 
         # Create certificate validation

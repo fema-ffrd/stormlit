@@ -19,7 +19,8 @@ class NetworkStack(BaseStack):
         super().__init__(scope, id, config)
 
         self.networking = NetworkingConstruct(
-            self, "networking",
+            self,
+            "networking",
             project_prefix=config.project_prefix,
             vpc_cidr=config.vpc_cidr,
             vpc_subnet_azs=config.vpc_subnet_azs,
@@ -29,30 +30,38 @@ class NetworkStack(BaseStack):
         )
 
         self.vpc_id_output = TerraformOutput(
-            self, "vpc-id", value=self.networking.vpc.id, description="VPC ID",
+            self,
+            "vpc-id",
+            value=self.networking.vpc.id,
+            description="VPC ID",
         )
         self.public_subnet_ids_output = TerraformOutput(
-            self, "public-subnet-ids",
+            self,
+            "public-subnet-ids",
             value=[subnet.id for subnet in self.networking.public_subnets],
             description="Public Subnet IDs",
         )
         self.private_subnet_ids_output = TerraformOutput(
-            self, "private-subnet-ids",
+            self,
+            "private-subnet-ids",
             value=[subnet.id for subnet in self.networking.private_subnets],
             description="Private Subnet IDs",
         )
         self.alb_security_group_id_output = TerraformOutput(
-            self, "alb_security_group_id",
+            self,
+            "alb_security_group_id",
             value=self.networking.alb_security_group.id,
             description="ALB Security Group ID",
         )
         self.ecs_security_group_id_output = TerraformOutput(
-            self, "ecs_security_group_id",
+            self,
+            "ecs_security_group_id",
             value=self.networking.ecs_security_group.id,
             description="ECS Security Group ID",
         )
         self.rds_security_group_id_output = TerraformOutput(
-            self, "rds_security_group_id",
+            self,
+            "rds_security_group_id",
             value=self.networking.rds_security_group.id,
             description="RDS Security Group ID",
         )

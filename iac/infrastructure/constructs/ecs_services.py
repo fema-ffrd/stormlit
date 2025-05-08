@@ -2,13 +2,15 @@ import json
 from typing import Dict, List, Optional
 from constructs import Construct
 from cdktf import FnGenerated
-from cdktf_cdktf_provider_aws.service_discovery_http_namespace import ServiceDiscoveryHttpNamespace
+from cdktf_cdktf_provider_aws.service_discovery_http_namespace import (
+    ServiceDiscoveryHttpNamespace,
+)
 from cdktf_cdktf_provider_aws.ecs_task_definition import EcsTaskDefinition
 from cdktf_cdktf_provider_aws.ecs_service import (
     EcsService,
     EcsServiceLoadBalancer,
     EcsServiceNetworkConfiguration,
-    EcsServiceServiceConnectConfiguration, 
+    EcsServiceServiceConnectConfiguration,
     EcsServiceServiceConnectConfigurationService,
     EcsServiceServiceConnectConfigurationServiceClientAlias,
 )
@@ -32,7 +34,7 @@ class EcsServicesConstruct(Construct):
         project_prefix: str,
         environment: str,
         cluster_id: str,
-        cluster_name: str, 
+        cluster_name: str,
         service_roles: Dict[str, ServiceRoles],
         private_subnet_ids: List[str],
         security_group_id: str,
@@ -48,7 +50,7 @@ class EcsServicesConstruct(Construct):
 
         self.resource_prefix = f"{project_prefix}-{environment}"
         self.services: Dict[str, EcsService] = {}
-        
+
         current_region = region
 
         # Create a CloudMap HTTP namespace for Service Connect
@@ -73,7 +75,7 @@ class EcsServicesConstruct(Construct):
                         {
                             "containerPort": ecs_config.stormlit_config.container_port,
                             "protocol": "tcp",
-                            "name": "stormlit-http" 
+                            "name": "stormlit-http",
                         }
                     ],
                     "environment": [
@@ -106,13 +108,13 @@ class EcsServicesConstruct(Construct):
                     },
                 }
             ]
-            
+
             stormlit_load_balancers = []
             if stormlit_alb_target_group_arn:
                 stormlit_load_balancers.append(
                     EcsServiceLoadBalancer(
                         target_group_arn=stormlit_alb_target_group_arn,
-                        container_name="stormlit", 
+                        container_name="stormlit",
                         container_port=ecs_config.stormlit_config.container_port,
                     )
                 )
@@ -127,7 +129,7 @@ class EcsServicesConstruct(Construct):
                 security_group_id=security_group_id,
                 tags=tags,
                 load_balancers=stormlit_load_balancers,
-                enable_service_connect=False 
+                enable_service_connect=False,
             )
 
         # Create STAC API service
@@ -143,7 +145,7 @@ class EcsServicesConstruct(Construct):
                         {
                             "containerPort": ecs_config.stac_api_config.container_port,
                             "protocol": "tcp",
-                            "name": "stac-api-http" 
+                            "name": "stac-api-http",
                         }
                     ],
                     "secrets": [
@@ -177,10 +179,10 @@ class EcsServicesConstruct(Construct):
 
             stac_api_load_balancers = []
             if stac_api_nlb_target_group_arn:
-                 stac_api_load_balancers.append(
+                stac_api_load_balancers.append(
                     EcsServiceLoadBalancer(
                         target_group_arn=stac_api_nlb_target_group_arn,
-                        container_name="stac-api", 
+                        container_name="stac-api",
                         container_port=ecs_config.stac_api_config.container_port,
                     )
                 )
@@ -196,8 +198,8 @@ class EcsServicesConstruct(Construct):
                 tags=tags,
                 load_balancers=stac_api_load_balancers,
                 enable_service_connect=True,
-                service_connect_service_name="stac-api-svc", 
-                service_connect_port_name="stac-api-http"
+                service_connect_service_name="stac-api-svc",
+                service_connect_port_name="stac-api-http",
             )
 
     def _create_service(
@@ -230,18 +232,24 @@ class EcsServicesConstruct(Construct):
         )
 
         service_connect_config = None
-        if enable_service_connect and service_connect_service_name and service_connect_port_name:
+        if (
+            enable_service_connect
+            and service_connect_service_name
+            and service_connect_port_name
+        ):
             service_connect_config = EcsServiceServiceConnectConfiguration(
                 enabled=True,
                 namespace=self.service_connect_namespace.name,
-                service=[EcsServiceServiceConnectConfigurationService(
-                    port_name=service_connect_port_name, 
-                    discovery_name=service_connect_service_name,
-                    client_alias=EcsServiceServiceConnectConfigurationServiceClientAlias(
-                        port=service_config.container_port,
-                        dns_name=service_connect_service_name
+                service=[
+                    EcsServiceServiceConnectConfigurationService(
+                        port_name=service_connect_port_name,
+                        discovery_name=service_connect_service_name,
+                        client_alias=EcsServiceServiceConnectConfigurationServiceClientAlias(
+                            port=service_config.container_port,
+                            dns_name=service_connect_service_name,
+                        ),
                     )
-                )]
+                ],
             )
 
         return EcsService(
