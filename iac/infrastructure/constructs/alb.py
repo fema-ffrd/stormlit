@@ -1,3 +1,4 @@
+import os
 from typing import List
 from constructs import Construct
 from cdktf import TerraformOutput
@@ -5,11 +6,7 @@ from cdktf_cdktf_provider_aws.lb import Lb
 from cdktf_cdktf_provider_aws.lb_listener import (
     LbListener,
     LbListenerDefaultAction,
-)
-from cdktf_cdktf_provider_aws.lb_listener_rule import (
-    LbListenerRule,
-    LbListenerRuleAction,
-    LbListenerRuleCondition,
+    LbListenerDefaultActionAuthenticateOidc,
 )
 from cdktf_cdktf_provider_aws.lb_listener_certificate import LbListenerCertificate
 from cdktf_cdktf_provider_aws.lb_target_group import LbTargetGroup
@@ -19,65 +16,10 @@ from config import ApplicationConfig
 
 class AlbConstruct(Construct):
     """
-    A construct for creating and configuring an Application Load Balancer (ALB) with HTTPS support.
-
-    This construct manages the creation of an Application Load Balancer and its associated resources:
-    1. Creates an Application Load Balancer in public subnets
-    2. Sets up HTTPS listener with TLS termination using ACM certificate
-    3. Creates an HTTP listener that redirects to HTTPS
-    4. Configures target groups for different services
-    5. Sets up listener rules for path-based routing
-    6. Manages DNS and SSL certificate configuration through ACM and Route53
-
-    The ALB is configured with:
-    - Dual stack listeners (HTTP on port 80, HTTPS on port 443)
-    - Automatic HTTP to HTTPS redirection
-    - Path-based routing for different backend services
-    - Support for sticky sessions on app target group
-    - Health checks for each target group
-    - Integration with ACM for SSL/TLS certificates
-
-    Attributes:
-        alb (Lb): The Application Load Balancer resource
-        acm (AcmRoute53Construct): The ACM and Route53 configuration for SSL/TLS
-        stac_api_target_group (LbTargetGroup): Target group for STAC API service
-        app_target_group (LbTargetGroup): Target group for Streamlit application
-        https_listener (LbListener): The HTTPS listener (port 443)
-        http_listener (LbListener): The HTTP listener (port 80, redirects to HTTPS)
-
-    Parameters:
-        scope (Construct): The scope in which this construct is defined
-        id (str): The scoped construct ID
-        project_prefix (str): Prefix for resource names (e.g., "project-name")
-        environment (str): Environment name (e.g., "prod", "dev")
-        app_config (ApplicationConfig): Application configuration including domain settings
-        vpc_id (str): The ID of the VPC where the ALB will be created
-        public_subnet_ids (List[str]): List of public subnet IDs for ALB placement
-        security_group_id (str): Security group ID for the ALB
-        tags (dict): Tags to apply to all resources
-
-    Example:
-        ```python
-        alb = AlbConstruct(
-            self,
-            "alb",
-            project_prefix="myapp",
-            environment="prod",
-            app_config=app_config,
-            vpc_id=vpc.id,
-            public_subnet_ids=["subnet-1", "subnet-2"],
-            security_group_id="sg-123",
-            tags={"Environment": "production"}
-        )
-        ```
-
-    Notes:
-        - The ALB is created in public subnets to be accessible from the internet
-        - Health check settings are configured separately for each target group
-        - The app target group uses cookie-based stickiness for session management
-        - STAC API requests are routed based on the "/stac" path prefix
-        - All other requests are routed to the app target group
-        - SSL certificates are automatically provisioned and validated through ACM
+    A construct for creating and configuring an Application Load Balancer (ALB).
+    The ALB serves the Stormlit application with OIDC authentication.
+    It also creates an ACM certificate for the STAC API domain (for API Gateway use)
+    without creating an alias record for it.
     """
 
     def __init__(
@@ -97,6 +39,33 @@ class AlbConstruct(Construct):
 
         resource_prefix = f"{project_prefix}-{environment}"
 
+        # Keycloak configuration from environment variables for Stormlit OIDC
+        keycloak_issuer_url = os.getenv(
+            "KEYCLOAK_ISSUER_URL", "http://localhost:8080/realms/your-realm"
+        )
+        keycloak_authorization_endpoint = os.getenv(
+            "KEYCLOAK_AUTHORIZATION_ENDPOINT",
+            f"{keycloak_issuer_url}/protocol/openid-connect/auth",
+        )
+        keycloak_token_endpoint = os.getenv(
+            "KEYCLOAK_TOKEN_ENDPOINT",
+            f"{keycloak_issuer_url}/protocol/openid-connect/token",
+        )
+        keycloak_user_info_endpoint = os.getenv(
+            "KEYCLOAK_USER_INFO_ENDPOINT",
+            f"{keycloak_issuer_url}/protocol/openid-connect/userinfo",
+        )
+        stormlit_keycloak_client_id = os.getenv("KEYCLOAK_CLIENT_ID", "stormlit")
+        stormlit_keycloak_client_secret = os.getenv(
+            "KEYCLOAK_CLIENT_SECRET", "stormlit-secret"
+        )
+
+        keycloak_oidc_scope = os.getenv("KEYCLOAK_OIDC_SCOPE", "openid profile email")
+        keycloak_session_cookie_name = os.getenv(
+            "KEYCLOAK_SESSION_COOKIE_NAME", "AWSELBAuthSessionCookieStormlit"
+        )
+        keycloak_session_timeout = int(os.getenv("KEYCLOAK_SESSION_TIMEOUT", "3600"))
+
         # Create Application Load Balancer
         self.alb = Lb(
             self,
@@ -110,51 +79,39 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Create ACM certificates and Route53 records for both domains
-        self.stormlit_acm = AcmRoute53Construct(
+        # ACM and Route53 for Stormlit frontend domain
+        self.stormlit_acm_dns = AcmRoute53Construct(
             self,
-            "stormlit-acm",
+            "stormlit-acm-dns",
             domain_name=app_config.domain_name,
             subdomain=app_config.stormlit_subdomain,
-            alb_dns_name=self.alb.dns_name,
-            alb_zone_id=self.alb.zone_id,
             tags=tags,
+            create_alias_record=True,
+            alias_target_dns_name=self.alb.dns_name,
+            alias_target_zone_id=self.alb.zone_id,
         )
+        self.stormlit_acm_dns.node.add_dependency(self.alb)
 
-        self.stac_api_acm = AcmRoute53Construct(
+        # ACM certificate for STAC API domain (to be used by API Gateway)
+        self.stac_api_certificate_only = AcmRoute53Construct(
             self,
-            "stac-api-acm",
+            "stac-api-certificate-only",
             domain_name=app_config.domain_name,
             subdomain=app_config.stac_api_subdomain,
-            alb_dns_name=self.alb.dns_name,
-            alb_zone_id=self.alb.zone_id,
             tags=tags,
+            create_alias_record=False,
         )
-
-        self.stormlit_acm.node.add_dependency(self.alb)
-        self.stac_api_acm.node.add_dependency(self.alb)
-
-        # Create target groups for each service
-        self.stac_api_target_group = LbTargetGroup(
+        self.stac_api_certificate_arn_for_apigw_output = TerraformOutput(
             self,
-            "stac-api-tg",
-            name=f"{resource_prefix}-stac-api-tg",
-            port=8080,
-            protocol="HTTP",
-            vpc_id=vpc_id,
-            target_type="ip",
-            health_check={
-                "enabled": True,
-                "healthy_threshold": 2,
-                "interval": 30,
-                "matcher": "200",
-                "path": "/",
-                "port": "traffic-port",
-                "protocol": "HTTP",
-                "timeout": 5,
-                "unhealthy_threshold": 10,
-            },
-            tags=tags,
+            "stac_api_certificate_arn_for_apigw",
+            value=self.stac_api_certificate_only.certificate.arn,
+            description="ARN of the ACM certificate for STAC API domain (to be used by API Gateway)",
+        )
+        self.app_domain_hosted_zone_id_output = TerraformOutput(
+            self,
+            "app_domain_hosted_zone_id",
+            value=self.stormlit_acm_dns.hosted_zone.zone_id,
+            description="Hosted Zone ID for the application's parent domain",
         )
 
         self.app_target_group = LbTargetGroup(
@@ -179,13 +136,26 @@ class AlbConstruct(Construct):
             stickiness={
                 "enabled": True,
                 "type": "app_cookie",
-                "cookie_name": "streamlit_session",
-                "cookie_duration": 86400,  # 24 hours
+                "cookie_name": "streamlit_session_id",
+                "cookie_duration": 86400,
             },
             tags=tags,
         )
 
-        # Create single HTTPS listener with multiple certificates
+        # OIDC configuration for Stormlit
+        stormlit_oidc_auth_config = LbListenerDefaultActionAuthenticateOidc(
+            issuer=keycloak_issuer_url,
+            authorization_endpoint=keycloak_authorization_endpoint,
+            token_endpoint=keycloak_token_endpoint,
+            user_info_endpoint=keycloak_user_info_endpoint,
+            client_id=stormlit_keycloak_client_id,
+            client_secret=stormlit_keycloak_client_secret,
+            scope=keycloak_oidc_scope,
+            session_cookie_name=keycloak_session_cookie_name,
+            session_timeout=keycloak_session_timeout,
+        )
+
+        # Create HTTPS listener with OIDC for Stormlit as default
         self.https_listener = LbListener(
             self,
             "https-listener",
@@ -193,29 +163,32 @@ class AlbConstruct(Construct):
             port=443,
             protocol="HTTPS",
             ssl_policy="ELBSecurityPolicy-2016-08",
-            certificate_arn=self.stormlit_acm.certificate.arn,
+            certificate_arn=self.stormlit_acm_dns.certificate.arn,
             default_action=[
                 LbListenerDefaultAction(
-                    type="forward",
-                    target_group_arn=self.app_target_group.arn,
-                )
+                    type="authenticate-oidc",
+                    authenticate_oidc=stormlit_oidc_auth_config,
+                    order=1,
+                ),
+                LbListenerDefaultAction(
+                    type="forward", target_group_arn=self.app_target_group.arn, order=2
+                ),
             ],
             tags=tags,
         )
 
-        # Add additional certificate for STAC API domain
         LbListenerCertificate(
             self,
-            "stac-api-certificate",
+            "stac-api-cert-on-alb-listener",
             listener_arn=self.https_listener.arn,
-            certificate_arn=self.stac_api_acm.certificate.arn,
+            certificate_arn=self.stac_api_certificate_only.certificate.arn,
         )
 
         self.https_listener.node.add_dependency(
-            self.stormlit_acm.certificate_validation
+            self.stormlit_acm_dns.certificate_validation
         )
         self.https_listener.node.add_dependency(
-            self.stac_api_acm.certificate_validation
+            self.stac_api_certificate_only.certificate_validation
         )
 
         # Create HTTP listener that redirects to HTTPS
@@ -238,47 +211,22 @@ class AlbConstruct(Construct):
             tags=tags,
         )
 
-        # Add listener rules to route based on host header
-        LbListenerRule(
-            self,
-            "stac-api-host-rule",
-            listener_arn=self.https_listener.arn,
-            priority=1,
-            condition=[
-                LbListenerRuleCondition(
-                    host_header={
-                        "values": [
-                            f"{app_config.stac_api_subdomain}.{app_config.domain_name}"
-                        ]
-                    }
-                )
-            ],
-            action=[
-                LbListenerRuleAction(
-                    type="forward",
-                    target_group_arn=self.stac_api_target_group.arn,
-                )
-            ],
-        )
-
         # Output ALB DNS name and zone ID
-        TerraformOutput(
+        self.alb_dns_name_output = TerraformOutput(
             self,
-            "alb-dns-name",
+            "alb_dns_name",
             value=self.alb.dns_name,
             description="The DNS name of the Application Load Balancer",
         )
-
-        TerraformOutput(
+        self.alb_zone_id_output = TerraformOutput(
             self,
-            "alb-zone-id",
+            "alb_zone_id",
             value=self.alb.zone_id,
             description="The hosted zone ID of the Application Load Balancer",
         )
-
-        TerraformOutput(
+        self.https_listener_arn_output = TerraformOutput(
             self,
-            "https-listener-arn",
+            "https_listener_arn",
             value=self.https_listener.arn,
             description="The ARN of the HTTPS listener",
         )
