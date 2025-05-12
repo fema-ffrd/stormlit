@@ -77,4 +77,13 @@ jobs:
           ENVIRONMENT: prod
           AWS_REGION: us-east-1
           TF_VAR_stormlit_tag: latest
+          KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
+          KEYCLOAK_AUTHORIZATION_ENDPOINT: ${{ vars.KEYCLOAK_AUTHORIZATION_ENDPOINT }}
+          KEYCLOAK_TOKEN_ENDPOINT: ${{ vars.KEYCLOAK_TOKEN_ENDPOINT }}
+          KEYCLOAK_USER_INFO_ENDPOINT: ${{ vars.KEYCLOAK_USER_INFO_ENDPOINT }}
+          KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
+          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+          KEYCLOAK_OIDC_SCOPE: ${{ vars.KEYCLOAK_OIDC_SCOPE }}
+          KEYCLOAK_SESSION_COOKIE_NAME: ${{ vars.KEYCLOAK_SESSION_COOKIE_NAME }}
+          KEYCLOAK_SESSION_TIMEOUT: ${{ vars.KEYCLOAK_SESSION_TIMEOUT }}
         run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-prod-network stormlit-prod-database stormlit-prod-application --auto-approve
