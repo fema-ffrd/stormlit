@@ -1,0 +1,89 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: 
+      - 'v*'
+      - '!v*-dev'
+
+concurrency: 
+  group: development
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  synth:
+    uses: ./.github/workflows/synth.yml
+
+  build:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.yml
+    with:
+      push_to_registry: true
+      platforms: 'linux/amd64,linux/arm64'
+    secrets: inherit
+
+  deploy-infrastructure:
+    needs: [test, synth, build]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pipenv'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name : Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::894169284666:role/Stormlit-Deployment-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        working-directory: ./iac
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install
+      - name: Deploy with CDKTF
+        working-directory: ./iac
+        env:
+          ENVIRONMENT: prod
+          AWS_REGION: us-east-1
+          TF_VAR_stormlit_tag: latest
+          KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
+          KEYCLOAK_AUTHORIZATION_ENDPOINT: ${{ vars.KEYCLOAK_AUTHORIZATION_ENDPOINT }}
+          KEYCLOAK_TOKEN_ENDPOINT: ${{ vars.KEYCLOAK_TOKEN_ENDPOINT }}
+          KEYCLOAK_USER_INFO_ENDPOINT: ${{ vars.KEYCLOAK_USER_INFO_ENDPOINT }}
+          KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
+          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+          KEYCLOAK_OIDC_SCOPE: ${{ vars.KEYCLOAK_OIDC_SCOPE }}
+          KEYCLOAK_SESSION_COOKIE_NAME: ${{ vars.KEYCLOAK_SESSION_COOKIE_NAME }}
+          KEYCLOAK_SESSION_TIMEOUT: ${{ vars.KEYCLOAK_SESSION_TIMEOUT }}
+        run: pipenv run npx cdktf-cli@0.20.3 deploy stormlit-prod-network stormlit-prod-database stormlit-prod-application --auto-approve
