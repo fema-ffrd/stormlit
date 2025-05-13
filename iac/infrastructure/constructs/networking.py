@@ -262,7 +262,7 @@ class NetworkingConstruct(Construct):
         )
         SecurityGroupRule(
             self,
-            "rds-vpc-ingress",
+            "rds-vpc-bastion-ingress",
             type="ingress",
             security_group_id=self.rds_security_group.id,
             from_port=5432,
