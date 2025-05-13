@@ -262,6 +262,17 @@ class NetworkingConstruct(Construct):
         )
         SecurityGroupRule(
             self,
+            "rds-vpc-ingress",
+            type="ingress",
+            security_group_id=self.rds_security_group.id,
+            from_port=5432,
+            to_port=5432,
+            protocol="tcp",
+            source_security_group_id="sg-0913eaec57c161f18", # Stormlit Bastion SG
+            description="Allow PostgreSQL access from Stormlit Bastion",
+        )
+        SecurityGroupRule(
+            self,
             "rds-egress",
             type="egress",
             security_group_id=self.rds_security_group.id,
