@@ -164,6 +164,8 @@ class EcsServicesConstruct(Construct):
                         {"name": "POSTGRES_PORT", "value": "5432"},
                         {"name": "POSTGRES_DBNAME", "value": "postgres"},
                         {"name": "ROOT_PATH", "value": ""},
+                        {"name": "CORS_ORIGIN", "value": "*"},
+                        {"name": "CORS_METHODS", "value": "*"},
                     ],
                     "logConfiguration": {
                         "logDriver": "awslogs",
