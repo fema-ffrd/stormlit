@@ -350,9 +350,7 @@ def prep_fmap(
                 ).add_to(m)
 
                 # zoom to the extent of the COG
-                if "bounds" in tilejson_data:
-                    bounds = tilejson_data["bounds"]
-                else:
+                if "bounds" not in tilejson_data:
                     st.session_state[f"cog_error_{cog_layer}"] = (
                         "No bounds found in TileJSON response"
                     )
