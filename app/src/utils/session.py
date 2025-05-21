@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-
 import streamlit as st
 
 
@@ -24,6 +23,14 @@ def init_session_state():
     st.session_state["sel_ref_point_id"] = None
     st.gage_meta_status = False
     st.gage_plot_status = False
+    st.session_state["event_type"] = None
+    st.session_state["calibration_event"] = None
+    st.session_state["stochastic_event"] = None
+    st.session_state["zoom_to_layer"] = None
+    st.session_state["c_lat"] = None
+    st.session_state["c_lon"] = None
+    st.session_state["zoom"] = None
+    st.session_state["zoom_to_field"] = None
 
     # model qc session
     st.session_state["model_qc_file_path"] = None
