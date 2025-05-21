@@ -76,6 +76,7 @@ def map_popover(label: str, button_data: list, get_button_label: Callable, get_b
                     "single_event_focus_feature_label": button_label,
                     "single_event_focus_lat": item["lat"],
                     "single_event_focus_lon": item["lon"],
+                    # TODO: Add logic to determine zoom level based on item extent
                     "single_event_focus_zoom": 12,
                 }),
                 args=(item,),
@@ -194,6 +195,9 @@ def single_event():
             height=450
         )
 
+        # TODO: Pull out logic from this commented-out section to download feature data.
+        # Probably makes sense to add download buttons to the popovers?
+        # ========================================
         # st.markdown("## View Selections")
         # st.markdown(
         #     "Collapse each section to view metadata and analytics based on your selections."
@@ -469,6 +473,9 @@ def single_event():
         #         st.write(
         #             "Please select a reference point from the map or sidebar dropdown to view analytics."
         #         )
+
+    # TODO: Calibration / Validation data tables
+    # TODO: Meteorological data for the event
 
     # Session state
     with st.expander("Session State"):
