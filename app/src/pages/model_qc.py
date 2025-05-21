@@ -1,7 +1,7 @@
 # module imports
-from ..components.layout import render_footer
-from ..configs.settings import LOG_LEVEL
-from ..utils.session import init_session_state
+from components.layout import render_footer
+from configs.settings import LOG_LEVEL
+from utils.session import init_session_state
 
 # standard imports
 import os
@@ -119,6 +119,7 @@ def process_qc_results(
 
 
 def model_qc():
+    st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
     if "session_id" not in st.session_state:
         init_session_state()
 
@@ -132,6 +133,11 @@ def model_qc():
     )
 
     st.session_state.log_level = LOG_LEVEL
+
+    st.sidebar.markdown("# Page Navigation")
+    st.sidebar.page_link("main.py", label="Home 🏠")
+    st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
+    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer ⛈️")
 
     st.sidebar.markdown("## Toolbar")
 
@@ -190,3 +196,7 @@ def model_qc():
 
     # Footer
     render_footer()
+
+
+if __name__ == "__main__":
+    model_qc()
