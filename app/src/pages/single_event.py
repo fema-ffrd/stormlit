@@ -40,7 +40,12 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 
-def map_popover(label: str, button_data: list, get_button_label: Callable, get_button_id: Optional[Callable] = None):
+def map_popover(
+    label: str,
+    button_data: list,
+    get_button_label: Callable,
+    get_button_id: Optional[Callable] = None,
+):
     """
     Create a popover with buttons for each item in the button_data list.
 
@@ -72,15 +77,18 @@ def map_popover(label: str, button_data: list, get_button_label: Callable, get_b
             st.button(
                 label=button_label,
                 key=f"btn_{button_id}",
-                on_click=lambda item: st.session_state.update({
-                    "single_event_focus_feature_label": button_label,
-                    "single_event_focus_lat": item["lat"],
-                    "single_event_focus_lon": item["lon"],
-                    # TODO: Add logic to determine zoom level based on item extent
-                    "single_event_focus_zoom": 12,
-                }),
+                on_click=lambda item: st.session_state.update(
+                    {
+                        "single_event_focus_feature_label": button_label,
+                        "single_event_focus_lat": item["lat"],
+                        "single_event_focus_lon": item["lon"],
+                        # TODO: Add logic to determine zoom level based on item extent
+                        "single_event_focus_zoom": 12,
+                    }
+                ),
                 args=(item,),
             )
+
 
 def single_event():
     if "session_id" not in st.session_state:
@@ -110,7 +118,7 @@ def single_event():
         map_popover(
             "Basins",
             st.basins.to_dict("records"),
-            lambda basin: f"{basin["NAME"]} ({basin["HUC8"]})",
+            lambda basin: f"{basin['NAME']} ({basin['HUC8']})",
         )
     with col_dams:
         map_popover(
@@ -187,12 +195,7 @@ def single_event():
             st.markdown("### Example Chart")
         chart_data["col4"] = np.random.choice(["A", "B", "C"], 20)
         st.scatter_chart(
-            chart_data,
-            x="col1",
-            y="col2",
-            color="col4",
-            size="col3",
-            height=450
+            chart_data, x="col1", y="col2", color="col4", size="col3", height=450
         )
 
         # TODO: Pull out logic from this commented-out section to download feature data.

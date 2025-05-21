@@ -86,6 +86,7 @@ def init_pilot(pilot: str):
     df_ref_points = gpd.read_file(st.pilot_layers["Reference Points"])
     st.ref_points = prep_gdf(df_ref_points, "Reference Points")
 
+
 def define_gage_data(gage_id: str):
     """
     Define the gage data for the selected gage
