@@ -79,7 +79,7 @@ def map_popover(
                 key=f"btn_{button_id}",
                 on_click=lambda item: st.session_state.update(
                     {
-                        "single_event_focus_feature_label": button_label,
+                        "single_event_focus_feature_label": get_button_label(item),
                         "single_event_focus_lat": item["lat"],
                         "single_event_focus_lon": item["lon"],
                         # TODO: Add logic to determine zoom level based on item extent
