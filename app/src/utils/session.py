@@ -22,6 +22,10 @@ def init_session_state():
     st.session_state["gage_plot_type"] = None
     st.session_state["sel_ref_line_id"] = None
     st.session_state["sel_ref_point_id"] = None
+    st.session_state["single_event_focus_feature_label"] = None
+    st.session_state["single_event_focus_lat"] = None
+    st.session_state["single_event_focus_lon"] = None
+    st.session_state["single_event_focus_zoom"] = None
     st.gage_meta_status = False
     st.gage_plot_status = False
 
