@@ -12,7 +12,7 @@ USER mambauser
 COPY env.yml env.yml
 COPY src src
 COPY src/main.py src/main.py
-copy .streamlit .streamlit
+COPY .streamlit .streamlit
 
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
