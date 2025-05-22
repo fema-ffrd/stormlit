@@ -1,5 +1,7 @@
 FROM mambaorg/micromamba:2.0.5 as builder
 
+COPY ../.streamlit .streamlit
+
 WORKDIR /app
 
 USER root
@@ -12,7 +14,6 @@ USER mambauser
 COPY env.yml env.yml
 COPY src src
 COPY src/main.py src/main.py
-COPY .streamlit .streamlit
 
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
