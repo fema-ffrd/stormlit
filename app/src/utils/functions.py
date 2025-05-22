@@ -1,71 +1,10 @@
-import re
 import os
 import requests
 import folium
-import uuid
 import streamlit as st
 import geopandas as gpd
 import pandas as pd
 from plotly import express as px
-
-
-def create_st_button(
-    link_text: str,
-    link_url: str,
-    background_color="rgb(255, 255, 255)",
-    hover_color="#f2f3f4",
-    st_col=None,
-):
-    """
-    Create a Streamlit button with a hover effect
-
-    Parameters
-    ----------
-    link_text: str
-        The text to display on the button
-    link_url: str
-        The URL to open when the button is clicked
-    hover_color: str
-        The color to change to when the button is hovered over
-    st_col: streamlit.delta_generator.DeltaGenerator
-        The streamlit column to display the button in
-    """
-
-    button_uuid = str(uuid.uuid4()).replace("-", "")
-    button_id = re.sub("\d+", "", button_uuid)
-
-    button_css = f"""
-        <style>
-            #{button_id} {{
-                background-color: {background_color};
-                color: rgb(38, 39, 48);
-                padding: 0.25em 0.38em;
-                position: relative;
-                text-decoration: none;
-                border-radius: 4px;
-                border-width: 2px;
-                border-style: solid;
-                border-color: rgb(230, 234, 241);
-                border-image: initial;
-
-            }}
-            #{button_id}:hover {{
-                border-color: {hover_color};
-                color: {hover_color};
-            }}
-            #{button_id}:active {{
-                box-shadow: none;
-                background-color: {hover_color};
-                color: white;
-                }}
-        </style> """
-
-    html_str = f'<a href="{link_url}" target="_blank" id="{button_id}";>{link_text}</a><br></br>'
-
-    if st_col is None:
-        st.markdown(button_css + html_str, unsafe_allow_html=True)
-    else:
-        st_col.markdown(button_css + html_str, unsafe_allow_html=True)
 
 
 def highlight_function(feature):
@@ -188,7 +127,7 @@ def add_circles_fg(
         <div style="
             background-color: {color};
             border: 1px solid black;
-            border-radius: 50%;
+            border-radius: 0;
             width: 10px;
             height: 10px;
             display: flex;
@@ -280,7 +219,7 @@ def get_map_pos(map_layer: str, layer_field: str):
         c_df = st.basins
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
         c_zoom = 8
-
+    # print(f"Latitude: {c_lat}, Longitude: {c_lon}, Zoom: {c_zoom}, Layer: {map_layer}, Field: {layer_field}")
     return c_lat, c_lon, c_zoom
 
 
@@ -371,7 +310,7 @@ def prep_fmap(
             # First get COG statistics to determine min/max values for rescaling
             stats_url = f"{titiler_url}/cog/statistics"
             stats_response = requests.get(
-                stats_url, params={"url": cog_s3uri}, timeout=10
+                stats_url, params={"url": cog_s3uri}, timeout=30
             )
             stats_data = stats_response.json()
             st.session_state["cog_stats"] = stats_data
@@ -411,15 +350,7 @@ def prep_fmap(
                 ).add_to(m)
 
                 # zoom to the extent of the COG
-                if "bounds" in tilejson_data:
-                    bounds = tilejson_data["bounds"]
-                    m.fit_bounds(
-                        [
-                            [bounds[1], bounds[0]],
-                            [bounds[3], bounds[2]],
-                        ]
-                    )
-                else:
+                if "bounds" not in tilejson_data:
                     st.session_state[f"cog_error_{cog_layer}"] = (
                         "No bounds found in TileJSON response"
                     )
@@ -466,29 +397,6 @@ def prep_fmap(
         else:
             pass
         idx += 1
-
-    # if basin_name is not None:
-    #     # plot the reference lines and points
-    #     if basin_name in st.ref_lines["NAME"].unique():
-    #         ref_lines = st.ref_lines.loc[st.ref_lines["NAME"] == basin_name]
-    #         ref_lines["layer"] = "Reference Lines"
-    #         fg_ref_lines = add_polygons_fg(
-    #             ref_lines,
-    #             "Reference Lines",
-    #             ["layer", "id", "line_type"],
-    #             style_ref_lines,
-    #         )
-    #         fg_ref_lines.add_to(m)
-    #     if basin_name in st.ref_points["NAME"].unique():
-    #         ref_points = st.ref_points.loc[st.ref_points["NAME"] == basin_name]
-    #         ref_points["layer"] = "Reference Points"
-    #         fg_ref_points = add_markers_fg(
-    #             ref_points,
-    #             "Reference Points",
-    #             ["layer", "id", "point_type"],
-    #             style_ref_points,
-    #         )
-    #         fg_ref_points.add_to(m)
 
     # Add the layer control to the map
     folium.LayerControl().add_to(m)
@@ -545,7 +453,7 @@ def get_map_sel(map_output: str):
     return df
 
 
-def plot_ts(df: pd.DataFrame, var: str):
+def plot_ts(df: pd.DataFrame, var: str, st_col):
     """
     Function for plotting time series data.
     Columns in the DataFrame should be:
@@ -561,6 +469,8 @@ def plot_ts(df: pd.DataFrame, var: str):
         The DataFrame containing the time series data.
     var : str
         The variable to plot.
+    st_col : streamlit.columns
+        The Streamlit column to place the plot in.
     """
     # Check if the DataFrame is empty
     if df.empty:
@@ -575,7 +485,7 @@ def plot_ts(df: pd.DataFrame, var: str):
 
     # Create a line plot using Streamlit
     fig = px.line(df, x="time", y=var, title=f"Time Series Plot of {var}")
-    st.plotly_chart(fig)
+    st_col.plotly_chart(fig)
 
 
 def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):

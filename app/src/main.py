@@ -1,8 +1,7 @@
 # module imports
-from ..utils.particles import particles_js
-from ..utils.functions import create_st_button
-from ..utils.session import init_session_state
-from ..components.layout import render_footer
+from utils.particles import particles_js
+from utils.session import init_session_state
+from components.layout import render_footer
 
 # standard imports
 import os
@@ -13,26 +12,32 @@ import streamlit.components.v1 as components
 
 # global variables
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
-srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
+srcDir = os.path.abspath(os.path.join(currDir, "."))  # go up one level to src
 load_dotenv()
 
 
 def home_page():
+    st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
     if "session_id" not in st.session_state:
         init_session_state()
 
     st.markdown("# Stormlit")
-    st.markdown("### A tool for interacting with probabilistic flood data")
+    st.markdown("### Tools for interacting with probabilistic flood data")
     st.markdown("---")
     components.html(particles_js, scrolling=False, height=200, width=1400)
+
+    st.sidebar.markdown("# Page Navigation")
+    st.sidebar.page_link("main.py", label="Home 🏠")
+    st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
+    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer ⛈️")
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
     }
 
-    st.sidebar.markdown("## Database")
+    st.sidebar.markdown("# Database ☁️")
     for link_text, link_url in database_link_dict.items():
-        create_st_button(link_text, link_url, st_col=st.sidebar, hover_color="#1c66e8")
+        st.sidebar.page_link(link_url, label=link_text)
 
     literature_link_dict = {
         "Application of SST": "https://link.springer.com/article/10.1007/s00477-024-02853-6",
@@ -40,9 +45,9 @@ def home_page():
         "FEMA's FFRD Initiative": "https://ui.adsabs.harvard.edu/abs/2022AGUFMSY45C0653L/abstract",
     }
 
-    st.sidebar.markdown("## Literature")
+    st.sidebar.markdown("# Literature 📚")
     for link_text, link_url in literature_link_dict.items():
-        create_st_button(link_text, link_url, st_col=st.sidebar, hover_color="#1c66e8")
+        st.sidebar.page_link(link_url, label=link_text)
 
     software_link_dict = {
         "FEMA-FFRD": "https://github.com/fema-ffrd",
@@ -53,18 +58,9 @@ def home_page():
         "Hecstac": "https://www.hecstacl.com",
     }
 
-    st.sidebar.markdown("## Software")
-    link_1_col, link_2_col, link_3_col = st.sidebar.columns(3)
-
-    i = 0
-    link_col_dict = {0: link_1_col, 1: link_2_col, 2: link_3_col}
+    st.sidebar.markdown("# Software 💻")
     for link_text, link_url in software_link_dict.items():
-        st_col = link_col_dict[i]
-        i += 1
-        if i == len(link_col_dict.keys()):
-            i = 0
-
-        create_st_button(link_text, link_url, st_col=st_col, hover_color="#1c66e8")
+        st.sidebar.page_link(link_url, label=link_text)
 
     st.markdown("---")
 
@@ -103,8 +99,13 @@ def home_page():
         following pages:
 
         - **Home Page:** We are here!
-        - **Single Event:** Visualize the spatial modeling components for single event simulations.
+        - **Single Event Viewer:** Visualize the spatial modeling components for single event simulations.
+        - **Model QC:** Run automated quality control checks for model compliance with standard operating procedures.
         """
     )
 
     render_footer()
+
+
+if __name__ == "__main__":
+    home_page()
