@@ -25,12 +25,8 @@ import os
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
-import warnings
 from streamlit_folium import st_folium
 from streamlit_option_menu import option_menu
-
-# Suppress warnings
-warnings.filterwarnings("ignore")
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src

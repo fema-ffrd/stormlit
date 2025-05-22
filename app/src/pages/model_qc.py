@@ -8,11 +8,7 @@ import os
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
-import warnings
 from rasqc import check
-
-# Suppress warnings
-warnings.filterwarnings("ignore")
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src

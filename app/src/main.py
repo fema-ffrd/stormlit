@@ -5,7 +5,6 @@ from components.layout import render_footer
 
 # standard imports
 import os
-import warnings
 from PIL import Image
 import streamlit as st
 from dotenv import load_dotenv
@@ -15,7 +14,6 @@ import streamlit.components.v1 as components
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, "."))  # go up one level to src
 load_dotenv()
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 def home_page():
