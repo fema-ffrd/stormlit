@@ -11,7 +11,7 @@ USER mambauser
 
 COPY env.yml env.yml
 COPY src src
-COPY main.py main.py
+COPY src/main.py src/main.py
 
 RUN micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
@@ -30,4 +30,4 @@ EXPOSE 8501
 ENV STREAMLIT_SERVER_ADDRESS="0.0.0.0"
 
 # Command to run your application
-CMD ["streamlit", "run", "main.py"]
+CMD ["streamlit", "run", "src/main.py"]
