@@ -3,12 +3,12 @@ from components.layout import render_footer
 from utils.session import init_session_state
 from utils.stac_data import (
     init_pilot,
-    # define_gage_data,
+    define_gage_data,
     # define_storm_data,
-    # define_dam_data,
+    define_dam_data,
     # get_stac_img,
     # get_stac_meta,
-    # get_ref_line_ts,
+    get_ref_line_ts,
     # get_ref_pt_ts,
 )
 from utils.functions import (
@@ -17,7 +17,7 @@ from utils.functions import (
     get_map_pos,
     prep_fmap,
     # plot_hist,
-    # plot_ts,
+    plot_ts,
 )
 
 # standard imports
@@ -29,8 +29,8 @@ from dotenv import load_dotenv
 from streamlit_folium import st_folium
 from typing import Callable, Optional
 import uuid
+from enum import Enum
 
-# Suppress warnings
 from streamlit_option_menu import option_menu
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
@@ -39,11 +39,21 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 
+class FeatureType(Enum):
+    BASIN = "Basin"
+    GAGE = "Gage"
+    DAM = "Dam"
+    REFERENCE_LINE = "Reference Line"
+    REFERENCE_POINT = "Reference Point"
+
+
 def map_popover(
     label: str,
-    button_data: list,
-    get_button_label: Callable,
-    get_button_id: Optional[Callable] = None,
+    items: list,
+    get_item_label: Callable,
+    get_item_id: Optional[Callable] = None,
+    callback: Optional[Callable] = None,
+    feature_type: Optional[FeatureType] = None,
 ):
     """
     Create a popover with buttons for each item in the button_data list.
@@ -55,12 +65,16 @@ def map_popover(
     ----------
     label: str
         The label for the popover
-    button_data: list
+    items: list
         A list of dictionaries containing the button data
-    get_button_label: Callable
+    get_item_label: Callable
         A function that takes an item and returns the label for the button
-    get_button_id: Optional[Callable]
+    get_item_id: Optional[Callable]
         A function that takes an item and returns the ID for the button
+    callback: Optional[Callable]
+        A function to be called when the button is clicked. Accepts the item as an argument.
+    feature_type: Optional[FeatureType]
+        The type of feature (Basin, Gage, Dam, Reference Line, Reference Point)
 
     Returns
     -------
@@ -68,25 +82,55 @@ def map_popover(
     """
     with st.popover(label):
         st.markdown(f"### {label}")
-        for item in button_data:
-            button_label = get_button_label(item)
+        for item in items:
+            item_label = get_item_label(item)
+            item_id = get_item_id(item) if get_item_id else None
             button_id = uuid.uuid4()
-            if get_button_id is not None:
-                button_id = f"{get_button_id(item)}_{button_id}"
+            if item_id is not None:
+                button_id = f"{get_item_id(item)}_{button_id}"
+            
+            def _on_click(item):
+                st.session_state.update({
+                    "single_event_focus_feature_label": item_label,
+                    "single_event_focus_feature_id": item_id,
+                    "single_event_focus_lat": item["lat"],
+                    "single_event_focus_lon": item["lon"],
+                    # TODO: Add logic to determine zoom level based on item extent
+                    "single_event_focus_zoom": 12,
+                    "single_event_focus_feature_type": feature_type.value,
+                })
+                callback(item) if callback else None
+
             st.button(
-                label=button_label,
+                label=item_label,
                 key=f"btn_{button_id}",
-                on_click=lambda item: st.session_state.update(
-                    {
-                        "single_event_focus_feature_label": get_button_label(item),
-                        "single_event_focus_lat": item["lat"],
-                        "single_event_focus_lon": item["lon"],
-                        # TODO: Add logic to determine zoom level based on item extent
-                        "single_event_focus_zoom": 12,
-                    }
-                ),
+                on_click=_on_click,
                 args=(item,),
             )
+
+
+def example_chart(title: str = "Example Chart"):
+    """
+    Create an example chart for displaying hydrographs, etc.
+
+    Returns
+    -------
+    None
+    """
+    # Example chart for displaying hydrographs, etc.
+    # sourced from: https://docs.streamlit.io/develop/api-reference/charts/st.scatter_chart
+    # TODO: replace this with data based on the selected feature
+    chart_data = pd.DataFrame(
+        np.random.randn(20, 3), columns=["col1", "col2", "col3"]
+    )
+    if title:
+        st.markdown(f"### {title}")
+    else:
+        st.markdown("### Example Chart")
+    chart_data["col4"] = np.random.choice(["A", "B", "C"], 20)
+    st.scatter_chart(
+        chart_data, x="col1", y="col2", color="col4", size="col3", height=450
+    )
 
 
 def single_event():
@@ -124,30 +168,38 @@ def single_event():
             "Basins",
             st.basins.to_dict("records"),
             lambda basin: f"{basin['NAME']} ({basin['HUC8']})",
+            feature_type=FeatureType.BASIN,
         )
     with col_dams:
         map_popover(
             "Dams",
             st.dams.to_dict("records"),
             lambda dam: dam["id"],
+            callback=lambda dam: define_dam_data(dam["id"]),
+            feature_type=FeatureType.DAM,
         )
     with col_gages:
         map_popover(
             "Gages",
             st.gages.to_dict("records"),
             lambda gage: gage["site_no"],
+            callback=lambda gage: define_gage_data(gage["site_no"]),
+            feature_type=FeatureType.GAGE,
         )
     with col_ref_lines:
         map_popover(
             "Reference Lines",
             st.ref_lines.to_dict("records"),
             lambda ref_line: ref_line["name"],
+            get_item_id=lambda ref_line: ref_line["id"],
+            feature_type=FeatureType.REFERENCE_LINE,
         )
     with col_ref_points:
         map_popover(
             "Reference Points",
             st.ref_points.to_dict("records"),
             lambda ref_point: ref_point["name"],
+            feature_type=FeatureType.REFERENCE_POINT,
         )
 
     # Map Position
@@ -274,21 +326,18 @@ def single_event():
     #         st.subheader("Selected Map Information")
 
     with chart_col:
-        # Example chart for displaying hydrographs, etc.
-        # sourced from: https://docs.streamlit.io/develop/api-reference/charts/st.scatter_chart
-        # TODO: replace this with data based on the selected feature
-        chart_data = pd.DataFrame(
-            np.random.randn(20, 3), columns=["col1", "col2", "col3"]
-        )
-        feature_label = st.session_state.get("single_event_focus_feature_label")
-        if feature_label:
-            st.markdown(f"### {feature_label}")
+        feature_type = st.session_state.get("single_event_focus_feature_type")
+        if feature_type is not None:
+            feature_type = FeatureType(st.session_state.get("single_event_focus_feature_type"))
+        if feature_type == FeatureType.REFERENCE_LINE:
+            ref_line_id = st.session_state.get("single_event_focus_feature_id")
+            ref_line_ts = get_ref_line_ts(ref_line_id)
+            print(ref_line_ts)
+            plot_ts(ref_line_ts, "water_surface", chart_col)
+            # plot_ts(ref_line_ts, "flow", col4)
         else:
-            st.markdown("### Example Chart")
-        chart_data["col4"] = np.random.choice(["A", "B", "C"], 20)
-        st.scatter_chart(
-            chart_data, x="col1", y="col2", color="col4", size="col3", height=450
-        )
+            feature_label = st.session_state.get("single_event_focus_feature_label")
+            example_chart(title=feature_label)
 
         # TODO: Pull out logic from this commented-out section to download feature data.
         # Probably makes sense to add download buttons to the popovers?
