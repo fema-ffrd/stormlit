@@ -1,0 +1,9 @@
+[client]
+showSidebarNavigation = false
+
+[theme]
+primaryColor = "#2553E4"
+
+[server]
+runOnSave = true
+maxUploadSize = 1028
