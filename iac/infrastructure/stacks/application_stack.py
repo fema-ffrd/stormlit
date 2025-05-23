@@ -1,94 +1,20 @@
 from typing import List
 from constructs import Construct
-from cdktf import TerraformOutput, TerraformVariable
-from config import EnvironmentConfig
+from cdktf import TerraformOutput, TerraformVariable, Token
+from config import EnvironmentConfig, ServiceRoles
 from .base_stack import BaseStack
 from ..constructs.ecs_iam import EcsIamConstruct
 from ..constructs.alb import AlbConstruct
 from ..constructs.ecs_cluster import EcsClusterConstruct
 from ..constructs.ecs_services import EcsServicesConstruct
-
-from config import ServiceRoles
+from ..constructs.api_gateway import ApiGatewayConstruct
+from ..constructs.cloud_watch import CloudWatchConstruct
 
 
 class ApplicationStack(BaseStack):
     """
     A stack that deploys the complete application infrastructure on AWS ECS.
-
-    This stack orchestrates the deployment of a STAC API and Streamlit application using:
-    1. ECS cluster with EC2 capacity providers
-    2. Application Load Balancer for traffic distribution
-    3. IAM roles and policies for ECS tasks
-    4. CloudWatch log groups for monitoring
-    5. Service discovery and networking configuration
-
-    Application Components:
-    - Streamlit Service:
-        * Web interface for data visualization
-        * S3 bucket access for data retrieval
-        * Sticky sessions enabled
-        * Custom container configuration
-
-    - STAC API Service:
-        * STAC FastAPI PGSTAC implementation
-        * PostgreSQL database integration
-        * Path-based routing (/stac/*)
-        * Secure credentials management
-
-    Infrastructure:
-    - Load Balancer:
-        * HTTPS termination
-        * Path-based routing
-        * Health checks
-        * SSL/TLS certificates
-
-    - ECS Cluster:
-        * EC2 capacity providers
-        * Auto-registration
-        * CloudWatch integration
-        * Task definitions
-
-    Attributes:
-        iam (EcsIamConstruct): IAM roles and policies
-        ecs_cluster (EcsClusterConstruct): ECS cluster and instances
-        alb (AlbConstruct): Application Load Balancer configuration
-
-    Parameters:
-        scope (Construct): The scope in which this stack is defined
-        id (str): The scoped construct ID
-        config (EnvironmentConfig): Environment configuration settings
-        vpc_id (str): ID of the VPC for resource placement
-        public_subnet_ids (List[str]): Public subnet IDs for ALB
-        private_subnet_ids (List[str]): Private subnet IDs for ECS tasks
-        alb_security_group_id (str): Security group ID for ALB
-        ecs_security_group_id (str): Security group ID for ECS tasks
-        rds_host (str): RDS instance hostname
-        pgstac_read_secret_arn (str): ARN of PgSTAC read credentials secret
-
-    Example:
-        ```python
-        app_stack = ApplicationStack(
-            app,
-            "myapp-prod-application",
-            config,
-            vpc_id=vpc.id,
-            public_subnet_ids=["subnet-1", "subnet-2"],
-            private_subnet_ids=["subnet-3", "subnet-4"],
-            alb_security_group_id="sg-123",
-            ecs_security_group_id="sg-456",
-            rds_host="db.example.com",
-            pgstac_read_secret_arn="arn:aws:secretsmanager:..."
-        )
-        ```
-
-    Notes:
-        - Services run in private subnets with NAT Gateway access
-        - Container images pulled from GitHub Container Registry
-        - Streamlit tag configurable via TF_VAR_stormlit_tag
-        - Services depend on RDS database deployment
-        - IAM roles follow least privilege principle
-        - CloudWatch logs retained for 30 days
-        - Load balancer DNS exported as stack output
+    Includes ALB for Stormlit (OIDC auth) and API Gateway for STAC API (JWT auth with custom domain).
     """
 
     def __init__(
@@ -103,42 +29,41 @@ class ApplicationStack(BaseStack):
         alb_security_group_id: str,
         ecs_security_group_id: str,
         rds_host: str,
-        pgstac_read_secret_arn: str,
+        pgstac_admin_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
-        stormlit_tag = (
-            TerraformVariable(
-                self,
-                "stormlit_tag",
-                type="string",
-                description="Version tag for the stormlit image",
-                default="latest",  # fallback to 'latest' if not provided
-            ).string_value
-            if config.ecs.stormlit_config.image_tag is None
-            else config.ecs.stormlit_config.image_tag
+        stormlit_tag_var = TerraformVariable(
+            self,
+            "stormlit_tag",
+            type="string",
+            description="Version tag for the stormlit image",
+            default="latest",
+        )
+        config.ecs.stormlit_config.image_tag = (
+            config.ecs.stormlit_config.image_tag or stormlit_tag_var.string_value
         )
 
-        config.ecs.stormlit_config.image_tag = stormlit_tag
+        cloudwatch_logs = CloudWatchConstruct(
+            self,
+            "cloudwatch-logs",
+            project_prefix=config.project_prefix,
+            environment=config.environment,
+            tags=config.tags,
+        )
 
-        # Create IAM roles and instance profile
         self.iam = EcsIamConstruct(
             self,
             "ecs-iam",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            secret_arns=[
-                pgstac_read_secret_arn,
-            ],
+            secret_arns=[pgstac_admin_secret_arn],
             services={
-                "streamlit": {
+                "stormlit": {
                     "task_role_statements": [
                         {
                             "Effect": "Allow",
-                            "Action": [
-                                "s3:GetObject",
-                                "s3:ListBucket",
-                            ],
+                            "Action": ["s3:GetObject", "s3:ListBucket"],
                             "Resource": "*",
                         }
                     ],
@@ -147,15 +72,12 @@ class ApplicationStack(BaseStack):
                 "stac-api": {
                     "task_role_statements": [],
                     "execution_role_statements": [],
-                    "secret_arns": [
-                        pgstac_read_secret_arn,
-                    ],
+                    "secret_arns": [pgstac_admin_secret_arn],
                 },
             },
             tags=config.tags,
         )
 
-        # Create ECS Cluster with EC2 instances
         self.ecs_cluster = EcsClusterConstruct(
             self,
             "ecs-cluster",
@@ -165,11 +87,10 @@ class ApplicationStack(BaseStack):
             instance_count=config.ecs.instance_count,
             subnet_ids=private_subnet_ids,
             security_group_id=ecs_security_group_id,
-            instance_profile_name=self.iam.instance_profile.name,
+            instance_profile_name=Token.as_string(self.iam.instance_profile.name),
             tags=config.tags,
         )
 
-        # Create Application Load Balancer
         self.alb = AlbConstruct(
             self,
             "alb",
@@ -182,56 +103,93 @@ class ApplicationStack(BaseStack):
             tags=config.tags,
         )
 
-        # Create ECS Services (stac-api and stormlit)
-        service_roles = {
-            "stormlit": ServiceRoles(
-                execution_role_arn=self.iam.service_execution_roles["streamlit"].arn,
-                task_role_arn=self.iam.service_task_roles["streamlit"].arn,
-            ),
-            "stac-api": ServiceRoles(
-                execution_role_arn=self.iam.service_execution_roles["stac-api"].arn,
-                task_role_arn=self.iam.service_task_roles["stac-api"].arn,
-            ),
-        }
+        stac_api_cert_arn_val = Token.as_string(
+            self.alb.stac_api_certificate_arn_for_apigw_output.value
+        )
+        app_domain_hz_id_val = Token.as_string(
+            self.alb.app_domain_hosted_zone_id_output.value
+        )
 
-        # Create target groups mapping
-        target_groups = {
-            "stormlit": self.alb.app_target_group.arn,
-            "stac-api": self.alb.stac_api_target_group.arn,
-        }
-
-        ecs_services = EcsServicesConstruct(
+        self.api_gateway = ApiGatewayConstruct(
             self,
-            "ecs-services",
-            app_config=config.application,
+            "stac-api-gateway",
             project_prefix=config.project_prefix,
             environment=config.environment,
-            cluster_id=self.ecs_cluster.cluster.id,
-            service_roles=service_roles,
+            app_config=config.application,
+            vpc_id=vpc_id,
             private_subnet_ids=private_subnet_ids,
-            security_group_id=ecs_security_group_id,
-            target_groups=target_groups,
-            ecs_config=config.ecs,
-            rds_host=rds_host,
-            pgstac_read_secret_arn=pgstac_read_secret_arn,
+            stac_service_config=config.ecs.stac_api_config,
+            stac_api_certificate_arn=stac_api_cert_arn_val,
+            app_domain_hosted_zone_id=app_domain_hz_id_val,
+            ecs_security_group_id=ecs_security_group_id,
             tags=config.tags,
         )
 
-        # Add explicit dependencies
-        ecs_services.node.add_dependency(self.alb)
-        ecs_services.node.add_dependency(self.ecs_cluster)
+        service_roles_map = {
+            "stormlit": ServiceRoles(
+                execution_role_arn=Token.as_string(
+                    self.iam.service_execution_roles["stormlit"].arn
+                ),
+                task_role_arn=Token.as_string(
+                    self.iam.service_task_roles["stormlit"].arn
+                ),
+            ),
+            "stac-api": ServiceRoles(
+                execution_role_arn=Token.as_string(
+                    self.iam.service_execution_roles["stac-api"].arn
+                ),
+                task_role_arn=Token.as_string(
+                    self.iam.service_task_roles["stac-api"].arn
+                ),
+            ),
+        }
 
-        # Create outputs
-        TerraformOutput(
+        ecs_services_construct = EcsServicesConstruct(
             self,
-            "alb-dns-name",
-            value=self.alb.alb.dns_name,
-            description="Application Load Balancer DNS Name",
+            "ecs-services",
+            app_config=config.application,
+            region=config.region,
+            project_prefix=config.project_prefix,
+            environment=config.environment,
+            cluster_id=Token.as_string(self.ecs_cluster.cluster.id),
+            cluster_name=Token.as_string(self.ecs_cluster.cluster.name),
+            service_roles=service_roles_map,
+            private_subnet_ids=private_subnet_ids,
+            security_group_id=ecs_security_group_id,
+            stormlit_alb_target_group_arn=Token.as_string(
+                self.alb.app_target_group.arn
+            ),
+            stac_api_nlb_target_group_arn=Token.as_string(
+                self.api_gateway.stac_nlb_target_group.arn
+            ),
+            ecs_config=config.ecs,
+            rds_host=rds_host,
+            pgstac_admin_secret_arn=pgstac_admin_secret_arn,
+            tags=config.tags,
+            vpc_id=vpc_id,
         )
 
+        ecs_services_construct.node.add_dependency(self.alb)
+        ecs_services_construct.node.add_dependency(self.api_gateway)
+        ecs_services_construct.node.add_dependency(self.ecs_cluster)
+        ecs_services_construct.node.add_dependency(self.iam)
+        ecs_services_construct.node.add_dependency(cloudwatch_logs)
+
         TerraformOutput(
             self,
-            "cluster-name",
+            "stormlit_alb_dns_name",
+            value=self.alb.alb.dns_name,
+            description="Application Load Balancer DNS Name (for Stormlit)",
+        )
+        TerraformOutput(
+            self,
+            "stac_api_custom_domain_url",
+            value=f"https://{config.application.stac_api_subdomain}.{config.application.domain_name}",
+            description="STAC API Gateway Custom Domain URL",
+        )
+        TerraformOutput(
+            self,
+            "cluster_name",
             value=self.ecs_cluster.cluster.name,
             description="ECS Cluster Name",
         )

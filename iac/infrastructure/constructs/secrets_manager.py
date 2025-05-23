@@ -104,7 +104,7 @@ class SecretsManagerConstruct(Construct):
         # Create database admin credentials secret
         self.db_admin_secret = self._create_secret_with_version(
             "db-admin-secret",
-            f"{resource_prefix}-db-admin-creds",
+            f"{resource_prefix}-db-admin",
             db_admin_credentials,
             tags,
         )
@@ -112,21 +112,21 @@ class SecretsManagerConstruct(Construct):
         # Create PgSTAC credentials secrets
         self.pgstac_admin_secret = self._create_secret_with_version(
             "pgstac-admin-secret",
-            f"{resource_prefix}-pgstac-admin-creds",
+            f"{resource_prefix}-pgstac-admin",
             pgstac_admin_credentials,
             tags,
         )
 
         self.pgstac_ingest_secret = self._create_secret_with_version(
             "pgstac-ingest-secret",
-            f"{resource_prefix}-pgstac-ingest-creds",
+            f"{resource_prefix}-pgstac-ingest",
             pgstac_ingest_credentials,
             tags,
         )
 
         self.pgstac_read_secret = self._create_secret_with_version(
             "pgstac-read-secret",
-            f"{resource_prefix}-pgstac-read-creds",
+            f"{resource_prefix}-pgstac-read",
             pgstac_read_credentials,
             tags,
         )
