@@ -33,7 +33,7 @@ def create_database_connection():
             "database": os.getenv("PG_DATABASE"),
             "user": os.getenv("PG_USER"),
             "password": os.getenv("PG_PASSWORD"),
-            "port": os.getenv("PG_PORT")
+            "port": os.getenv("PG_PORT"),
         }
 
         # Connect to the PostgreSQL server

@@ -3,6 +3,7 @@ import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 
+
 def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a GeoDataFrame with EPSG:4326 CRS.
@@ -26,6 +27,7 @@ def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     # Convert the geometry to EPSG:4326
     gdf = gdf.to_crs(epsg=4326)
     return gdf
+
 
 @st.cache_data
 def get_gages_summary(_p_conn):
@@ -62,6 +64,7 @@ def get_gages_summary(_p_conn):
         # Close the cursor
         cur.close()
 
+
 @st.cache_data
 def get_storms_summary(_p_conn):
     """
@@ -96,6 +99,7 @@ def get_storms_summary(_p_conn):
     finally:
         # Close the cursor
         cur.close()
+
 
 @st.cache_data
 def get_gages_by_model_id(_p_conn, model_id):
