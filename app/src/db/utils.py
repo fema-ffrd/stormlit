@@ -6,6 +6,7 @@ import streamlit as st
 # for use with local development credentials
 load_dotenv()
 
+
 def get_pg_dsn():
     """
     Construct a PostgreSQL DSN string from environment variables.
@@ -17,6 +18,7 @@ def get_pg_dsn():
         f"password={os.getenv('PG_PASSWORD')} "
         f"dbname={os.getenv('PG_DATABASE')}"
     )
+
 
 def create_db_connection():
     """
@@ -32,6 +34,7 @@ def create_db_connection():
     conn.execute("INSTALL postgres; LOAD postgres;")
     st.session_state["db_connected"] = True
     return conn
+
 
 def create_s3_connection():
     """

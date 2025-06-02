@@ -3,6 +3,7 @@ import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 
+
 def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a GeoDataFrame with EPSG:4326 CRS.
@@ -19,6 +20,7 @@ def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
         df["start_datetime"] = pd.to_datetime(df["start_datetime"])
     if "end_datetime" in df.columns:
         df["end_datetime"] = pd.to_datetime(df["end_datetime"])
+
     # Convert geometry from WKB to GeoSeries
     def wkb_to_geom(x):
         if isinstance(x, (bytes, bytearray)):
@@ -27,6 +29,7 @@ def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
             return shapely.wkb.loads(bytes.fromhex(x))
         else:
             return None
+
     # Convert geometry from WKB to GeoSeries
     df["geometry"] = df["geometry"].apply(wkb_to_geom)
     gdf = gpd.GeoDataFrame(df, geometry="geometry")
@@ -41,14 +44,17 @@ def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
     gdf["layer"] = layer_name
     return gdf
 
+
 @st.cache_data
-def pull_from_db(_conn,
-                 dsn,
-                 table_name,
-                 layer_name,
-                 schema_name="flat_stac",
-                 col_name=None,
-                 search_id=None):
+def pull_from_db(
+    _conn,
+    dsn,
+    table_name,
+    layer_name,
+    schema_name="flat_stac",
+    col_name=None,
+    search_id=None,
+):
     """
     Query the Postgres database
 
@@ -65,21 +71,22 @@ def pull_from_db(_conn,
         gdf (GeoDataFrame): A GeoDataFrame containing the rows returned from the query.
     """
     try:
-        #NOTE: A /UTC error occurs when using fetchdf() with duckdb
+        # NOTE: A /UTC error occurs when using fetchdf() with duckdb
         if col_name is None or search_id is None:
             # Select all rows from the table
             df = _conn.execute(
-                "SELECT * FROM postgres_scan(?, ?, ?)",
-                [dsn, schema_name, table_name]
+                "SELECT * FROM postgres_scan(?, ?, ?)", [dsn, schema_name, table_name]
             ).fetchnumpy()
         elif col_name is not None and search_id is not None:
             # If col_name and search_id are provided, filter the query
             df = _conn.execute(
                 f"SELECT * FROM postgres_scan(?, ?, ?) WHERE {col_name} = ?",
-                [dsn, schema_name, table_name, search_id]
+                [dsn, schema_name, table_name, search_id],
             ).fetchnumpy()
         else:
-            raise ValueError("Either col_name and search_id must be provided or both must be None.")
+            raise ValueError(
+                "Either col_name and search_id must be provided or both must be None."
+            )
         # Convert the numpy array to a pandas DataFrame
         df = pd.DataFrame(df)
         if "geometry" in df.columns:
@@ -91,13 +98,9 @@ def pull_from_db(_conn,
         st.error(f"An unkown error occurred when querying the database: {e}")
         return None
 
+
 @st.cache_data
-def pull_from_s3(_conn,
-                 query_type,
-                 var_type,
-                 event_id,
-                 gage_id=None,
-                 ref_id=None):
+def pull_from_s3(_conn, query_type, var_type, event_id, gage_id=None, ref_id=None):
     """
     Query the s3 bucket as a DuckDB table.
 
@@ -114,7 +117,9 @@ def pull_from_s3(_conn,
     """
     if query_type == "observed":
         if any([gage_id, event_id]) is None:
-            raise ValueError("gage_id and event_id must be provided for observed time series data.")
+            raise ValueError(
+                "gage_id and event_id must be provided for observed time series data."
+            )
         s3_path = "s3://trinity-pilot/stac/prod-support/pq-test/**/data.pq"
         query = f"""SELECT datetime, {var_type} as '{var_type}'
                 FROM read_parquet('{s3_path}', hive_partitioning=true)
@@ -122,7 +127,9 @@ def pull_from_s3(_conn,
 
     elif query_type == "modeled":
         if any([gage_id, event_id]) is None:
-            raise ValueError("ref_id and gage_id must be provided for modeled time series data.")
+            raise ValueError(
+                "ref_id and gage_id must be provided for modeled time series data."
+            )
         if var_type == "wse":
             s3_path = "s3://trinity-pilot/stac/prod-support/results/**/wsel.pq"
             query = f"""SELECT time, water_surface as wse
@@ -132,15 +139,17 @@ def pull_from_s3(_conn,
             s3_path = "s3://trinity-pilot/stac/prod-support/results/**/flow.pq"
             query = f"""SELECT time, flow, ref_id
                         FROM read_parquet('{s3_path}', hive_partitioning=true)
-                        WHERE event='{event_id}';"""# and ref_id='{ref_id}';"""
+                        WHERE event='{event_id}';"""  # and ref_id='{ref_id}';"""
         else:
-            raise ValueError("var_type must be either 'flow' or 'wse' for modeled time series data.")
+            raise ValueError(
+                "var_type must be either 'flow' or 'wse' for modeled time series data."
+            )
 
     else:
         raise ValueError("Invalid query_type. Must be 'observed' or 'modeled'.")
 
     try:
-        #NOTE: A /UTC error occurs when using fetchdf() with duckdb
+        # NOTE: A /UTC error occurs when using fetchdf() with duckdb
         df = _conn.execute(query).fetchnumpy()
         # Convert the numpy array to a pandas DataFrame
         df = pd.DataFrame(df)
