@@ -13,13 +13,14 @@ from utils.stac_data import (
 from utils.functions import get_map_pos, prep_fmap, plot_ts_dual_y_axis
 
 # standard imports
+from copy import deepcopy
 import os
 import streamlit as st
+from streamlit.errors import StreamlitDuplicateElementKey
 from dotenv import load_dotenv
 from streamlit_folium import st_folium
 from typing import Callable, List, Optional
 from urllib.parse import urljoin
-import uuid
 from enum import Enum
 import logging
 from shapely import Geometry
@@ -106,18 +107,28 @@ def map_popover(
 
             item_label = get_item_label(item)
             item_id = get_item_id(item)
-            button_id = uuid.uuid4()
-            if item_id is not None:
-                button_id = f"{get_item_id(item)}_{button_id}"
             current_feature_id = st.session_state.get("single_event_focus_feature_id")
             if item_id == current_feature_id and item_id is not None:
                 item_label += " ✅"
-            st.button(
-                label=item_label,
-                key=f"btn_{button_id}",
-                on_click=_on_click,
-                args=(item, item_id, item_label, feature_type),
-            )
+            button_key = f"btn_{item_id}"
+            try:
+                st.button(
+                    label=item_label,
+                    key=button_key,
+                    on_click=_on_click,
+                    args=(item, item_id, item_label, feature_type),
+                )
+            except StreamlitDuplicateElementKey as e:
+                logger.warning(
+                    f"Duplicate button key detected ({button_key}): {e}.",
+                )
+                st.button(
+                    label=item_label,
+                    key=f"{button_key}_DUPE",
+                    on_click=_on_click,
+                    args=(item, item_id, item_label, feature_type),
+                    disabled=True,
+                )
 
 
 def single_event():
@@ -227,7 +238,6 @@ def single_event():
                 st.fmap.fit_bounds(bbox)
                 st.map_output = st_folium(
                     st.fmap,
-                    key="new_map",
                     height=500,
                     use_container_width=True,
                 )
@@ -236,7 +246,6 @@ def single_event():
                     st.fmap,
                     center=[c_lat, c_lon],
                     zoom=zoom,
-                    key="new_map",
                     height=500,
                     use_container_width=True,
                 )

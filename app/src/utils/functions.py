@@ -385,7 +385,7 @@ def prep_fmap(
             )
             fg_ref_lines.add_to(m)
         elif key == "Reference Points":
-            fg_ref_points  = add_points_fg(
+            fg_ref_points = add_points_fg(
                 df, sel_layers[idx], ["layer", "id", "point_type"], "#0050c9"
             )
             fg_ref_points.add_to(m)
