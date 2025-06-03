@@ -289,7 +289,7 @@ def single_event():
                             * **Drainage Area:** {gage_props.get("drain_area_va")}
                             """)
                 st.markdown(
-                    f"[🌐 STAC Metadata for Gage {feature_id}]({gage_stac_viewer_url})"
+                    f"🌐 [STAC Metadata for Gage {feature_id}]({gage_stac_viewer_url})"
                 )
 
             st.markdown("#### Gage Analytics")
