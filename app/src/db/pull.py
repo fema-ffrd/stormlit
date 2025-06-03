@@ -3,6 +3,39 @@ import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 
+def query_df(_conn, query: str, geometry_type: str = None) -> pd.DataFrame:
+    """
+    Execute a SQL query and return the result as a pandas DataFrame.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        query (str): The SQL query to execute.
+        geometry_type (str, optional): The type of geometry to query. Either reference lines or reference points.
+
+    Returns:
+        df (DataFrame): A pandas DataFrame containing the rows returned from the query.
+    """
+    try:
+        # NOTE: A /UTC error occurs when using fetchdf() with duckdb
+        df = _conn.execute(query).fetchnumpy()
+        # Convert the numpy array to a pandas DataFrame
+        df = pd.DataFrame(df)
+        if "datetime" in df.columns:
+            # Convert datetime column to pandas datetime
+            df["datetime"] = pd.to_datetime(df["datetime"])
+            # rename the datetime column to 'time'
+            df.rename(columns={"datetime": "time"}, inplace=True)
+        if "time" in df.columns:
+            # Convert time column to pandas datetime
+            df["time"] = pd.to_datetime(df["time"])
+        if "geometry" in df.columns:
+            # Convert the DataFrame to a GeoDataFrame
+            df = format_to_gdf(df, geometry_type)
+        return df
+    except Exception as e:
+        raise ValueError(
+            f"An error occurred when querying the database: {e}"
+        ) from e
 
 def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
     """
@@ -100,17 +133,26 @@ def pull_from_db(
 
 
 @st.cache_data
-def pull_from_s3(_conn, query_type, var_type, event_id, gage_id=None, ref_id=None):
+def pull_from_s3(_conn,
+                 query_type,
+                 var_type=None,
+                 event_id=None,
+                 gage_id=None,
+                 ref_id=None,
+                 model_id=None,
+                 geometry_type=None):
     """
     Query the s3 bucket as a DuckDB table.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
-        query_type (str): The type of query. Must be either 'observed' or 'modeled'.
-        var_type (str): The type of variable to query. Must be either 'flow' or 'wse'.
-        event_id (str): The ID of the event to query. (e.g., dec1991)
-        gage_id (str): The ID of the gage to query. (e.g., '08045850')
-        ref_id (str, optional): The reference line ID for modeled time series data. Required if ts_type is 'modeled'.
+        query_type (str): The type of query. Must be either 'observed', 'modeled', or 'geometry'.
+        var_type (str, optional): The type of variable to query. Must be either 'flow' or 'wse'.
+        event_id (str, optional): The ID of the event to query. (e.g., dec1991)
+        gage_id (str, optional): The ID of the gage to query. (e.g., '08045850')
+        ref_id (str, optional): The reference line ID for modeled time series data.
+        model_id (str, optional): The model ID
+        geometry_type (str, optional): The type of geometry to query. Either reference lines or reference points.
 
     Returns:
         df (DataFrame): A pandas DataFrame containing the time series data for the specified gage and event.
@@ -132,37 +174,34 @@ def pull_from_s3(_conn, query_type, var_type, event_id, gage_id=None, ref_id=Non
             )
         if var_type == "wse":
             s3_path = "s3://trinity-pilot/stac/prod-support/results/**/wsel.pq"
-            query = f"""SELECT time, water_surface as wse
+            query = f"""SELECT time, ref_id, water_surface as wse
                         FROM read_parquet('{s3_path}', hive_partitioning=true)
                         WHERE event='{event_id}' and ref_id='{ref_id}';"""
         elif var_type == "flow":
             s3_path = "s3://trinity-pilot/stac/prod-support/results/**/flow.pq"
-            query = f"""SELECT time, flow, ref_id
+            query = f"""SELECT time, ref_id, flow as flow
                         FROM read_parquet('{s3_path}', hive_partitioning=true)
-                        WHERE event='{event_id}';"""  # and ref_id='{ref_id}';"""
+                        WHERE event='{event_id}' and ref_id='{ref_id}';"""
         else:
             raise ValueError(
                 "var_type must be either 'flow' or 'wse' for modeled time series data."
             )
-
+    elif query_type =="geometry":
+        if model_id is None or geometry_type is None:
+            raise ValueError("model_id and geometry_type must be provided for querying geometry data.")
+        if geometry_type == "Reference Lines":
+            s3_path = f"s3://trinity-pilot/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
+        else:
+            s3_path = f"s3://trinity-pilot/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
+        query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     else:
-        raise ValueError("Invalid query_type. Must be 'observed' or 'modeled'.")
+        raise ValueError("Invalid query_type. Must be 'observed', 'modeled' or 'geometry.")
 
-    try:
-        # NOTE: A /UTC error occurs when using fetchdf() with duckdb
-        df = _conn.execute(query).fetchnumpy()
-        # Convert the numpy array to a pandas DataFrame
-        df = pd.DataFrame(df)
-        if "datetime" in df.columns:
-            # Convert datetime column to pandas datetime
-            df["datetime"] = pd.to_datetime(df["datetime"])
-            # rename the datetime column to 'time'
-            df.rename(columns={"datetime": "time"}, inplace=True)
-        if "time" in df.columns:
-            # Convert time column to pandas datetime
-            df["time"] = pd.to_datetime(df["time"])
-        return df
-    except Exception as e:
-        print(f"An error occurred when querying the S3 bucket: {e}")
-        st.error(f"An error occurred when querying the S3 bucket: {e}")
-        return None
+    if query_type == "observed" or query_type == "modeled":
+        df = query_df(_conn, query)
+    elif query_type == "geometry":
+        df = query_df(_conn, query, geometry_type)
+    else:
+        raise ValueError("Invalid query_type. Must be 'observed', 'modeled' or 'geometry'.")
+    
+    return df
