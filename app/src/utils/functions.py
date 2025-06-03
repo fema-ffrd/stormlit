@@ -6,7 +6,7 @@ import geopandas as gpd
 import pandas as pd
 from plotly import express as px
 import plotly.graph_objects as go
-from typing import List, Optional
+from typing import Optional
 
 
 def highlight_function(feature):

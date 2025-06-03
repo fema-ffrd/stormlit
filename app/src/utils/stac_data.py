@@ -189,7 +189,6 @@ def get_ref_line_ts(ref_line_id: str):
     ts = pd.read_parquet(
         file_path, engine="pyarrow", filters=[("id", "=", ref_line_id)]
     )
-    print(ts)
     if "time" in ts.columns:
         ts["time"] = pd.to_datetime(ts["time"])
     return ts
