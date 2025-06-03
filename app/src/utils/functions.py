@@ -5,6 +5,8 @@ import streamlit as st
 import geopandas as gpd
 import pandas as pd
 from plotly import express as px
+import plotly.graph_objects as go
+from typing import List, Optional
 
 
 def highlight_function(feature):
@@ -453,7 +455,7 @@ def get_map_sel(map_output: str):
     return df
 
 
-def plot_ts(df: pd.DataFrame, var: str, st_col):
+def plot_ts(df: pd.DataFrame, var: str, st_col, title: Optional[str] = None):
     """
     Function for plotting time series data.
     Columns in the DataFrame should be:
@@ -471,6 +473,8 @@ def plot_ts(df: pd.DataFrame, var: str, st_col):
         The variable to plot.
     st_col : streamlit.columns
         The Streamlit column to place the plot in.
+    title : Optional[str]
+        The title of the plot. If None, a default title will be used.
     """
     # Check if the DataFrame is empty
     if df.empty:
@@ -484,7 +488,94 @@ def plot_ts(df: pd.DataFrame, var: str, st_col):
         return
 
     # Create a line plot using Streamlit
-    fig = px.line(df, x="time", y=var, title=f"Time Series Plot of {var}")
+    if title is None:
+        title = f"Time Series Plot of {var}"
+    fig = px.line(df, x="time", y=var, title=title)
+    st_col.plotly_chart(fig)
+
+
+def plot_ts_dual_y_axis(
+    df: pd.DataFrame,
+    var1: str,
+    var2: str,
+    st_col,
+    title: Optional[str] = None,
+):
+    """Function for plotting time series data with dual y-axes.
+    Columns in the DataFrame should be:
+    - 'id': str
+    - 'time': datetime
+    - 'velocity': float
+    - 'water_surface': float
+    - 'flow': float
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the time series data.
+    var1 : str
+        The first variable to plot on the primary y-axis.
+    var2 : str
+        The second variable to plot on the secondary y-axis.
+    st_col : streamlit.columns
+        The Streamlit column to place the plot in.
+    title : Optional[str]
+        The title of the plot. If None, a default title will be used.
+    """
+    # Check if the DataFrame is empty
+    if df.empty:
+        st.warning("No data available for the selected variables.")
+        return
+
+    # Check if the required columns are present in the DataFrame
+    required_columns = ["id", "time", var1, var2]
+    if not all(col in df.columns for col in required_columns):
+        st.error(f"DataFrame must contain the following columns: {required_columns}")
+        return
+
+    fig = go.Figure()
+
+    # Add the first variable to the primary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=df["time"],
+            y=df[var1],
+            mode="lines",
+            name=var1,
+            line=dict(color="blue"),
+        )
+    )
+
+    # Add the second variable to the secondary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=df["time"],
+            y=df[var2],
+            mode="lines",
+            name=var2,
+            line=dict(color="red"),
+            yaxis="y2",
+        )
+    )
+
+    # Update layout for dual y-axes
+    fig.update_layout(
+        title=title if title else f"Time Series Plot of {var1} and {var2}",
+        xaxis_title="Time",
+        yaxis=dict(
+            title=var1,
+            showgrid=False,
+            zeroline=True,
+        ),
+        yaxis2=dict(
+            title=var2,
+            overlaying="y",
+            side="right",
+            showgrid=False,
+            zeroline=True,
+        ),
+        legend=dict(x=0.75, y=1, traceorder="normal"),
+    )
+
     st_col.plotly_chart(fig)
 
 

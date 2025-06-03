@@ -36,6 +36,8 @@ def init_session_state():
     st.session_state["zoom"] = None
     st.session_state["zoom_to_field"] = None
 
+    st.session_state["assets"] = None
+
     # model qc session
     st.session_state["model_qc_file_path"] = None
     st.session_state["model_qc_suite"] = "FFRD"

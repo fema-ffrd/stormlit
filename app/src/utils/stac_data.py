@@ -184,6 +184,7 @@ def get_ref_line_ts(ref_line_id: str):
         A DataFrame containing the time series data for the reference line
     """
     ## TODO: Need to add local data to a STAC catalog
+    st.session_state["assets"] = assetsDir
     file_path = os.path.join(assetsDir, "ref_lines.parquet")
     ts = pd.read_parquet(
         file_path, engine="pyarrow", filters=[("id", "=", ref_line_id)]
