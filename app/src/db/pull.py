@@ -3,6 +3,7 @@ import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 
+
 def query_df(_conn, query: str, geometry_type: str = None) -> pd.DataFrame:
     """
     Execute a SQL query and return the result as a pandas DataFrame.
@@ -33,9 +34,8 @@ def query_df(_conn, query: str, geometry_type: str = None) -> pd.DataFrame:
             df = format_to_gdf(df, geometry_type)
         return df
     except Exception as e:
-        raise ValueError(
-            f"An error occurred when querying the database: {e}"
-        ) from e
+        raise ValueError(f"An error occurred when querying the database: {e}") from e
+
 
 def format_to_gdf(df: pd.DataFrame, layer_name: str) -> gpd.GeoDataFrame:
     """
@@ -133,14 +133,16 @@ def pull_from_db(
 
 
 @st.cache_data
-def pull_from_s3(_conn,
-                 query_type,
-                 var_type=None,
-                 event_id=None,
-                 gage_id=None,
-                 ref_id=None,
-                 model_id=None,
-                 geometry_type=None):
+def pull_from_s3(
+    _conn,
+    query_type,
+    var_type=None,
+    event_id=None,
+    gage_id=None,
+    ref_id=None,
+    model_id=None,
+    geometry_type=None,
+):
     """
     Query the s3 bucket as a DuckDB table.
 
@@ -186,22 +188,28 @@ def pull_from_s3(_conn,
             raise ValueError(
                 "var_type must be either 'flow' or 'wse' for modeled time series data."
             )
-    elif query_type =="geometry":
+    elif query_type == "geometry":
         if model_id is None or geometry_type is None:
-            raise ValueError("model_id and geometry_type must be provided for querying geometry data.")
+            raise ValueError(
+                "model_id and geometry_type must be provided for querying geometry data."
+            )
         if geometry_type == "Reference Lines":
             s3_path = f"s3://trinity-pilot/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
         else:
             s3_path = f"s3://trinity-pilot/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
         query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     else:
-        raise ValueError("Invalid query_type. Must be 'observed', 'modeled' or 'geometry.")
+        raise ValueError(
+            "Invalid query_type. Must be 'observed', 'modeled' or 'geometry."
+        )
 
     if query_type == "observed" or query_type == "modeled":
         df = query_df(_conn, query)
     elif query_type == "geometry":
         df = query_df(_conn, query, geometry_type)
     else:
-        raise ValueError("Invalid query_type. Must be 'observed', 'modeled' or 'geometry'.")
-    
+        raise ValueError(
+            "Invalid query_type. Must be 'observed', 'modeled' or 'geometry'."
+        )
+
     return df
