@@ -10,11 +10,7 @@ from utils.stac_data import (
     get_ref_line_ts,
     get_ref_pt_ts,
 )
-from utils.functions import (
-    get_map_pos,
-    prep_fmap,
-    plot_ts_dual_y_axis
-)
+from utils.functions import get_map_pos, prep_fmap, plot_ts_dual_y_axis
 
 # standard imports
 import os
@@ -34,6 +30,7 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
 
 class FeatureType(Enum):
     BASIN = "Basin"
@@ -82,22 +79,27 @@ def map_popover(
         if download_url:
             st.markdown(f"⬇️ [Download Data]({download_url})")
         for item in items:
-            def _on_click(_item: dict, _item_id: str, _item_label: str, _feature_type: FeatureType):
+
+            def _on_click(
+                _item: dict, _item_id: str, _item_label: str, _feature_type: FeatureType
+            ):
                 logger.info("Item selected: %s", _item)
                 geom: Optional[Geometry] = _item.get("geometry")
                 if geom:
                     bounds = geom.bounds
                     bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
-                st.session_state.update({
-                    "single_event_focus_feature_label": _item_label,
-                    "single_event_focus_feature_id": _item_id,
-                    "single_event_focus_lat": _item.get("lat"),
-                    "single_event_focus_lon": _item.get("lon"),
-                    # TODO: Add logic to determine zoom level based on item extent
-                    "single_event_focus_zoom": 12,
-                    "single_event_focus_bounding_box": bbox,
-                    "single_event_focus_feature_type": _feature_type.value,
-                })
+                st.session_state.update(
+                    {
+                        "single_event_focus_feature_label": _item_label,
+                        "single_event_focus_feature_id": _item_id,
+                        "single_event_focus_lat": _item.get("lat"),
+                        "single_event_focus_lon": _item.get("lon"),
+                        # TODO: Add logic to determine zoom level based on item extent
+                        "single_event_focus_zoom": 12,
+                        "single_event_focus_bounding_box": bbox,
+                        "single_event_focus_feature_type": _feature_type.value,
+                    }
+                )
                 callback(item) if callback else None
 
             item_label = get_item_label(item)
@@ -162,7 +164,7 @@ def single_event():
             lambda dam: dam["id"],
             get_item_id=lambda dam: dam["id"],
             feature_type=FeatureType.DAM,
-            download_url= st.pilot_layers["Dams"],
+            download_url=st.pilot_layers["Dams"],
         )
     with col_gages:
         map_popover(
@@ -251,8 +253,12 @@ def single_event():
             dam_meta_url = dam_data["Metadata"]
             dam_meta_status_ok, dam_meta = get_stac_meta(dam_meta_url)
             if dam_meta_status_ok:
-                dam_stac_viewer_url = f"{st.session_state["stac_browser_url"]}/#/external/{dam_meta_url}"
-                st.markdown(f"🌐 [STAC Metadata for Dam {feature_id}]({dam_stac_viewer_url})")
+                dam_stac_viewer_url = (
+                    f"{st.session_state['stac_browser_url']}/#/external/{dam_meta_url}"
+                )
+                st.markdown(
+                    f"🌐 [STAC Metadata for Dam {feature_id}]({dam_stac_viewer_url})"
+                )
 
                 st.markdown("#### Documentation")
                 for asset_name, asset in dam_meta["assets"].items():
@@ -263,22 +269,26 @@ def single_event():
                         st.markdown(f"📄 [{asset_name}]({asset_url})")
                     elif "spreadsheet" in roles:
                         st.markdown(f"📊 [{asset_name}]({asset_url})")
-        
+
         elif feature_type == FeatureType.GAGE:
             info_col.markdown(f"### Gage: `{feature_label}`")
             gage_data = define_gage_data(feature_id)
             gage_meta_url = gage_data["Metadata"]
             gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
             if gage_meta_status_ok:
-                gage_stac_viewer_url = f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
+                gage_stac_viewer_url = (
+                    f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
+                )
                 gage_props = gage_meta.get("properties", {})
                 st.markdown(f"""
-                            * **Station Name:** {gage_props.get('station_nm')}
-                            * **Site No:** `{gage_props.get('site_no')}`
-                            * **HUC:** `{gage_props.get('huc_cd')}`
-                            * **Drainage Area:** {gage_props.get('drain_area_va')}
+                            * **Station Name:** {gage_props.get("station_nm")}
+                            * **Site No:** `{gage_props.get("site_no")}`
+                            * **HUC:** `{gage_props.get("huc_cd")}`
+                            * **Drainage Area:** {gage_props.get("drain_area_va")}
                             """)
-                st.markdown(f"[🌐 STAC Metadata for Gage {feature_id}]({gage_stac_viewer_url})")
+                st.markdown(
+                    f"[🌐 STAC Metadata for Gage {feature_id}]({gage_stac_viewer_url})"
+                )
 
             st.markdown("#### Gage Analytics")
             for plot_type, plot_url in gage_data.items():
@@ -293,15 +303,21 @@ def single_event():
         elif feature_type == FeatureType.REFERENCE_LINE:
             info_col.markdown(f"### Reference Line: `{feature_label}`")
             ref_line_ts = get_ref_line_ts(feature_id)
-            plot_ts_dual_y_axis(ref_line_ts, "water_surface", "flow", info_col, title=feature_label)
+            plot_ts_dual_y_axis(
+                ref_line_ts, "water_surface", "flow", info_col, title=feature_label
+            )
 
         elif feature_type == FeatureType.REFERENCE_POINT:
             info_col.markdown(f"### Reference Point: `{feature_label}`")
             ref_pt_ts = get_ref_pt_ts(feature_id)
-            plot_ts_dual_y_axis(ref_pt_ts, "water_surface", "velocity", info_col, title=feature_label)
+            plot_ts_dual_y_axis(
+                ref_pt_ts, "water_surface", "velocity", info_col, title=feature_label
+            )
 
         else:
-            st.markdown("Select a Basin, Gage, Dam, Reference Line, or Reference Point to view details.")
+            st.markdown(
+                "Select a Basin, Gage, Dam, Reference Line, or Reference Point to view details."
+            )
 
     # Session state
     with st.expander("Session State"):
