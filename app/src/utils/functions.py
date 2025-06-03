@@ -98,14 +98,14 @@ def add_markers_fg(
     return fg_markers
 
 
-def add_circles_fg(
+def add_points_fg(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
     color: str,
 ):
     """
-    Add circles to a folium map as a feature group
+    Add points to a folium map as a feature group
 
     Parameters
     ----------
@@ -116,7 +116,7 @@ def add_circles_fg(
     tooltip_fields: list
         A list of fields to display in the tooltip
     color: str
-        The color of the circles
+        The color of the squares to be used as markers
 
     Returns
     -------
@@ -129,20 +129,14 @@ def add_circles_fg(
         <div style="
             background-color: {color};
             border: 1px solid black;
-            border-radius: 0;
             width: 10px;
-            height: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            color: white;">
+            height: 10px">
         </div>
         """
     )
 
-    fg_circles = folium.FeatureGroup(name=layer_name)
-    fg_circles.add_child(
+    fg_points = folium.FeatureGroup(name=layer_name)
+    fg_points.add_child(
         folium.GeoJson(
             gdf,
             name=layer_name,
@@ -153,8 +147,7 @@ def add_circles_fg(
             zoom_on_click=True,
         )
     )
-
-    return fg_circles
+    return fg_points
 
 
 def style_basins(feature):
@@ -374,16 +367,16 @@ def prep_fmap(
             )
             fg_basins.add_to(m)
         elif key == "Dams":
-            fg_dams = add_circles_fg(df, sel_layers[idx], ["layer", "id"], "#e32636")
+            fg_dams = add_points_fg(df, sel_layers[idx], ["layer", "id"], "#e32636")
             fg_dams.add_to(m)
         elif key == "Gages":
-            fg_gages = add_circles_fg(
+            fg_gages = add_points_fg(
                 df, sel_layers[idx], ["layer", "site_no"], "#32cd32"
             )
             fg_gages.add_to(m)
         elif key == "Storms":
-            fg_storms = add_circles_fg(
-                df, sel_layers[idx], ["layer", "rank", "storm_type"], "#ed9121"
+            fg_storms = add_points_fg(
+                df, sel_layers[idx], ["layer", "rank", "storm_type"], "#CCCCCC"
             )
             fg_storms.add_to(m)
         elif key == "Reference Lines":
@@ -392,8 +385,8 @@ def prep_fmap(
             )
             fg_ref_lines.add_to(m)
         elif key == "Reference Points":
-            fg_ref_points = add_markers_fg(
-                df, sel_layers[idx], ["layer", "id", "point_type"], style_ref_points
+            fg_ref_points  = add_points_fg(
+                df, sel_layers[idx], ["layer", "id", "point_type"], "#0050c9"
             )
             fg_ref_points.add_to(m)
         else:

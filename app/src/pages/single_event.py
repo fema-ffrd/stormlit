@@ -317,8 +317,9 @@ def single_event():
             )
 
         else:
+            st.markdown("### Single Event View")
             st.markdown(
-                "Select a Basin, Gage, Dam, Reference Line, or Reference Point to view details."
+                "Select a Basin, Gage, Dam, Reference Line, or Reference Point for details."
             )
 
     # Session state
