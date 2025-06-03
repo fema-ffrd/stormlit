@@ -88,6 +88,8 @@ def map_popover(
                 if geom:
                     bounds = geom.bounds
                     bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
+                else:
+                    bbox = None
                 st.session_state.update(
                     {
                         "single_event_focus_feature_label": _item_label,
