@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:2.0.5 as builder
+FROM mambaorg/micromamba:2.0.5 AS builder
 
 WORKDIR /app
 
