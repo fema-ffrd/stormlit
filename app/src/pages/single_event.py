@@ -183,6 +183,27 @@ def single_event():
             st.session_state["init_pilot"] = True
             st.success("Complete! Pilot data is now ready for exploration.")
 
+    st.sidebar.markdown("## Select Event")
+    st.session_state["event_type"] = st.sidebar.radio(
+        "Select from",
+        ["Calibration Events", "Stochastic Events"],
+        index=0,
+    )
+
+    if st.session_state["event_type"] == "Calibration Events":
+        st.session_state["calibration_event"] = st.sidebar.selectbox(
+            "Select from",
+            ["Jan1996", "Aug2017", "July2020", "Aug2021"],
+            index=None,
+        )
+    else:
+        st.session_state["stochastic_event"] = st.sidebar.selectbox(
+            "Select from",
+            ["Stochastic Event 1", "Stochastic Event 2", "Stochastic Event 3"],
+            index=None,
+        )
+    
+
     # Popovers for items on the map
     col_basins, col_dams, col_gages, col_ref_lines, col_ref_points = st.columns(5)
     with col_basins:
