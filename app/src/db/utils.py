@@ -20,7 +20,7 @@ def get_pg_dsn():
     )
 
 
-def create_db_connection():
+def create_pg_connection():
     """
     Connect to a PostgreSQL database server using DuckDB.
 
