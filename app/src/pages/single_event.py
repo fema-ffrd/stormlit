@@ -13,7 +13,6 @@ from utils.stac_data import (
 from utils.functions import get_map_pos, prep_fmap, plot_ts_dual_y_axis
 
 # standard imports
-from copy import deepcopy
 import os
 import streamlit as st
 from streamlit.errors import StreamlitDuplicateElementKey
