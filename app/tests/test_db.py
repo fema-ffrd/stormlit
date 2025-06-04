@@ -85,7 +85,7 @@ def test_get_obs_gage_flow():
     """
     Test querying observed gage flow data from S3.
     """
-    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_obs_gage_flow_df.csv")
+    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_obs_flow_df.csv")
     test_dataset_df = pd.read_csv(test_dataset_path, index_col=0)
     test_dataset_df["flow"] = test_dataset_df["flow"].astype(float)
     test_obs_gage_flow_df = query_s3_obs_flow(
@@ -106,7 +106,7 @@ def test_get_modeled_gage_flow():
     """
     Test querying modeled flow data from S3.
     """
-    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_modeled_gage_flow_df.csv")
+    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_mod_flow_df.csv")
     test_dataset_df = pd.read_csv(test_dataset_path, index_col=0)
     test_dataset_df["flow"] = test_dataset_df["flow"].astype(float)
     test_mod_flow_df = query_s3_mod_flow(
@@ -127,7 +127,7 @@ def test_get_modeled_gage_wse():
     """
     Test querying modeled water surface elevation (WSE) data from S3.
     """
-    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_modeled_gage_wse_df.csv")
+    test_dataset_path = os.path.join(TEST_CSV, "blw-elkhart_mod_wse_df.csv")
     test_dataset_df = pd.read_csv(test_dataset_path, index_col=0)
     test_dataset_df["wse"] = test_dataset_df["wse"].astype(float)
     test_mod_wse_df = query_s3_mod_wse(
@@ -148,7 +148,7 @@ def test_get_models_by_gage_all():
     """
     Test querying geospatial gage metadata from Postgres.
     """
-    test_dataset_path = os.path.join(TEST_PARQUET, "models_by_gage_df.parquet")
+    test_dataset_path = os.path.join(TEST_PARQUET, "models_by_gage_all.parquet")
     test_dataset_gdf = gpd.read_parquet(test_dataset_path)
     test_models_by_gage_gdf = query_pg_table_all(
         PG_CONNECTION,  # Postgres connection using DuckDB
@@ -165,7 +165,7 @@ def test_get_models_by_gage_filtered():
     """
     Test querying geospatial gage metadata from Postgres with filters.
     """
-    test_dataset_path = os.path.join(TEST_PARQUET, "models_by_gage_filtered_df.parquet")
+    test_dataset_path = os.path.join(TEST_PARQUET, "models_by_gage_filtered.parquet")
     test_dataset_gdf = gpd.read_parquet(test_dataset_path)
     test_models_by_gage_filtered_gdf = query_pg_table_filter(
         PG_CONNECTION,  # Postgres connection using DuckDB
