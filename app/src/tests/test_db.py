@@ -5,11 +5,6 @@ import pandas.testing as pdt
 import geopandas as gpd
 from dotenv import load_dotenv
 
-from db.utils import create_db_connection, get_pg_dsn, create_s3_connection
-from db.pull import pull_from_db, pull_from_s3
-
-load_dotenv()
-
 testDir = os.path.dirname(
     os.path.realpath(__file__)
 )  # located within the src/tests folder
@@ -18,6 +13,12 @@ srcDir = os.path.abspath(
     os.path.join(testDir, "..")
 )  # go up one level into the src folder
 sys.path.append(srcDir)  # add src folder to the system path
+
+# Custom imports
+from db.utils import create_db_connection, get_pg_dsn, create_s3_connection
+from db.pull import pull_from_db, pull_from_s3
+
+load_dotenv()
 
 # Global variables
 TEST_PARQUET = os.path.join(dataDir, "parquet")
