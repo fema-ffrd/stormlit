@@ -249,8 +249,8 @@ def prep_fmap(
             df_dict["Dams"] = st.dams
         elif layer == "Gages" and st.gages is not None:
             df_dict["Gages"] = st.gages
-        elif layer == "Storms" and st.storms is not None:
-            df_dict["Storms"] = st.storms
+        # elif layer == "Storms" and st.storms is not None:
+        #     df_dict["Storms"] = st.storms
         elif layer == "Reference Lines" and st.ref_lines is not None:
             df_dict["Reference Lines"] = st.ref_lines
         elif layer == "Reference Points" and st.ref_points is not None:
