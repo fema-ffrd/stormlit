@@ -7,8 +7,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class StormlitQueryException(Exception):
     pass
+
 
 def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     """
@@ -48,7 +50,10 @@ def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     gdf["lon"] = centroids.x.astype(float)
     return gdf
 
-def query_db(_conn, query: str, pg_args: list = None) -> pd.DataFrame | gpd.GeoDataFrame:
+
+def query_db(
+    _conn, query: str, pg_args: list = None
+) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Execute a SQL query and return the result as a pandas DataFrame.
 
@@ -85,11 +90,11 @@ def query_db(_conn, query: str, pg_args: list = None) -> pd.DataFrame | gpd.GeoD
         df = format_to_gdf(df)
     return df
 
+
 @st.cache_data
-def query_pg_table_all(_conn,
-                       dsn: str,
-                       schema_name: str,
-                       table_name: str) -> pd.DataFrame | gpd.GeoDataFrame:
+def query_pg_table_all(
+    _conn, dsn: str, schema_name: str, table_name: str
+) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Query all rows from a Postgres table using DuckDB.
 
@@ -98,7 +103,7 @@ def query_pg_table_all(_conn,
         dsn (str): The DSN credentials for the PostgreSQL database.
         schema_name (str): The name of the schema where the table is located.
         table_name (str): The name of the table to query.
-                        
+
     Returns:
         pd.DataFrame: A pandas DataFrame containing the rows returned from the query.
     """
@@ -106,13 +111,11 @@ def query_pg_table_all(_conn,
     query = "SELECT * FROM postgres_scan(?, ?, ?)"
     return query_db(_conn, query, pg_args=pg_args)
 
+
 @st.cache_data
-def query_pg_table_filter(_conn,
-                            dsn: str,
-                            schema_name: str,
-                            table_name: str,
-                            col_name: str,
-                            search_id: str) -> pd.DataFrame | gpd.GeoDataFrame:
+def query_pg_table_filter(
+    _conn, dsn: str, schema_name: str, table_name: str, col_name: str, search_id: str
+) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Query rows from a Postgres table using DuckDB using a column filter.
 
@@ -150,6 +153,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
             WHERE gage='{gage_id}' and event='{event_id}';"""
     return query_db(_conn, query)
 
+
 @st.cache_data
 def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
     """
@@ -168,6 +172,7 @@ def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFr
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
     return query_db(_conn, query)
+
 
 @st.cache_data
 def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
@@ -188,6 +193,7 @@ def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataF
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
     return query_db(_conn, query)
 
+
 @st.cache_data
 def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
@@ -204,6 +210,7 @@ def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
+
 
 @st.cache_data
 def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:

@@ -25,7 +25,7 @@ from db.pull import (
     query_s3_mod_flow,
     query_s3_mod_wse,
     query_pg_table_all,
-    query_pg_table_filter
+    query_pg_table_filter,
 )
 
 load_dotenv()
@@ -36,13 +36,14 @@ TEST_CSV = os.path.join(dataDir, "csv")
 PG_CONNECTION = create_pg_connection()
 S3_CONNECTION = create_s3_connection()
 DSN = get_pg_dsn()
-PILOT="trinity-pilot"
+PILOT = "trinity-pilot"
 TEST_MODEL = "blw-elkhart"
-TEST_REF_LINE_ID = 'gage_usgs_08065350'
+TEST_REF_LINE_ID = "gage_usgs_08065350"
 EVENT_ID = "may2015"
 GAGE_ID = "08062800"
 TEST_PG_TABLE = "models_by_gage"
 TEST_PG_SCHEMA = "flat_stac"
+
 
 @pytest.mark.integration
 def test_get_ref_line_geometry():
@@ -62,6 +63,7 @@ def test_get_ref_line_geometry():
         "Reference line geometry data from S3 does not match expected data."
     )
 
+
 @pytest.mark.integration
 def test_get_ref_pt_geometry():
     """
@@ -80,6 +82,7 @@ def test_get_ref_pt_geometry():
         "Reference point geometry data from S3 does not match expected data."
     )
 
+
 @pytest.mark.integration
 def test_get_obs_gage_flow():
     """
@@ -92,7 +95,7 @@ def test_get_obs_gage_flow():
         S3_CONNECTION,  # S3 connection using DuckDB
         PILOT,  # Pilot name for the S3 bucket
         gage_id=GAGE_ID,  # Example gage ID
-        event_id=EVENT_ID  # Example event ID
+        event_id=EVENT_ID,  # Example event ID
     )
     test_obs_gage_flow_df["flow"] = test_obs_gage_flow_df["flow"].astype(float)
     pdt.assert_series_equal(
@@ -100,6 +103,7 @@ def test_get_obs_gage_flow():
         test_dataset_df["flow"].reset_index(drop=True),
         rtol=1e-3,
     )
+
 
 @pytest.mark.integration
 def test_get_modeled_gage_flow():
@@ -113,7 +117,7 @@ def test_get_modeled_gage_flow():
         S3_CONNECTION,  # S3 connection using DuckDB
         PILOT,  # Pilot name for the S3 bucket
         ref_id=TEST_REF_LINE_ID,  # Example reference element ID
-        event_id=EVENT_ID  # Example event ID
+        event_id=EVENT_ID,  # Example event ID
     )
     test_mod_flow_df["flow"] = test_mod_flow_df["flow"].astype(float)
     pdt.assert_series_equal(
@@ -121,6 +125,7 @@ def test_get_modeled_gage_flow():
         test_dataset_df["flow"].reset_index(drop=True),
         rtol=1e-3,
     )
+
 
 @pytest.mark.integration
 def test_get_modeled_gage_wse():
@@ -134,7 +139,7 @@ def test_get_modeled_gage_wse():
         S3_CONNECTION,  # S3 connection using DuckDB
         PILOT,  # Pilot name for the S3 bucket
         ref_id=TEST_REF_LINE_ID,  # Example reference element ID
-        event_id=EVENT_ID  # Example event ID
+        event_id=EVENT_ID,  # Example event ID
     )
     test_mod_wse_df["wse"] = test_mod_wse_df["wse"].astype(float)
     pdt.assert_series_equal(
@@ -142,6 +147,7 @@ def test_get_modeled_gage_wse():
         test_dataset_df["wse"].reset_index(drop=True),
         rtol=1e-3,
     )
+
 
 @pytest.mark.integration
 def test_get_models_by_gage_all():
@@ -154,11 +160,12 @@ def test_get_models_by_gage_all():
         PG_CONNECTION,  # Postgres connection using DuckDB
         DSN,  # DSN credentials for the PostgreSQL database
         TEST_PG_SCHEMA,  # Schema name where the table is located
-        TEST_PG_TABLE  # Table name to query
+        TEST_PG_TABLE,  # Table name to query
     )
     assert test_models_by_gage_gdf.equals(test_dataset_gdf), (
         "Gage metadata from Postgres does not match expected data."
     )
+
 
 @pytest.mark.integration
 def test_get_models_by_gage_filtered():
@@ -173,7 +180,7 @@ def test_get_models_by_gage_filtered():
         TEST_PG_SCHEMA,  # Schema name where the table is located
         TEST_PG_TABLE,  # Table name to query
         col_name="gage_id",  # Column to filter by
-        search_id=GAGE_ID  # ID to filter the column by
+        search_id=GAGE_ID,  # ID to filter the column by
     )
     assert test_models_by_gage_filtered_gdf.equals(test_dataset_gdf), (
         "Filtered gage metadata from Postgres does not match expected data."
