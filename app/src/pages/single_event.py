@@ -39,7 +39,13 @@ class FeatureType(Enum):
     REFERENCE_POINT = "Reference Point"
 
 
-def focus_feature(item: dict, item_id: str, item_label: str, feature_type: FeatureType, map_click: bool = False):
+def focus_feature(
+    item: dict,
+    item_id: str,
+    item_label: str,
+    feature_type: FeatureType,
+    map_click: bool = False,
+):
     """
     Focus on a feature by updating the session state with the item's details.
 
@@ -143,7 +149,7 @@ def map_popover(
                     key=f"{button_key}_DUPE",
                     on_click=focus_feature,
                     args=(item, item_id, item_label, feature_type),
-                    disabled=True
+                    disabled=True,
                 )
     st.map_output = None
 
@@ -297,7 +303,11 @@ def single_event():
         layer = properties.get("layer")
         if layer:
             feature_type = FeatureType(layer[:-1])
-            if feature_type in (FeatureType.REFERENCE_LINE, FeatureType.REFERENCE_POINT, FeatureType.DAM):
+            if feature_type in (
+                FeatureType.REFERENCE_LINE,
+                FeatureType.REFERENCE_POINT,
+                FeatureType.DAM,
+            ):
                 feature_id = properties["id"]
                 feature_label = feature_id
             elif feature_type == FeatureType.GAGE:
@@ -307,7 +317,9 @@ def single_event():
                 feature_id = properties["HUC8"]
                 feature_label = f"{properties['NAME']} ({properties['HUC8']})"
     else:
-        logger.debug("No feature selected from map. Using session state for feature focus.")
+        logger.debug(
+            "No feature selected from map. Using session state for feature focus."
+        )
         feature_id = st.session_state.get("single_event_focus_feature_id")
         feature_label = st.session_state.get("single_event_focus_feature_label")
 
