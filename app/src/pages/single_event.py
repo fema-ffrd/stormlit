@@ -1,5 +1,4 @@
 # module imports
-from components.layout import render_footer
 from utils.session import init_session_state
 from utils.stac_data import (
     init_pilot,
@@ -22,7 +21,7 @@ from typing import Callable, List, Optional
 from urllib.parse import urljoin
 from enum import Enum
 import logging
-from shapely import Geometry
+from shapely.geometry import shape
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
@@ -38,6 +37,55 @@ class FeatureType(Enum):
     DAM = "Dam"
     REFERENCE_LINE = "Reference Line"
     REFERENCE_POINT = "Reference Point"
+
+
+def focus_feature(
+    item: dict,
+    item_id: str,
+    item_label: str,
+    feature_type: FeatureType,
+    map_click: bool = False,
+):
+    """
+    Focus on a feature by updating the session state with the item's details.
+
+    Parameters
+    ----------
+    item: dict
+        The item to focus on, containing its details.
+    item_id: str
+        The ID of the item.
+    item_label: str
+        The label of the item.
+    feature_type: FeatureType
+        The type of feature (Basin, Gage, Dam, Reference Line, Reference Point)
+    map_click: bool
+        Whether the focus was triggered by a map click or a button click.
+    """
+    logger.info("Item selected: %s", item)
+    geom = item.get("geometry")
+    if geom and isinstance(geom, dict):
+        # Convert dict to Geometry object if necessary
+        geom = shape(geom)
+    if geom:
+        bounds = geom.bounds
+        bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
+    else:
+        bbox = None
+
+    st.session_state.update(
+        {
+            "single_event_focus_feature_label": item_label,
+            "single_event_focus_feature_id": item_id,
+            "single_event_focus_lat": item.get("lat"),
+            "single_event_focus_lon": item.get("lon"),
+            # TODO: Add logic to determine zoom level based on item extent
+            "single_event_focus_zoom": 12,
+            "single_event_focus_bounding_box": bbox,
+            "single_event_focus_feature_type": feature_type.value,
+            "single_event_focus_map_click": map_click,
+        }
+    )
 
 
 def map_popover(
@@ -79,31 +127,6 @@ def map_popover(
         if download_url:
             st.markdown(f"⬇️ [Download Data]({download_url})")
         for item in items:
-
-            def _on_click(
-                _item: dict, _item_id: str, _item_label: str, _feature_type: FeatureType
-            ):
-                logger.info("Item selected: %s", _item)
-                geom: Optional[Geometry] = _item.get("geometry")
-                if geom:
-                    bounds = geom.bounds
-                    bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
-                else:
-                    bbox = None
-                st.session_state.update(
-                    {
-                        "single_event_focus_feature_label": _item_label,
-                        "single_event_focus_feature_id": _item_id,
-                        "single_event_focus_lat": _item.get("lat"),
-                        "single_event_focus_lon": _item.get("lon"),
-                        # TODO: Add logic to determine zoom level based on item extent
-                        "single_event_focus_zoom": 12,
-                        "single_event_focus_bounding_box": bbox,
-                        "single_event_focus_feature_type": _feature_type.value,
-                    }
-                )
-                callback(item) if callback else None
-
             item_label = get_item_label(item)
             item_id = get_item_id(item)
             current_feature_id = st.session_state.get("single_event_focus_feature_id")
@@ -114,7 +137,7 @@ def map_popover(
                 st.button(
                     label=item_label,
                     key=button_key,
-                    on_click=_on_click,
+                    on_click=focus_feature,
                     args=(item, item_id, item_label, feature_type),
                 )
             except StreamlitDuplicateElementKey as e:
@@ -124,7 +147,7 @@ def map_popover(
                 st.button(
                     label=item_label,
                     key=f"{button_key}_DUPE",
-                    on_click=_on_click,
+                    on_click=focus_feature,
                     args=(item, item_id, item_label, feature_type),
                     disabled=True,
                 )
@@ -137,11 +160,11 @@ def single_event():
 
     st.title("Single Event View")
 
+    # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
     st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer ⛈️")
-
     st.sidebar.markdown("## Select Study")
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
@@ -152,6 +175,7 @@ def single_event():
     )
     st.sidebar.markdown("---")
 
+    # Initialize session state variables if not already set
     if st.session_state["init_pilot"] is False:
         with st.spinner("Initializing datasets..."):
             init_pilot(st.session_state["pilot"])
@@ -220,10 +244,13 @@ def single_event():
             None,
         )
 
+    # Get the feature type from session state or default to None
+    # to determine how to display the map
     feature_type = st.session_state.get("single_event_focus_feature_type")
     if feature_type is not None:
         feature_type = FeatureType(feature_type)
 
+    # Map
     with map_col:
         with st.spinner("Loading Map..."):
             st.fmap = prep_fmap(
@@ -235,27 +262,71 @@ def single_event():
             bbox = st.session_state.get("single_event_focus_bounding_box")
             if bbox and feature_type in [FeatureType.BASIN, FeatureType.REFERENCE_LINE]:
                 st.fmap.fit_bounds(bbox)
-                st.map_output = st_folium(
+                map_output = st_folium(
                     st.fmap,
                     height=500,
                     use_container_width=True,
+                    returned_objects=[
+                        "last_active_drawing",
+                    ],
                 )
-            else:
-                st.map_output = st_folium(
+            elif feature_type:
+                map_output = st_folium(
                     st.fmap,
                     center=[c_lat, c_lon],
                     zoom=zoom,
                     height=500,
                     use_container_width=True,
+                    returned_objects=[
+                        "last_active_drawing",
+                    ],
+                )
+            else:
+                bounds = st.basins.total_bounds
+                bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
+                st.fmap.fit_bounds(bbox)
+                map_output = st_folium(
+                    st.fmap,
+                    height=500,
+                    use_container_width=True,
+                    returned_objects=[
+                        "last_active_drawing",
+                    ],
                 )
 
-    with info_col:
-        feature_label = st.session_state.get("single_event_focus_feature_label")
+    # Handle when a feature is selected from the map
+    last_active_drawing = map_output.get("last_active_drawing", None)
+    if last_active_drawing:
+        logger.debug("Map feature selected")
+        properties = last_active_drawing.get("properties", {})
+        layer = properties.get("layer")
+        if layer:
+            feature_type = FeatureType(layer[:-1])
+            if feature_type in (
+                FeatureType.REFERENCE_LINE,
+                FeatureType.REFERENCE_POINT,
+                FeatureType.DAM,
+            ):
+                feature_id = properties["id"]
+                feature_label = feature_id
+            elif feature_type == FeatureType.GAGE:
+                feature_id = properties["site_no"]
+                feature_label = feature_id
+            elif feature_type == FeatureType.BASIN:
+                feature_id = properties["HUC8"]
+                feature_label = f"{properties['NAME']} ({properties['HUC8']})"
+    else:
+        logger.debug(
+            "No feature selected from map. Using session state for feature focus."
+        )
         feature_id = st.session_state.get("single_event_focus_feature_id")
+        feature_label = st.session_state.get("single_event_focus_feature_label")
 
+    # Feature Info
+    with info_col:
         if feature_type == FeatureType.BASIN:
             info_col.markdown(f"### Basin: {feature_label}")
-            info_col.markdown("Let's put more info here.")
+            info_col.markdown("TODO: put more basin info here.")
 
         elif feature_type == FeatureType.DAM:
             info_col.markdown(f"### Dam: {feature_label}")
@@ -333,9 +404,6 @@ def single_event():
     # Session state
     with st.expander("Session State"):
         st.write(st.session_state)
-
-    # Footer
-    render_footer()
 
 
 if __name__ == "__main__":
