@@ -19,7 +19,6 @@ from utils.functions import (
     plot_hist,
     plot_ts,
 )
-from pg.utils import connect_to_db
 
 # standard imports
 import os
@@ -50,19 +49,6 @@ def single_event():
             be made in either the sidebar or the map. After a selection has been made, statistics and
             analytics for that selection will be displayed to the right of the map."""
         )
-
-    # connect to the database
-    db_conn_attempts = 0
-    while st.session_state["db_connected"] is False:
-        if db_conn_attempts < 10:
-            st.write("Connecting to the database...")
-            connect_to_db()
-            db_conn_attempts += 1
-        else:
-            st.error(
-                "Failed to connect to the database. Please check the connection details."
-            )
-            break
 
     st.session_state.log_level = LOG_LEVEL
     st.sidebar.markdown("# Page Navigation")
