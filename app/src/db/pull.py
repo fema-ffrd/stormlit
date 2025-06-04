@@ -48,38 +48,28 @@ def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     gdf["lon"] = centroids.x.astype(float)
     return gdf
 
-def query_db(_conn, query: str, db_type: str, pg_args: list = None) -> pd.DataFrame | gpd.GeoDataFrame:
+def query_db(_conn, query: str, pg_args: list = None) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Execute a SQL query and return the result as a pandas DataFrame.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
         query (str): The SQL query to execute.
-        db_type (str): The type of database to query. Can be "s3" or "postgres".
         pg_args (list): Additional arguments for the PostgreSQL query. Default is None.
                         Example: [dsn, schema_name, table_name] for postgres_scan.
 
     Returns:
-        df (DataFrame): A pandas DataFrame containing the rows returned from the query.
+        df (DataFrame): A pandas DataFrame or geopandas GeoDataFrame containing
+                        the rows returned from the query.
     """
-    if db_type == "s3":
-        try:
-            # NOTE: A /UTC error occurs when using fetchdf() with duckdb
-            df = _conn.execute(query, pg_args).fetchnumpy()
-        except duckdb.Error as e:
-            msg = f"DuckDB S3 Error: {e}"
-            logger.error(msg)
-            raise StormlitQueryException(msg) from e
-    elif db_type == "postgres":
-        try:
-            # Execute the query and fetch the result as a numpy array
-            df = _conn.execute(query, pg_args).fetchnumpy()
-        except duckdb.Error as e:
-            msg = f"DuckDB Postgres Error: {e}"
-            logger.error(msg)
-            raise StormlitQueryException(msg) from e
-    else:
-        raise ValueError("Unsupported db_type. Use 's3' or 'postgres'.")
+    try:
+        # NOTE: A /UTC error occurs when using fetchdf() with duckdb
+        df = _conn.execute(query, pg_args).fetchnumpy()
+    except duckdb.Error as e:
+        msg = f"DuckDB S3 Error: {e}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from e
+
     # Convert the numpy array to a pandas DataFrame
     df = pd.DataFrame(df)
     if "datetime" in df.columns:
@@ -114,7 +104,7 @@ def query_pg_table_all(_conn,
     """
     pg_args = [dsn, schema_name, table_name]
     query = "SELECT * FROM postgres_scan(?, ?, ?)"
-    return query_db(_conn, query, db_type="postgres", pg_args=pg_args)
+    return query_db(_conn, query, pg_args=pg_args)
 
 @st.cache_data
 def query_pg_table_filter(_conn,
@@ -138,7 +128,7 @@ def query_pg_table_filter(_conn,
     """
     pg_args = [dsn, schema_name, table_name, search_id]
     query = f"SELECT * FROM postgres_scan(?, ?, ?) WHERE {col_name} = ?"
-    return query_db(_conn, query, db_type="postgres", pg_args=pg_args)
+    return query_db(_conn, query, pg_args=pg_args)
 
 
 @st.cache_data
@@ -158,7 +148,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
     query = f"""SELECT datetime, flow as 'flow'
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE gage='{gage_id}' and event='{event_id}';"""
-    return query_db(_conn, query, db_type="s3")
+    return query_db(_conn, query)
 
 @st.cache_data
 def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
@@ -177,7 +167,7 @@ def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFr
     query = f"""SELECT time, ref_id, water_surface as wse
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
-    return query_db(_conn, query, db_type="s3")
+    return query_db(_conn, query)
 
 @st.cache_data
 def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
@@ -196,7 +186,7 @@ def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataF
     query = f"""SELECT time, ref_id, flow as flow
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
-    return query_db(_conn, query, db_type="s3")
+    return query_db(_conn, query)
 
 @st.cache_data
 def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
@@ -213,7 +203,7 @@ def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, db_type="s3")
+    return query_db(_conn, query)
 
 @st.cache_data
 def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
@@ -229,7 +219,7 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, db_type="s3")
+    return query_db(_conn, query)
 
 
 # if __name__ == "__main__":
