@@ -32,7 +32,8 @@ def create_pg_connection():
     """
     conn = duckdb.connect()
     conn.execute("INSTALL postgres; LOAD postgres;")
-    st.session_state["db_connected"] = True
+    conn.execute("INSTALL spatial; LOAD spatial;")
+    st.session_state["pg_connected"] = True
     return conn
 
 
