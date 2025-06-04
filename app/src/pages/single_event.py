@@ -202,7 +202,6 @@ def single_event():
             ["Stochastic Event 1", "Stochastic Event 2", "Stochastic Event 3"],
             index=None,
         )
-    
 
     # Popovers for items on the map
     col_basins, col_dams, col_gages, col_ref_lines, col_ref_points = st.columns(5)
@@ -277,8 +276,8 @@ def single_event():
         with st.spinner("Loading Map..."):
             st.fmap = prep_fmap(
                 list(st.pilot_layers.keys()),
-                st.session_state["sel_cog_layer"],
-                st.session_state["sel_cmap"],
+                cog_layer=None,
+                cmap_name=None,
             )
             # Fit the map to the bounding box of a selected polygon or line feature
             bbox = st.session_state.get("single_event_focus_bounding_box")
