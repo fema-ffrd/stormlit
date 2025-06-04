@@ -95,7 +95,7 @@ def query_db(_conn, query: str, db_type: str, pg_args: list = None) -> pd.DataFr
         df = format_to_gdf(df)
     return df
 
-#@st.cache_data
+@st.cache_data
 def query_pg_table_all(_conn,
                        dsn: str,
                        schema_name: str,
@@ -116,7 +116,7 @@ def query_pg_table_all(_conn,
     query = "SELECT * FROM postgres_scan(?, ?, ?)"
     return query_db(_conn, query, db_type="postgres", pg_args=pg_args)
 
-#@st.cache_data
+@st.cache_data
 def query_pg_table_filter(_conn,
                             dsn: str,
                             schema_name: str,
@@ -141,7 +141,7 @@ def query_pg_table_filter(_conn,
     return query_db(_conn, query, db_type="postgres", pg_args=pg_args)
 
 
-#@st.cache_data
+@st.cache_data
 def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.DataFrame:
     """
     Query observed gage flow time series data from the S3 bucket.
@@ -160,7 +160,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
             WHERE gage='{gage_id}' and event='{event_id}';"""
     return query_db(_conn, query, db_type="s3")
 
-#@st.cache_data
+@st.cache_data
 def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
     """
     Query modeled water surface elevation (WSE) time series data from the S3 bucket.
@@ -179,7 +179,7 @@ def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFr
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
     return query_db(_conn, query, db_type="s3")
 
-#@st.cache_data
+@st.cache_data
 def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
     """
     Query modeled flow time series data from the S3 bucket.
@@ -198,7 +198,7 @@ def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataF
             WHERE event='{event_id}' and ref_id='{ref_id}';"""
     return query_db(_conn, query, db_type="s3")
 
-#@st.cache_data
+@st.cache_data
 def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
     Query modeled geometry data from the S3 bucket.
@@ -215,7 +215,7 @@ def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query, db_type="s3")
 
-#@st.cache_data
+@st.cache_data
 def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
     Query reference points geometry data from the S3 bucket.
@@ -296,21 +296,22 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
 
 #     # Test querying all rows from a Postgres table
 #     test_models_by_gage_gdf = query_pg_table_all(
-#         PG_CONNECTION,  # DuckDB connection
+#         PG_CONNECTION,  # Postgres connection using DuckDB
 #         DSN,  # DSN credentials for the PostgreSQL database
 #         TEST_PG_SCHEMA,  # Schema name where the table is located
 #         TEST_PG_TABLE  # Table name to query
 #     )
 #     print(test_models_by_gage_gdf)
-#     test_models_by_gage_gdf.to_parquet(f"/workspace/app/src/tests/data/parquet/{TEST_PG_TABLE}_all.parquet")
+#     test_models_by_gage_gdf.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_PG_TABLE}_all.parquet")
 
 #     # Test querying filtered rows from a Postgres table
 #     test_models_by_gage_filtered_gdf = query_pg_table_filter(
-#         PG_CONNECTION,  # DuckDB connection
+#         PG_CONNECTION,  # Postgres connection using DuckDB
 #         DSN,  # DSN credentials for the PostgreSQL database
 #         TEST_PG_SCHEMA,  # Schema name where the table is located
 #         TEST_PG_TABLE,  # Table name to query
 #         col_name="gage_id",  # Column to filter by
 #         search_id=GAGE_ID  # ID to filter the column by
 #     )
-
+#     print(test_models_by_gage_filtered_gdf)
+#     test_models_by_gage_filtered_gdf.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_PG_TABLE}_filtered.parquet")
