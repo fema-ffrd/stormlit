@@ -39,13 +39,7 @@ class FeatureType(Enum):
     REFERENCE_POINT = "Reference Point"
 
 
-def focus_feature(
-    item: dict,
-    item_id: str,
-    item_label: str,
-    feature_type: FeatureType,
-    map_click: bool = False,
-):
+def focus_feature(item: dict, item_id: str, item_label: str, feature_type: FeatureType, map_click: bool = False):
     """
     Focus on a feature by updating the session state with the item's details.
 
@@ -149,8 +143,9 @@ def map_popover(
                     key=f"{button_key}_DUPE",
                     on_click=focus_feature,
                     args=(item, item_id, item_label, feature_type),
-                    disabled=True,
+                    disabled=True
                 )
+    st.map_output = None
 
 
 def single_event():
@@ -262,7 +257,7 @@ def single_event():
             bbox = st.session_state.get("single_event_focus_bounding_box")
             if bbox and feature_type in [FeatureType.BASIN, FeatureType.REFERENCE_LINE]:
                 st.fmap.fit_bounds(bbox)
-                map_output = st_folium(
+                st.map_output = st_folium(
                     st.fmap,
                     height=500,
                     use_container_width=True,
@@ -271,7 +266,7 @@ def single_event():
                     ],
                 )
             elif feature_type:
-                map_output = st_folium(
+                st.map_output = st_folium(
                     st.fmap,
                     center=[c_lat, c_lon],
                     zoom=zoom,
@@ -285,7 +280,7 @@ def single_event():
                 bounds = st.basins.total_bounds
                 bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
                 st.fmap.fit_bounds(bbox)
-                map_output = st_folium(
+                st.map_output = st_folium(
                     st.fmap,
                     height=500,
                     use_container_width=True,
@@ -295,18 +290,14 @@ def single_event():
                 )
 
     # Handle when a feature is selected from the map
-    last_active_drawing = map_output.get("last_active_drawing", None)
+    last_active_drawing = st.map_output.get("last_active_drawing", None)
     if last_active_drawing:
         logger.debug("Map feature selected")
         properties = last_active_drawing.get("properties", {})
         layer = properties.get("layer")
         if layer:
             feature_type = FeatureType(layer[:-1])
-            if feature_type in (
-                FeatureType.REFERENCE_LINE,
-                FeatureType.REFERENCE_POINT,
-                FeatureType.DAM,
-            ):
+            if feature_type in (FeatureType.REFERENCE_LINE, FeatureType.REFERENCE_POINT, FeatureType.DAM):
                 feature_id = properties["id"]
                 feature_label = feature_id
             elif feature_type == FeatureType.GAGE:
@@ -316,9 +307,7 @@ def single_event():
                 feature_id = properties["HUC8"]
                 feature_label = f"{properties['NAME']} ({properties['HUC8']})"
     else:
-        logger.debug(
-            "No feature selected from map. Using session state for feature focus."
-        )
+        logger.debug("No feature selected from map. Using session state for feature focus.")
         feature_id = st.session_state.get("single_event_focus_feature_id")
         feature_label = st.session_state.get("single_event_focus_feature_label")
 
