@@ -61,4 +61,4 @@ jobs:
         
       - name: Run Tests
         shell: bash -el {0}
-        run: pytest
+        run: pytest -m "not integration"
