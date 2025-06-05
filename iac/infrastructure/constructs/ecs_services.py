@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Optional
 from constructs import Construct
 from cdktf import FnGenerated
@@ -78,7 +79,32 @@ class EcsServicesConstruct(Construct):
                             "name": "stormlit-http",
                         }
                     ],
+                    "secrets": [
+                        {
+                            "name": "PG_USER",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:username::",
+                        },
+                        {
+                            "name": "PG_PASS",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:password::",
+                        },
+                        {
+                            "name": "AWS_ACCESS_KEY_ID",
+                            "value": f"{os.getenv('AWS_ACCESS_KEY_ID', 'stormtlit-secret')}",
+                        },
+                        {
+                            "name": "AWS_SECRET_ACCESS_KEY",
+                            "valueFrom": f"{os.getenv('AWS_SECRET_ACCESS_KEY', 'stormlit-secret')}",
+                        },
+                    ],
                     "environment": [
+                        {
+                            "name": "AWS_REGION",
+                            "value": current_region,
+                        },
+                        {"name": "PG_HOST", "value": rds_host or ""},
+                        {"name": "PG_PORT", "value": "5432"},
+                        {"name": "PG_DBNAME", "value": "postgres"},
                         {
                             "name": "STREAMLIT_SERVER_PORT",
                             "value": str(ecs_config.stormlit_config.container_port),
