@@ -143,7 +143,7 @@ def test_get_modeled_gage_wse():
     )
 
 
-@pytest.mark.integration
+@pytest.mark.integration_postgres
 def test_get_models_by_gage_all():
     """
     Test querying geospatial gage metadata from Postgres.
@@ -161,7 +161,7 @@ def test_get_models_by_gage_all():
     )
 
 
-@pytest.mark.integration
+@pytest.mark.integration_postgres
 def test_get_models_by_gage_filtered():
     """
     Test querying geospatial gage metadata from Postgres with filters.
