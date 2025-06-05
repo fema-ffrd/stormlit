@@ -12,36 +12,36 @@ srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 
 
-def prep_df(df: pd.DataFrame, layer: str):
+def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
     """
     Prepares a GeoDataFrame for plotting on a folium map.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    gdf: gpd.GeoDataFrame
         A GeoDataFrame containing the map data
     layer: str
         The name of the layer
 
     Returns
     -------
-    pd.DataFrame
+    gpd.GeoDataFrame
         A GeoDataFrame with the necessary columns for plotting on a folium map
     """
     # Get the original CRS and bbox
-    crs_str = df.crs.to_string()
-    bbox = df.total_bounds
+    crs_str = gdf.crs.to_string()
+    bbox = gdf.total_bounds
     bbox_str = f"{bbox[0]:.7f},{bbox[1]:.7f},{bbox[2]:.7f},{bbox[3]:.7f}"
     # Convert the CRS to EPSG:4326
-    df = df.to_crs(epsg=4326)
+    gdf = gdf.to_crs(epsg=4326)
     # Find the center of the map data
-    centroids = df.geometry.centroid
-    df["lat"] = centroids.y.astype(float)
-    df["lon"] = centroids.x.astype(float)
-    df["layer"] = layer
-    df["crs"] = crs_str
-    df["bbox"] = bbox_str
-    return df
+    centroids = gdf.geometry.centroid
+    gdf["lat"] = centroids.y.astype(float)
+    gdf["lon"] = centroids.x.astype(float)
+    gdf["layer"] = layer
+    gdf["crs"] = crs_str
+    gdf["bbox"] = bbox_str
+    return gdf
 
 
 def init_pilot(pilot: str):
@@ -68,23 +68,23 @@ def init_pilot(pilot: str):
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
     df_basins = gpd.read_file(st.pilot_layers["Basins"])
-    st.basins = prep_df(df_basins, "Basins")
+    st.basins = prep_gdf(df_basins, "Basins")
 
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
-    st.dams = prep_df(df_dams, "Dams")
+    st.dams = prep_gdf(df_dams, "Dams")
 
-    df_gages = gpd.read_file(st.pilot_layers["Gages"])
-    st.gages = prep_df(df_gages, "Gages")
+    df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
+    st.gages = prep_gdf(df_gages, "Gages")
 
     df_storms = gpd.read_file(st.pilot_layers["Storms"])
     df_storms["rank"] = df_storms["rank"].astype(int)
-    st.storms = prep_df(df_storms, "Storms")
+    st.storms = prep_gdf(df_storms, "Storms")
 
     df_ref_lines = gpd.read_file(st.pilot_layers["Reference Lines"])
-    st.ref_lines = prep_df(df_ref_lines, "Reference Lines")
+    st.ref_lines = prep_gdf(df_ref_lines, "Reference Lines")
 
     df_ref_points = gpd.read_file(st.pilot_layers["Reference Points"])
-    st.ref_points = prep_df(df_ref_points, "Reference Points")
+    st.ref_points = prep_gdf(df_ref_points, "Reference Points")
 
 
 def define_gage_data(gage_id: str):
@@ -184,6 +184,7 @@ def get_ref_line_ts(ref_line_id: str):
         A DataFrame containing the time series data for the reference line
     """
     ## TODO: Need to add local data to a STAC catalog
+    st.session_state["assets"] = assetsDir
     file_path = os.path.join(assetsDir, "ref_lines.parquet")
     ts = pd.read_parquet(
         file_path, engine="pyarrow", filters=[("id", "=", ref_line_id)]

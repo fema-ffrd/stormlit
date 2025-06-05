@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:2.0.5 as builder
+FROM mambaorg/micromamba:2.0.5 AS builder
 
 WORKDIR /app
 
@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install build-essential -y \
 USER mambauser
 
 COPY env.yml env.yml
+RUN micromamba install -y -n base -f env.yml && \
+    micromamba clean --all --yes
+
 COPY src src
 COPY src/main.py src/main.py
 COPY .streamlit .streamlit
-
-RUN micromamba install -y -n base -f env.yml && \
-    micromamba clean --all --yes
 
 FROM mambaorg/micromamba:2.0.5
 

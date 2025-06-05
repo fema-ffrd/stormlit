@@ -5,6 +5,8 @@ import streamlit as st
 import geopandas as gpd
 import pandas as pd
 from plotly import express as px
+import plotly.graph_objects as go
+from typing import Optional
 
 
 def highlight_function(feature):
@@ -96,14 +98,14 @@ def add_markers_fg(
     return fg_markers
 
 
-def add_circles_fg(
+def add_points_fg(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
     color: str,
 ):
     """
-    Add circles to a folium map as a feature group
+    Add points to a folium map as a feature group
 
     Parameters
     ----------
@@ -114,7 +116,7 @@ def add_circles_fg(
     tooltip_fields: list
         A list of fields to display in the tooltip
     color: str
-        The color of the circles
+        The color of the squares to be used as markers
 
     Returns
     -------
@@ -127,20 +129,14 @@ def add_circles_fg(
         <div style="
             background-color: {color};
             border: 1px solid black;
-            border-radius: 0;
             width: 10px;
-            height: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            color: white;">
+            height: 10px">
         </div>
         """
     )
 
-    fg_circles = folium.FeatureGroup(name=layer_name)
-    fg_circles.add_child(
+    fg_points = folium.FeatureGroup(name=layer_name)
+    fg_points.add_child(
         folium.GeoJson(
             gdf,
             name=layer_name,
@@ -151,8 +147,7 @@ def add_circles_fg(
             zoom_on_click=True,
         )
     )
-
-    return fg_circles
+    return fg_points
 
 
 def style_basins(feature):
@@ -254,8 +249,8 @@ def prep_fmap(
             df_dict["Dams"] = st.dams
         elif layer == "Gages" and st.gages is not None:
             df_dict["Gages"] = st.gages
-        elif layer == "Storms" and st.storms is not None:
-            df_dict["Storms"] = st.storms
+        # elif layer == "Storms" and st.storms is not None:
+        #     df_dict["Storms"] = st.storms
         elif layer == "Reference Lines" and st.ref_lines is not None:
             df_dict["Reference Lines"] = st.ref_lines
         elif layer == "Reference Points" and st.ref_points is not None:
@@ -372,16 +367,16 @@ def prep_fmap(
             )
             fg_basins.add_to(m)
         elif key == "Dams":
-            fg_dams = add_circles_fg(df, sel_layers[idx], ["layer", "id"], "#e32636")
+            fg_dams = add_points_fg(df, sel_layers[idx], ["layer", "id"], "#e32636")
             fg_dams.add_to(m)
         elif key == "Gages":
-            fg_gages = add_circles_fg(
+            fg_gages = add_points_fg(
                 df, sel_layers[idx], ["layer", "site_no"], "#32cd32"
             )
             fg_gages.add_to(m)
         elif key == "Storms":
-            fg_storms = add_circles_fg(
-                df, sel_layers[idx], ["layer", "rank", "storm_type"], "#ed9121"
+            fg_storms = add_points_fg(
+                df, sel_layers[idx], ["layer", "rank", "storm_type"], "#CCCCCC"
             )
             fg_storms.add_to(m)
         elif key == "Reference Lines":
@@ -390,8 +385,8 @@ def prep_fmap(
             )
             fg_ref_lines.add_to(m)
         elif key == "Reference Points":
-            fg_ref_points = add_markers_fg(
-                df, sel_layers[idx], ["layer", "id", "point_type"], style_ref_points
+            fg_ref_points = add_points_fg(
+                df, sel_layers[idx], ["layer", "id", "point_type"], "#0050c9"
             )
             fg_ref_points.add_to(m)
         else:
@@ -453,7 +448,7 @@ def get_map_sel(map_output: str):
     return df
 
 
-def plot_ts(df: pd.DataFrame, var: str, st_col):
+def plot_ts(df: pd.DataFrame, var: str, st_col, title: Optional[str] = None):
     """
     Function for plotting time series data.
     Columns in the DataFrame should be:
@@ -471,6 +466,8 @@ def plot_ts(df: pd.DataFrame, var: str, st_col):
         The variable to plot.
     st_col : streamlit.columns
         The Streamlit column to place the plot in.
+    title : Optional[str]
+        The title of the plot. If None, a default title will be used.
     """
     # Check if the DataFrame is empty
     if df.empty:
@@ -484,7 +481,94 @@ def plot_ts(df: pd.DataFrame, var: str, st_col):
         return
 
     # Create a line plot using Streamlit
-    fig = px.line(df, x="time", y=var, title=f"Time Series Plot of {var}")
+    if title is None:
+        title = f"Time Series Plot of {var}"
+    fig = px.line(df, x="time", y=var, title=title)
+    st_col.plotly_chart(fig)
+
+
+def plot_ts_dual_y_axis(
+    df: pd.DataFrame,
+    var1: str,
+    var2: str,
+    st_col,
+    title: Optional[str] = None,
+):
+    """Function for plotting time series data with dual y-axes.
+    Columns in the DataFrame should be:
+    - 'id': str
+    - 'time': datetime
+    - 'velocity': float
+    - 'water_surface': float
+    - 'flow': float
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the time series data.
+    var1 : str
+        The first variable to plot on the primary y-axis.
+    var2 : str
+        The second variable to plot on the secondary y-axis.
+    st_col : streamlit.columns
+        The Streamlit column to place the plot in.
+    title : Optional[str]
+        The title of the plot. If None, a default title will be used.
+    """
+    # Check if the DataFrame is empty
+    if df.empty:
+        st.warning("No data available for the selected variables.")
+        return
+
+    # Check if the required columns are present in the DataFrame
+    required_columns = ["id", "time", var1, var2]
+    if not all(col in df.columns for col in required_columns):
+        st.error(f"DataFrame must contain the following columns: {required_columns}")
+        return
+
+    fig = go.Figure()
+
+    # Add the first variable to the primary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=df["time"],
+            y=df[var1],
+            mode="lines",
+            name=var1,
+            line=dict(color="blue"),
+        )
+    )
+
+    # Add the second variable to the secondary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=df["time"],
+            y=df[var2],
+            mode="lines",
+            name=var2,
+            line=dict(color="red"),
+            yaxis="y2",
+        )
+    )
+
+    # Update layout for dual y-axes
+    fig.update_layout(
+        title=title if title else f"Time Series Plot of {var1} and {var2}",
+        xaxis_title="Time",
+        yaxis=dict(
+            title=var1,
+            showgrid=False,
+            zeroline=True,
+        ),
+        yaxis2=dict(
+            title=var2,
+            overlaying="y",
+            side="right",
+            showgrid=False,
+            zeroline=True,
+        ),
+        legend=dict(x=0.75, y=1, traceorder="normal"),
+    )
+
     st_col.plotly_chart(fig)
 
 
