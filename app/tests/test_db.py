@@ -1,24 +1,13 @@
 import os
-import sys
 import pytest
 import pandas as pd
 import pandas.testing as pdt
 import geopandas as gpd
 from dotenv import load_dotenv
 
-testDir = os.path.dirname(
-    os.path.realpath(__file__)
-)  # located within the app/tests folder
-dataDir = os.path.join(testDir, "data")  # data folder within the tests folder
-appDir = os.path.abspath(
-    os.path.join(testDir, "..")
-)  # go up one level into the src folder
-srcDir = os.path.join(appDir, "src")  # src folder within the app folder
-sys.path.append(srcDir)  # add src folder to the system path
-
 # Custom imports
-from db.utils import create_pg_connection, get_pg_dsn, create_s3_connection
-from db.pull import (
+from src.db.utils import create_pg_connection, get_pg_dsn, create_s3_connection
+from src.db.pull import (
     query_s3_ref_lines,
     query_s3_ref_points,
     query_s3_obs_flow,
@@ -27,6 +16,11 @@ from db.pull import (
     query_pg_table_all,
     query_pg_table_filter,
 )
+
+testDir = os.path.dirname(
+    os.path.realpath(__file__)
+)  # located within the app/tests folder
+dataDir = os.path.join(testDir, "data")  # data folder within the tests folder
 
 load_dotenv()
 
