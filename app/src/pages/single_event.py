@@ -159,7 +159,16 @@ def single_event():
     if "session_id" not in st.session_state:
         init_session_state()
 
-    st.title("Single Event View")
+    st.title("Single Event")
+    with st.expander("About this app"):
+        st.write(
+            """
+            This app allows you to explore single event data for both historic and stochastic simulations.
+            First, please select which pilot study you would like to explore to initialize the dataset.
+            Then, you may select a gage, storm rank, dam, and COG layer to begin viewing data. Selections can
+            be made in either the sidebar or the map. After a selection has been made, statistics and
+            analytics for that selection will be displayed to the right of the map."""
+        )
 
     # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")
