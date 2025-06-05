@@ -37,6 +37,7 @@ jobs:
 
   streamlit-lint-and-test:
     runs-on: ubuntu-latest
+    environment: ci
     defaults:
       run:
         working-directory: ./app
