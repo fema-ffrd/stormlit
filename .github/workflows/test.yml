@@ -61,4 +61,4 @@ jobs:
         
       - name: Run Tests
         shell: bash -el {0}
-        run: pytest -m "not integration"
+        run: pytest -m "not integration_postgres"
