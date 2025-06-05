@@ -8,6 +8,10 @@ def init_session_state():
     st.session_state["stac_api_url"] = os.getenv("STAC_API_URL")
     st.session_state["stac_browser_url"] = os.getenv("STAC_BROWSER_URL")
 
+    # Database connections
+    st.session_state["pg_connected"] = False
+    st.session_state["s3_connected"] = False
+
     # single event session
     st.session_state["pilot"] = None
     st.session_state["init_pilot"] = False

@@ -51,7 +51,6 @@ def single_event():
         )
 
     st.session_state.log_level = LOG_LEVEL
-
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
