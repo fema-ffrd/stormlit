@@ -23,6 +23,8 @@ services:
       - ./migration:/migration
     networks:
       - stormlit-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   stormlit-pgstac:
     container_name: stormlit-pgstac

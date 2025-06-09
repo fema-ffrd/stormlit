@@ -88,20 +88,8 @@ class EcsServicesConstruct(Construct):
                             "name": "PG_PASS",
                             "valueFrom": f"{pgstac_admin_secret_arn}:password::",
                         },
-                        {
-                            "name": "AWS_ACCESS_KEY_ID",
-                            "value": f"{os.getenv('AWS_ACCESS_KEY_ID', 'stormtlit-secret')}",
-                        },
-                        {
-                            "name": "AWS_SECRET_ACCESS_KEY",
-                            "valueFrom": f"{os.getenv('AWS_SECRET_ACCESS_KEY', 'stormlit-secret')}",
-                        },
                     ],
                     "environment": [
-                        {
-                            "name": "AWS_REGION",
-                            "value": current_region,
-                        },
                         {"name": "PG_HOST", "value": rds_host or ""},
                         {"name": "PG_PORT", "value": "5432"},
                         {"name": "PG_DBNAME", "value": "postgres"},
