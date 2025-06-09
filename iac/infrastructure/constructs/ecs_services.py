@@ -78,7 +78,20 @@ class EcsServicesConstruct(Construct):
                             "name": "stormlit-http",
                         }
                     ],
+                    "secrets": [
+                        {
+                            "name": "PG_USER",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:username::",
+                        },
+                        {
+                            "name": "PG_PASS",
+                            "valueFrom": f"{pgstac_admin_secret_arn}:password::",
+                        },
+                    ],
                     "environment": [
+                        {"name": "PG_HOST", "value": rds_host or ""},
+                        {"name": "PG_PORT", "value": "5432"},
+                        {"name": "PG_DBNAME", "value": "postgres"},
                         {
                             "name": "STREAMLIT_SERVER_PORT",
                             "value": str(ecs_config.stormlit_config.container_port),
