@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Dict, List, Optional
 from constructs import Construct
 from cdktf import FnGenerated
