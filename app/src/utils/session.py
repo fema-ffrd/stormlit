@@ -11,12 +11,16 @@ def init_session_state():
     # Database connections
     st.session_state["pg_connected"] = False
     st.session_state["s3_connected"] = False
+    st.session_state["pg_conn"] = None
+    st.session_state["s3_conn"] = None
 
     # single event session
     st.session_state["pilot"] = None
     st.session_state["init_pilot"] = False
+    st.session_state["cog_layer"] = None
     st.session_state["cog_stats"] = None
     st.session_state["gage_plot_type"] = None
+    st.session_state["model_id"] = None
     st.session_state["single_event_focus_feature_label"] = None
     st.session_state["single_event_focus_lat"] = None
     st.session_state["single_event_focus_lon"] = None
@@ -31,8 +35,8 @@ def init_session_state():
     st.session_state["c_lon"] = None
     st.session_state["zoom"] = None
     st.session_state["zoom_to_field"] = None
-
     st.session_state["assets"] = None
+    st.session_state["ready_to_plot_ts"] = False
 
     # model qc session
     st.session_state["model_qc_file_path"] = None
@@ -46,6 +50,9 @@ def init_session_state():
     st.map_output = None
     st.gages = None
     st.dams = None
+    st.bc_lines = None
+    st.ref_lines = None
+    st.ref_points = None
     st.storms = None
     st.pilot_layers = None
     st.pilot_base_url = None
