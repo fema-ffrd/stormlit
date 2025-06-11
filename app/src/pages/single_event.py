@@ -23,8 +23,7 @@ from db.pull import (
 # standard imports
 import io
 import os
-import time
-import random
+import re
 import streamlit as st
 import pandas as pd
 import s3fs
@@ -37,8 +36,6 @@ from urllib.parse import urljoin
 from enum import Enum
 import logging
 from shapely.geometry import shape
-
-import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -48,7 +45,6 @@ currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages fo
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 load_dotenv()
-random.seed(42)
 
 logger = logging.getLogger(__name__)
 
@@ -138,19 +134,7 @@ def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator
     style_text = "<style>\n"
 
     for style in css_styles:
-        # Split style into lines, prefix each selector with .st-key-{class_name}
-        for line in style.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith(">"):
-                # Prefix selectors (e.g., button { ... }) with .st-key-{class_name}
-                if "{" in line:
-                    selector, rest = line.split("{", 1)
-                    selector = selector.strip()
-                    style_text += f".st-key-{class_name} {selector} {{{rest}\n"
-                else:
-                    style_text += line + "\n"
-            else:
-                style_text += line + "\n"
+        style_text += f""".st-key-{class_name} {style}"""
 
     style_text += "</style>\n"
 
@@ -207,7 +191,6 @@ def focus_feature(
         }
     )
 
-
 def map_popover(
     label: str,
     items: List[dict],
@@ -242,23 +225,18 @@ def map_popover(
             st.markdown(f"#### {label}")
             if download_url:
                 st.markdown(f"⬇️ [Download Data]({download_url})")
-            for item in items:
-                timestamp = time.time()
-                rand_int = random.randint(1, 999)
-                timestamp = int(timestamp * rand_int)
-                time_str = time.strftime(
-                    "%Y-%m-%d %H:%M:%S.%f", time.localtime(timestamp)
-                )
+            for idx, item in enumerate(items):
                 item_label = get_item_label(item)
                 item_id = get_item_id(item)
                 current_feature_id = st.session_state.get(
                     "single_event_focus_feature_id"
                 )
-                if item_id == current_feature_id and item_id is not None:
-                    item_label += " ✅"
-                button_key = f"btn_{item_id}_{time_str[:-3]}"
                 if get_model_id:
                     st.session_state["model_id"] = get_model_id(item)
+                if item_id == current_feature_id and item_id is not None:
+                    item_label += " ✅"
+                button_key = f"btn_{item_id}_{idx}"
+
                 if label != "Raster Layers":
                     try:
                         st.button(
@@ -273,7 +251,7 @@ def map_popover(
                         )
                         st.button(
                             label=item_label,
-                            key=f"{button_key}_DUPE_{time_str[:-3]}",
+                            key=f"{button_key}_DUPE",
                             on_click=focus_feature,
                             args=(item, item_id, item_label, feature_type),
                             disabled=True,
@@ -370,7 +348,6 @@ def single_event():
                 st.session_state["pilot"],
             )
             st.session_state["init_pilot"] = True
-            st.success("Complete! Pilot data is now ready for exploration.")
 
     st.sidebar.markdown("## Select Event")
     st.session_state["event_type"] = st.sidebar.radio(
@@ -608,13 +585,14 @@ def single_event():
     with info_col:
         if feature_type == FeatureType.BASIN:
             info_col.markdown(f"### Basin: {feature_label}")
-            model_thumbnail_path = query_s3_model_thumbnail(
+            model_thumbnail_img = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
                 feature_label,
             )
-            if model_thumbnail_path:
-                model_thumbnail_img = load_s3_uri_img(model_thumbnail_path)
+            # if model_thumbnail_path:
+            #     model_thumbnail_img = load_s3_uri_img(model_thumbnail_path)
+            if model_thumbnail_img:
                 st.image(
                     model_thumbnail_img,
                     caption=f"Model Thumbnail for {feature_label}",
@@ -844,6 +822,8 @@ def single_event():
     # Session state
     with st.expander("Session State"):
         st.write(st.session_state)
+        len_session_state = len(st.session_state)
+        st.write(f"Session State Length: {len_session_state}")
 
 
 if __name__ == "__main__":
