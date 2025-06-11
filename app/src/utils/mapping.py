@@ -217,7 +217,7 @@ def prep_fmap(cog_layer: str = None) -> folium.Map:
     # Add the selected layers to the map
     if st.basins is not None:
         fg_basins = add_polygons_fg(
-            st.basins, "Basins", ["HUC8", "NAME"], style_basins
+            st.basins, "Basins", ["model"], style_basins
         )
         fg_basins.add_to(m)
     if st.dams is not None:
