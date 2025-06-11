@@ -378,7 +378,7 @@ def query_s3_model_bndry(
 
 
 @st.cache_data
-def query_s3_model_thumbnail(_conn, pilot: str, model_id: str, resize_to=(5000, 5000)) -> Image:
+def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> str:
     """
     Query all thumbnail image files directly below the S3 model path.
 
@@ -387,19 +387,17 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str, resize_to=(5000, 
         pilot (str): The pilot name for the S3 bucket.
         model_id (str): The HEC-RAS model ID to query.
     Returns:
-        Image: A PIL Image object containing the thumbnail image.
+        file_path (str): The path to the thumbnail image file.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/"
     query = f"SELECT file FROM glob('{s3_path}*')"
-    fs = s3fs.S3FileSystem(anon=False)
     try:
         result = _conn.execute(query).fetchall()
         for row in result:
             file_path = row[0]
             rel_path = file_path[len(s3_path):]
             if rel_path.startswith("thumbnail."):
-                with fs.open(file_path, "rb") as f:
-                    return Image.open(f).copy()
+                return file_path
     except Exception as e:
         logger.error(f"Failed to list or read thumbnail files: {e}")
 
