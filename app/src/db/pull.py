@@ -51,9 +51,7 @@ def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def query_db(
-    _conn, query: str, pg_args: list = None
-) -> pd.DataFrame | gpd.GeoDataFrame:
+def query_db(_conn, query: str, pg_args: list = None, layer: str = None) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Execute a SQL query and return the result as a pandas DataFrame.
 
@@ -62,6 +60,8 @@ def query_db(
         query (str): The SQL query to execute.
         pg_args (list): Additional arguments for the PostgreSQL query. Default is None.
                         Example: [dsn, schema_name, table_name] for postgres_scan.
+        layer (str): Feature layer to assign as a column in the GeoDataFrame.
+                    Example: "Reference Lines", "Reference Points", "BC Lines", etc.
 
     Returns:
         df (DataFrame): A pandas DataFrame or geopandas GeoDataFrame containing
@@ -77,6 +77,7 @@ def query_db(
 
     # Convert the numpy array to a pandas DataFrame
     df = pd.DataFrame(df)
+    # Standardize column names
     if "datetime" in df.columns:
         # Convert datetime column to pandas datetime
         df["datetime"] = pd.to_datetime(df["datetime"])
@@ -88,6 +89,27 @@ def query_db(
     if "geometry" in df.columns:
         # Convert the DataFrame to a GeoDataFrame
         df = format_to_gdf(df)
+    if "refln_name" in df.columns:
+        # Convert ref_id to id
+        df.rename(columns={"refln_name": "id"}, inplace=True)
+    if "refpt_name" in df.columns:
+        # Convert ref_id to id
+        df.rename(columns={"refpt_name": "id"}, inplace=True)
+    if "name" in df.columns:
+        # Convert ref_id to id
+        df.rename(columns={"name": "id"}, inplace=True)
+    if "ref_line" in df.columns:
+        # Convert ref_line to ref_id
+        df.rename(columns={"ref_line": "id"}, inplace=True)
+    if "ref_point" in df.columns:
+        # Convert ref_point to ref_id
+        df.rename(columns={"ref_point": "id"}, inplace=True)
+    if "bc_line" in df.columns:
+        # Convert bc_line to ref_id
+        df.rename(columns={"bc_line": "id"}, inplace=True)
+    if layer is not None:
+        # Add a layer column to the DataFrame
+        df["layer"] = layer
     return df
 
 
@@ -135,6 +157,39 @@ def query_pg_table_filter(
 
 
 @st.cache_data
+def query_s3_event_list(_conn, pilot: str, model_id: str) -> list:
+    """
+    Query the list of events from the S3 bucket for a given ref ID.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        model_id (str): The HEC-RAS model ID to query.
+    Returns:
+        list: A list of simulated event IDs associated with the gage.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/"
+    query = f"SELECT file FROM glob('{s3_path}**')"
+    try:
+        # Fetch as list of tuples, not DataFrame
+        result = _conn.execute(query).fetchall()
+        # Extract the next-level folder name after s3_path
+        event_names = set()
+        for row in result:
+            rel = row[0][len(s3_path):].lstrip('/')
+            if '/' in rel:
+                folder = rel.split('/')[0]
+                if "event=" in folder:
+                    # Extract the event ID from the folder name
+                    event = folder.split('=')[-1]
+                    event_names.add(event)
+        return sorted(event_names)
+    except Exception as e:
+        logger.error(f"Failed to list S3 folders: {e}")
+        return []
+
+
+@st.cache_data
 def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.DataFrame:
     """
     Query observed gage flow time series data from the S3 bucket.
@@ -155,67 +210,112 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
 
 
 @st.cache_data
-def query_s3_mod_wse(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_wse(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
     """
     Query modeled water surface elevation (WSE) time series data from the S3 bucket.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
         pilot (str): The pilot name for the S3 bucket.
-        ref_id (str): The reference element ID to query.
+        ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
+        ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled flow data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/results/**/wsel.pq"
-    query = f"""SELECT time, ref_id, water_surface as wse
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/wsel.pq"
+    query = f"""SELECT time, {ref_type}, water_surface as wse
             FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and ref_id='{ref_id}';"""
+            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
     return query_db(_conn, query)
 
 
 @st.cache_data
-def query_s3_mod_flow(_conn, pilot: str, ref_id: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_flow(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
     """
     Query modeled flow time series data from the S3 bucket.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
         pilot (str): The pilot name for the S3 bucket.
-        ref_id (str): The reference element ID to query.
+        ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
+        ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled WSE data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/results/**/flow.pq"
-    query = f"""SELECT time, ref_id, flow as flow
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/flow.pq"
+    query = f"""SELECT time, {ref_type}, flow as flow
             FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and ref_id='{ref_id}';"""
+            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+    return query_db(_conn, query)
+
+
+@st.cache_data
+def query_s3_mod_vel(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+    """
+    Query modeled velocity time series data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
+        ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
+        event_id (str): The ID of the event to query.
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the modeled velocity data.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/velocity.pq"
+    query = f"""SELECT time, {ref_type}, velocity as velocity
+            FROM read_parquet('{s3_path}', hive_partitioning=true)
+            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+    return query_db(_conn, query)
+
+@st.cache_data
+def query_s3_mod_stage(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+    """
+    Query modeled stage time series data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
+        ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
+        event_id (str): The ID of the event to query.
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the modeled stage data.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/stage.pq"
+    query = f"""SELECT time, {ref_type}, stage as stage
+            FROM read_parquet('{s3_path}', hive_partitioning=true)
+            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
     return query_db(_conn, query)
 
 
 @st.cache_data
 def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
-    Query modeled geometry data from the S3 bucket.
+    Query model reference line geometry data from the S3 bucket.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
         pilot (str): The pilot name for the S3 bucket.
-        ref_id (str): The reference element ID to query.
-        event_id (str): The ID of the event to query.
+        model_id (str): The HEC-RAS model ID to query.
     Returns:
         gpd.GeoDataFrame: A GeoDataFrame containing the modeled geometry data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
+    if model_id == "all":
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_lines.pq"
+    else:
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    return query_db(_conn, query, layer="Reference Lines")
 
 
 @st.cache_data
 def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
-    Query reference points geometry data from the S3 bucket.
+    Query model reference point geometry data from the S3 bucket.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
@@ -224,9 +324,54 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     Returns:
         gpd.GeoDataFrame: A GeoDataFrame containing the reference points geometry data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
+    if model_id == "all":
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_points.pq"
+    else:
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    return query_db(_conn, query, layer="Reference Points")
+
+
+@st.cache_data
+def query_s3_bc_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
+    """
+    Query model boundary condition line geometry data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        model_id (str): The HEC-RAS model ID to query.
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame containing the boundary condition lines geometry data.
+    """
+    if model_id == "all":
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/bc_lines.pq"
+    else:
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/bc_lines.pq"
+    query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+    return query_db(_conn, query, layer="BC Lines")
+
+
+@st.cache_data
+def query_s3_model_bndry(
+    _conn, pilot: str, model_id: str
+) -> gpd.GeoDataFrame:
+    """
+    Query model boundary geometry data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        model_id (str): The HEC-RAS model ID to query.
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame containing the model boundary geometry data.
+    """
+    if model_id == "all":
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/model_geometry.pq"
+    else:
+        s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/model_geometry.pq"
+    query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+    return query_db(_conn, query, layer="Basins")
 
 
 # if __name__ == "__main__":
