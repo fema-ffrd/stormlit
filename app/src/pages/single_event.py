@@ -19,11 +19,14 @@ from db.pull import (query_s3_mod_flow,
                      query_s3_model_thumbnail)
 
 # standard imports
+import io
 import os
 import time
 import random
 import streamlit as st
 import pandas as pd
+import s3fs
+from PIL import Image
 from streamlit.errors import StreamlitDuplicateElementKey
 from dotenv import load_dotenv
 from streamlit_folium import st_folium
@@ -32,7 +35,11 @@ from urllib.parse import urljoin
 from enum import Enum
 import logging
 from shapely.geometry import shape
-from streamlit_extras.stylable_container import stylable_container
+
+import re
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from streamlit.delta_generator import DeltaGenerator
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
@@ -41,6 +48,26 @@ load_dotenv()
 random.seed(42)
 
 logger = logging.getLogger(__name__)
+
+def load_s3_uri_img(s3_uri: str):
+    """
+    Load an image from an S3 URI.
+
+    Parameters
+    ----------
+    s3_uri: str
+        The S3 URI of the image to load.
+    Returns
+    -------
+    Image
+        The loaded image.
+    """
+    fs = s3fs.S3FileSystem(anon=False)
+    with fs.open(s3_uri, "rb") as f:
+        img_bytes = f.read()
+        img = Image.open(io.BytesIO(img_bytes)).copy()
+        return img
+
 
 def identify_gage_id(ref_id: str):
     """
@@ -74,6 +101,56 @@ class FeatureType(Enum):
     BC_LINE = "BC Line"
     COG = "COG"
 
+def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator":
+    """
+    Insert a container into your app which you can style using CSS.
+    This is useful to style specific elements in your app.
+
+    This is taken from the streamlit-extras package here:
+    https://github.com/arnaudmiribel/streamlit-extras/blob/main/src/streamlit_extras/stylable_container/__init__.py
+
+    Args:
+        key (str): The key associated with this container. This needs to be unique since all styles will be
+            applied to the container with this key.
+        css_styles (str | List[str]): The CSS styles to apply to the container elements.
+            This can be a single CSS block or a list of CSS blocks.
+
+    Returns:
+        DeltaGenerator: A container object. Elements can be added to this container using either the 'with'
+            notation or by calling methods directly on the returned object.
+    """
+
+    class_name = re.sub(r"[^a-zA-Z0-9_-]", "-", key.strip())
+    class_name = f"st-key-{class_name}"
+
+    if isinstance(css_styles, str):
+        css_styles = [css_styles]
+
+    # Remove unneeded spacing that is added by the html:
+    css_styles.append("""> div:first-child {margin-bottom: -1rem;}""")
+
+    style_text = "<style>\n"
+
+    for style in css_styles:
+        # Split style into lines, prefix each selector with .st-key-{class_name}
+        for line in style.strip().splitlines():
+            line = line.strip()
+            if line and not line.startswith(">"):
+                # Prefix selectors (e.g., button { ... }) with .st-key-{class_name}
+                if "{" in line:
+                    selector, rest = line.split("{", 1)
+                    selector = selector.strip()
+                    style_text += f".st-key-{class_name} {selector} {{{rest}\n"
+                else:
+                    style_text += line + "\n"
+            else:
+                style_text += line + "\n"
+
+    style_text += "</style>\n"
+
+    container = st.container(key=class_name)
+    container.html(style_text)
+    return container
 
 def focus_feature(
     item: dict,
@@ -133,7 +210,7 @@ def map_popover(
     callback: Optional[Callable] = None,
     feature_type: Optional[FeatureType] = None,
     download_url: Optional[str] = None,
-    image_path: Optional[str] = None,  # Optional image path for all items
+    image_path: Optional[str] = None,
 ):
     """
     Create a popover with buttons for each item in the button_data list.
@@ -217,6 +294,39 @@ def map_popover(
                             disabled=True,
                         )
     st.map_output = None
+
+
+def about_popover():
+    """
+    Render the styled About popover section.
+    """
+    with stylable_container(
+        key="popover_container_about",
+        css_styles="""
+            button {
+                width: 200px;
+                height: 50px;
+                background-color: white;
+                color: black;
+                border-radius: 5px;
+                white-space: nowrap;
+            }
+        """,
+    ):
+        with st.popover("About this App", use_container_width=True):
+            st.markdown(
+                """
+                This app allows you to explore single event data for both historic and stochastic simulations.
+                First, please select which pilot study you would like to explore to initialize the dataset.
+                Second, select the event type you would like to explore. Calibration events are historic
+                simulations that have been run, whereas stochastic events are synthetically generated.
+                Third, select the event ID that you would like to explore. If a calibration event, this may be
+                a historic flood event from August 2017, or if a stochastic event, this may be a
+                synthetically generated event from a model with a specific storm rank. Lastly, you may 
+                then either select data from the map or drop down. After a selection has been made, 
+                statistics and analytics for that selection will be displayed to the right of the map.
+                """
+            )
 
 
 def single_event():
@@ -310,38 +420,7 @@ def single_event():
     col_ref_lines, col_ref_points, col_bc_lines, col_cogs = st.columns(4)
 
     with col_about:
-        with stylable_container(
-            key="popover_container_about",
-            css_styles="""
-                button {
-                    width: 200px;
-                    height: 50px;
-                    background-color: white;
-                    color: black;
-                    border-radius: 5px;
-                    white-space: nowrap;
-                }
-                img {
-                    max-width: 100px;
-                    max-height: 100px;
-                    border-radius: 0.25rem;
-                    margin-right: 0.5rem;
-                }
-            """,
-        ):
-            with st.popover("About this App", use_container_width=True):
-                st.markdown(
-                """
-                This app allows you to explore single event data for both historic and stochastic simulations.
-                First, please select which pilot study you would like to explore to initialize the dataset.
-                Second, select the event type you would like to explore. Calibration events are historic
-                simulations that have been run, whereas stochastic events are synthetically generated.
-                Third, select the event ID that you would like to explore. If a calibration event, this may be
-                a historic flood event from August 2017, or if a stochastic event, this may be a
-                synthetically generated event from a model with a specific storm rank. Lastly, you may 
-                then either select data from the map or drop down. After a selection has been made, 
-                statistics and analytics for that selection will be displayed to the right of the map.
-                """,)
+        about_popover()
 
     with col_basins:
         map_popover(
@@ -516,13 +595,18 @@ def single_event():
     with info_col:
         if feature_type == FeatureType.BASIN:
             info_col.markdown(f"### Basin: {feature_label}")
-            model_thumbnail = query_s3_model_thumbnail(
+            model_thumbnail_path = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
                 feature_label,
             )
-            if model_thumbnail:
-                st.image(model_thumbnail, use_container_width=False)
+            if model_thumbnail_path:
+                model_thumbnail_img = load_s3_uri_img(model_thumbnail_path)
+                st.image(
+                    model_thumbnail_img,
+                    caption=f"Model Thumbnail for {feature_label}",
+                    use_container_width=False,
+                )
             else:
                 st.warning("No thumbnail available for this basin.")
 
