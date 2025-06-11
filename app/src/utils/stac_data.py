@@ -7,7 +7,10 @@ import json
 from PIL import Image
 from io import BytesIO
 
-from db.pull import query_s3_ref_points, query_s3_ref_lines, query_s3_bc_lines
+from db.pull import (query_s3_ref_points,
+                     query_s3_ref_lines,
+                     query_s3_bc_lines,
+                     query_s3_model_bndry)
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
 srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
@@ -63,7 +66,6 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
         st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/prod-support"
         ## TODO: Need to add local data to a STAC catalog
         st.pilot_layers = {
-            "Basins": os.path.join(assetsDir, "basins.geojson"),
             "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
             "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
         }
@@ -75,15 +77,13 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
-    df_basins = gpd.read_file(st.pilot_layers["Basins"])
-    st.basins = prep_gdf(df_basins, "Basins")
-
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
     st.dams = prep_gdf(df_dams, "Dams")
 
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
     st.gages = prep_gdf(df_gages, "Gages")
 
+    st.basins = query_s3_model_bndry(s3_conn, pilot, "all")
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
