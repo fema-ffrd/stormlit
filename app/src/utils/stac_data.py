@@ -6,10 +6,12 @@ import json
 from PIL import Image
 from io import BytesIO
 
-from db.pull import (query_s3_ref_points,
-                     query_s3_ref_lines,
-                     query_s3_bc_lines,
-                     query_s3_model_bndry)
+from db.pull import (
+    query_s3_ref_points,
+    query_s3_ref_lines,
+    query_s3_bc_lines,
+    query_s3_model_bndry,
+)
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
 srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
@@ -86,6 +88,7 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
+
 
 def define_gage_data(gage_id: str):
     """
@@ -167,4 +170,3 @@ def get_stac_meta(url: str):
         return True, data
     else:
         return False, url
-

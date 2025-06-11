@@ -10,13 +10,15 @@ from utils.stac_data import (
 from utils.plotting import plot_ts, plot_hist
 from utils.mapping import get_map_pos, prep_fmap
 from db.utils import create_pg_connection, create_s3_connection
-from db.pull import (query_s3_mod_flow,
-                     query_s3_mod_wse,
-                     query_s3_mod_vel,
-                     query_s3_mod_stage,
-                     query_s3_obs_flow,
-                     query_s3_event_list,
-                     query_s3_model_thumbnail)
+from db.pull import (
+    query_s3_mod_flow,
+    query_s3_mod_wse,
+    query_s3_mod_vel,
+    query_s3_mod_stage,
+    query_s3_obs_flow,
+    query_s3_event_list,
+    query_s3_model_thumbnail,
+)
 
 # standard imports
 import io
@@ -38,6 +40,7 @@ from shapely.geometry import shape
 
 import re
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
@@ -48,6 +51,7 @@ load_dotenv()
 random.seed(42)
 
 logger = logging.getLogger(__name__)
+
 
 def load_s3_uri_img(s3_uri: str):
     """
@@ -92,6 +96,7 @@ def identify_gage_id(ref_id: str):
     else:
         return is_gage, gage_id
 
+
 class FeatureType(Enum):
     BASIN = "Basin"
     GAGE = "Gage"
@@ -100,6 +105,7 @@ class FeatureType(Enum):
     REFERENCE_POINT = "Reference Point"
     BC_LINE = "BC Line"
     COG = "COG"
+
 
 def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator":
     """
@@ -151,6 +157,7 @@ def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator
     container = st.container(key=class_name)
     container.html(style_text)
     return container
+
 
 def focus_feature(
     item: dict,
@@ -245,10 +252,14 @@ def map_popover(
                 timestamp = time.time()
                 rand_int = random.randint(1, 999)
                 timestamp = int(timestamp * rand_int)
-                time_str = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime(timestamp))
+                time_str = time.strftime(
+                    "%Y-%m-%d %H:%M:%S.%f", time.localtime(timestamp)
+                )
                 item_label = get_item_label(item)
                 item_id = get_item_id(item)
-                current_feature_id = st.session_state.get("single_event_focus_feature_id")
+                current_feature_id = st.session_state.get(
+                    "single_event_focus_feature_id"
+                )
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
                 button_key = f"btn_{item_id}_{time_str[:-3]}"
@@ -359,9 +370,11 @@ def single_event():
     # Initialize session state variables if not already set
     if st.session_state["init_pilot"] is False:
         with st.spinner("Initializing datasets..."):
-            init_pilot(st.session_state["pg_conn"],
-                       st.session_state["s3_conn"],
-                       st.session_state["pilot"])
+            init_pilot(
+                st.session_state["pg_conn"],
+                st.session_state["s3_conn"],
+                st.session_state["pilot"],
+            )
             st.session_state["init_pilot"] = True
             st.success("Complete! Pilot data is now ready for exploration.")
 
@@ -374,7 +387,9 @@ def single_event():
 
     if st.session_state["event_type"] == "Calibration Events":
         if st.session_state["model_id"] is None:
-            st.sidebar.warning("Please select a reference line or point from the map or drop down list")
+            st.sidebar.warning(
+                "Please select a reference line or point from the map or drop down list"
+            )
         else:
             calibration_events = query_s3_event_list(
                 st.session_state["s3_conn"],
@@ -387,7 +402,9 @@ def single_event():
                 index=None,
             )
             if st.session_state["calibration_event"] is None:
-                st.sidebar.warning("Please select a calibration event to view time series data.")
+                st.sidebar.warning(
+                    "Please select a calibration event to view time series data."
+                )
             else:
                 st.session_state["ready_to_plot_ts"] = True
     else:
@@ -397,10 +414,12 @@ def single_event():
             index=None,
         )
         if st.session_state["stochastic_event"] is None:
-            st.sidebar.warning("Please select a stochastic event to view time series data.")
+            st.sidebar.warning(
+                "Please select a stochastic event to view time series data."
+            )
         else:
             st.session_state["ready_to_plot_ts"] = True
-    
+
     # Create a map legend
     st.sidebar.markdown("---")
     st.sidebar.markdown("## Map Legend")
@@ -416,7 +435,7 @@ def single_event():
     )
     st.sidebar.markdown("---")
 
-    col_about, col_basins, col_dams, col_gages  = st.columns(4)
+    col_about, col_basins, col_dams, col_gages = st.columns(4)
     col_ref_lines, col_ref_points, col_bc_lines, col_cogs = st.columns(4)
 
     with col_about:
@@ -429,7 +448,7 @@ def single_event():
             lambda basin: f"{basin['model']}",
             get_item_id=lambda basin: basin["model"],
             feature_type=FeatureType.BASIN,
-            image_path=os.path.join(assetsDir, "basin_icon.jpg")
+            image_path=os.path.join(assetsDir, "basin_icon.jpg"),
         )
     with col_dams:
         map_popover(
@@ -439,7 +458,7 @@ def single_event():
             get_item_id=lambda dam: dam["id"],
             feature_type=FeatureType.DAM,
             download_url=st.pilot_layers["Dams"],
-            image_path=os.path.join(assetsDir, "dam_icon.jpg")
+            image_path=os.path.join(assetsDir, "dam_icon.jpg"),
         )
     with col_gages:
         map_popover(
@@ -449,7 +468,7 @@ def single_event():
             get_item_id=lambda gage: gage["site_no"],
             feature_type=FeatureType.GAGE,
             download_url=st.pilot_layers["Gages"],
-            image_path=os.path.join(assetsDir, "gage_icon.png")
+            image_path=os.path.join(assetsDir, "gage_icon.png"),
         )
     with col_ref_lines:
         map_popover(
@@ -459,7 +478,7 @@ def single_event():
             get_item_id=lambda ref_line: ref_line["id"],
             get_model_id=lambda ref_line: ref_line["model"],
             feature_type=FeatureType.REFERENCE_LINE,
-            image_path=os.path.join(assetsDir, "ref_line_icon.png")
+            image_path=os.path.join(assetsDir, "ref_line_icon.png"),
         )
     with col_ref_points:
         map_popover(
@@ -469,7 +488,7 @@ def single_event():
             get_item_id=lambda ref_point: ref_point["id"],
             get_model_id=lambda ref_point: ref_point["model"],
             feature_type=FeatureType.REFERENCE_POINT,
-            image_path=os.path.join(assetsDir, "ref_point_icon.png")
+            image_path=os.path.join(assetsDir, "ref_point_icon.png"),
         )
     with col_bc_lines:
         map_popover(
@@ -575,7 +594,7 @@ def single_event():
                 st.session_state["model_id"] = properties["model"]
             elif feature_type == FeatureType.DAM:
                 feature_id = properties["id"]
-                feature_label = feature_id      
+                feature_label = feature_id
             elif feature_type == FeatureType.GAGE:
                 feature_id = properties["site_no"]
                 feature_label = feature_id
@@ -589,7 +608,7 @@ def single_event():
             "No feature selected from map. Using session state for feature focus."
         )
         feature_id = st.session_state.get("single_event_focus_feature_id")
-        feature_label = st.session_state.get("single_event_focus_feature_label") 
+        feature_label = st.session_state.get("single_event_focus_feature_label")
 
     # Feature Info
     with info_col:
@@ -657,7 +676,7 @@ def single_event():
             for plot_type, plot_url in gage_data.items():
                 if plot_type != "Metadata":
                     with st.expander(plot_type, expanded=False):
-                    #st.markdown(f"##### {plot_type}")
+                        # st.markdown(f"##### {plot_type}")
                         plot_status_ok, plot_img = get_stac_img(plot_url)
                         if plot_status_ok:
                             st.image(plot_img, use_container_width=True)
@@ -666,27 +685,25 @@ def single_event():
 
         elif feature_type == FeatureType.REFERENCE_LINE:
             feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
-            st.markdown(f"### Model: `{st.session_state["model_id"]}`")
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Line: `{feature_label}`")
             if st.session_state["ready_to_plot_ts"]:
                 ref_line_flow_ts = query_s3_mod_flow(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
                     feature_label,
-                    'ref_line',
+                    "ref_line",
                     st.session_state["calibration_event"],
                 )
-                ref_line_flow_ts.rename(
-                    columns={"flow": "model_flow"}, inplace=True)
+                ref_line_flow_ts.rename(columns={"flow": "model_flow"}, inplace=True)
                 ref_line_wse_ts = query_s3_mod_wse(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
                     feature_label,
-                    'ref_line',
+                    "ref_line",
                     st.session_state["calibration_event"],
                 )
-                ref_line_wse_ts.rename(
-                    columns={"wse": "model_wse"}, inplace=True)
+                ref_line_wse_ts.rename(columns={"wse": "model_wse"}, inplace=True)
                 ref_line_ts = ref_line_flow_ts.merge(
                     ref_line_wse_ts, on="time", how="outer"
                 )
@@ -697,8 +714,7 @@ def single_event():
                         feature_gage_id,
                         st.session_state["calibration_event"],
                     )
-                    obs_flow_ts.rename(
-                        columns={"flow": "obs_flow"}, inplace=True)
+                    obs_flow_ts.rename(columns={"flow": "obs_flow"}, inplace=True)
                     gage_flow_ts = obs_flow_ts.merge(
                         ref_line_flow_ts, on="time", how="outer"
                     )
@@ -715,7 +731,8 @@ def single_event():
                             "obs_flow",
                             "model_flow",
                             dual_y_axis=False,
-                            title=feature_label)
+                            title=feature_label,
+                        )
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
                         st.dataframe(gage_flow_ts)
 
@@ -733,26 +750,24 @@ def single_event():
                     st.dataframe(ref_line_ts.drop(columns=["id_x", "id_y"]))
 
         elif feature_type == FeatureType.REFERENCE_POINT:
-            st.markdown(f"### Model: `{st.session_state["model_id"]}`")
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Point: `{feature_label}`")
             if st.session_state["ready_to_plot_ts"]:
                 ref_pt_wse_ts = query_s3_mod_wse(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
                     feature_label,
-                    'ref_point',
+                    "ref_point",
                     st.session_state["calibration_event"],
                 )
                 ref_pt_vel_ts = query_s3_mod_vel(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
                     feature_label,
-                    'ref_point',
+                    "ref_point",
                     st.session_state["calibration_event"],
                 )
-                ref_pt_ts = ref_pt_wse_ts.merge(
-                    ref_pt_vel_ts, on="time", how="outer"
-                )
+                ref_pt_ts = ref_pt_wse_ts.merge(ref_pt_vel_ts, on="time", how="outer")
                 info_col.markdown("### Modeled WSE & Velocity")
                 with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
                     plot_ts(
@@ -767,43 +782,45 @@ def single_event():
                     st.dataframe(ref_pt_ts.drop(columns=["id_x", "id_y"]))
 
         elif feature_type == FeatureType.BC_LINE:
-                    st.markdown(f"### Model: `{st.session_state["model_id"]}`")
-                    st.markdown(f"### BC Line: `{feature_label}`")
-                    if st.session_state["ready_to_plot_ts"]:
-                        bc_line_flow_ts = query_s3_mod_flow(
-                            st.session_state["s3_conn"],
-                            st.session_state["pilot"],
-                            feature_label,
-                            'bc_line',
-                            st.session_state["calibration_event"],
-                        )
-                        bc_line_stage_ts = query_s3_mod_stage(
-                            st.session_state["s3_conn"],
-                            st.session_state["pilot"],
-                            feature_label,
-                            'bc_line',
-                            st.session_state["calibration_event"],
-                        )
-                        bc_line_ts = bc_line_flow_ts.merge(
-                            bc_line_stage_ts, on="time", how="outer"
-                        )
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
+            st.markdown(f"### BC Line: `{feature_label}`")
+            if st.session_state["ready_to_plot_ts"]:
+                bc_line_flow_ts = query_s3_mod_flow(
+                    st.session_state["s3_conn"],
+                    st.session_state["pilot"],
+                    feature_label,
+                    "bc_line",
+                    st.session_state["calibration_event"],
+                )
+                bc_line_stage_ts = query_s3_mod_stage(
+                    st.session_state["s3_conn"],
+                    st.session_state["pilot"],
+                    feature_label,
+                    "bc_line",
+                    st.session_state["calibration_event"],
+                )
+                bc_line_ts = bc_line_flow_ts.merge(
+                    bc_line_stage_ts, on="time", how="outer"
+                )
 
-                        info_col.markdown("### Modeled Stage & Flow")
-                        with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
-                            plot_ts(
-                                bc_line_flow_ts,
-                                bc_line_stage_ts,
-                                "flow",
-                                "stage",
-                                title=feature_label,
-                                dual_y_axis=True,
-                            )
-                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                            st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
+                info_col.markdown("### Modeled Stage & Flow")
+                with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
+                    plot_ts(
+                        bc_line_flow_ts,
+                        bc_line_stage_ts,
+                        "flow",
+                        "stage",
+                        title=feature_label,
+                        dual_y_axis=True,
+                    )
+                with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                    st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
         elif feature_type == FeatureType.COG:
             st.markdown(f"### Raster Layer: `{st.session_state['cog_layer']}`")
 
-            cog_stats = st.session_state[f"cog_stats_{st.session_state['cog_layer']}"]["b1"]
+            cog_stats = st.session_state[f"cog_stats_{st.session_state['cog_layer']}"][
+                "b1"
+            ]
             cog_hist = cog_stats["histogram"]
             with st.expander("Statistics", expanded=True, icon="📊"):
                 # plot a histogram of the COG

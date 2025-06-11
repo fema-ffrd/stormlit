@@ -148,4 +148,3 @@ def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):
         showlegend=True,
     )
     return fig
-

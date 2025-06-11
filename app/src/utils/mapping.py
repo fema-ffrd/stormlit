@@ -3,10 +3,6 @@ import requests
 import folium
 import streamlit as st
 import geopandas as gpd
-import pandas as pd
-from plotly import express as px
-import plotly.graph_objects as go
-from typing import Optional
 
 
 def highlight_function(feature):
@@ -113,8 +109,10 @@ def add_points_fg(
 def style_basins(feature):
     return {"fillColor": "#1e90ff"}
 
+
 def style_ref_lines(feature):
     return {"color": "yellow", "weight": 4}
+
 
 def style_bc_lines(feature):
     return {"color": "purple", "weight": 4}
@@ -216,9 +214,7 @@ def prep_fmap(cog_layer: str = None) -> folium.Map:
 
     # Add the selected layers to the map
     if st.basins is not None:
-        fg_basins = add_polygons_fg(
-            st.basins, "Basins", ["model"], style_basins
-        )
+        fg_basins = add_polygons_fg(st.basins, "Basins", ["model"], style_basins)
         fg_basins.add_to(m)
     if st.dams is not None:
         fg_dams = add_points_fg(st.dams, "Dams", ["id"], "#e32636")

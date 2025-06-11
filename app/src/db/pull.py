@@ -3,9 +3,6 @@ import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 import duckdb
-from PIL import Image
-import s3fs
-from io import BytesIO
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,7 +51,9 @@ def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def query_db(_conn, query: str, pg_args: list = None, layer: str = None) -> pd.DataFrame | gpd.GeoDataFrame:
+def query_db(
+    _conn, query: str, pg_args: list = None, layer: str = None
+) -> pd.DataFrame | gpd.GeoDataFrame:
     """
     Execute a SQL query and return the result as a pandas DataFrame.
 
@@ -179,12 +178,12 @@ def query_s3_event_list(_conn, pilot: str, model_id: str) -> list:
         # Extract the next-level folder name after s3_path
         event_names = set()
         for row in result:
-            rel = row[0][len(s3_path):].lstrip('/')
-            if '/' in rel:
-                folder = rel.split('/')[0]
+            rel = row[0][len(s3_path) :].lstrip("/")
+            if "/" in rel:
+                folder = rel.split("/")[0]
                 if "event=" in folder:
                     # Extract the event ID from the folder name
-                    event = folder.split('=')[-1]
+                    event = folder.split("=")[-1]
                     event_names.add(event)
         return sorted(event_names)
     except Exception as e:
@@ -213,7 +212,9 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
 
 
 @st.cache_data
-def query_s3_mod_wse(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_wse(
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+) -> pd.DataFrame:
     """
     Query modeled water surface elevation (WSE) time series data from the S3 bucket.
 
@@ -226,7 +227,9 @@ def query_s3_mod_wse(_conn, pilot: str, ref_id: str, ref_type: str, event_id: st
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled flow data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/wsel.pq"
+    s3_path = (
+        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/wsel.pq"
+    )
     query = f"""SELECT time, {ref_type}, water_surface as wse
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
@@ -234,7 +237,9 @@ def query_s3_mod_wse(_conn, pilot: str, ref_id: str, ref_type: str, event_id: st
 
 
 @st.cache_data
-def query_s3_mod_flow(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_flow(
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+) -> pd.DataFrame:
     """
     Query modeled flow time series data from the S3 bucket.
 
@@ -247,7 +252,9 @@ def query_s3_mod_flow(_conn, pilot: str, ref_id: str, ref_type: str, event_id: s
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled WSE data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/flow.pq"
+    s3_path = (
+        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/flow.pq"
+    )
     query = f"""SELECT time, {ref_type}, flow as flow
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
@@ -255,7 +262,9 @@ def query_s3_mod_flow(_conn, pilot: str, ref_id: str, ref_type: str, event_id: s
 
 
 @st.cache_data
-def query_s3_mod_vel(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_vel(
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+) -> pd.DataFrame:
     """
     Query modeled velocity time series data from the S3 bucket.
 
@@ -268,14 +277,19 @@ def query_s3_mod_vel(_conn, pilot: str, ref_id: str, ref_type: str, event_id: st
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled velocity data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/velocity.pq"
+    s3_path = (
+        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/velocity.pq"
+    )
     query = f"""SELECT time, {ref_type}, velocity as velocity
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
     return query_db(_conn, query)
 
+
 @st.cache_data
-def query_s3_mod_stage(_conn, pilot: str, ref_id: str, ref_type: str, event_id: str) -> pd.DataFrame:
+def query_s3_mod_stage(
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+) -> pd.DataFrame:
     """
     Query modeled stage time series data from the S3 bucket.
 
@@ -288,7 +302,9 @@ def query_s3_mod_stage(_conn, pilot: str, ref_id: str, ref_type: str, event_id: 
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled stage data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/stage.pq"
+    s3_path = (
+        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/stage.pq"
+    )
     query = f"""SELECT time, {ref_type}, stage as stage
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
@@ -308,7 +324,9 @@ def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
         gpd.GeoDataFrame: A GeoDataFrame containing the modeled geometry data.
     """
     if model_id == "all":
-        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_lines.pq"
+        s3_path = (
+            f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_lines.pq"
+        )
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
@@ -328,7 +346,9 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
         gpd.GeoDataFrame: A GeoDataFrame containing the reference points geometry data.
     """
     if model_id == "all":
-        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_points.pq"
+        s3_path = (
+            f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/ref_points.pq"
+        )
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
@@ -348,7 +368,9 @@ def query_s3_bc_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
         gpd.GeoDataFrame: A GeoDataFrame containing the boundary condition lines geometry data.
     """
     if model_id == "all":
-        s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/bc_lines.pq"
+        s3_path = (
+            f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/bc_lines.pq"
+        )
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/bc_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
@@ -356,9 +378,7 @@ def query_s3_bc_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
 
 
 @st.cache_data
-def query_s3_model_bndry(
-    _conn, pilot: str, model_id: str
-) -> gpd.GeoDataFrame:
+def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     """
     Query model boundary geometry data from the S3 bucket.
 
@@ -395,11 +415,12 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> str:
         result = _conn.execute(query).fetchall()
         for row in result:
             file_path = row[0]
-            rel_path = file_path[len(s3_path):]
+            rel_path = file_path[len(s3_path) :]
             if rel_path.startswith("thumbnail."):
                 return file_path
     except Exception as e:
         logger.error(f"Failed to list or read thumbnail files: {e}")
+
 
 # if __name__ == "__main__":
 #     from utils import create_pg_connection, create_s3_connection, get_pg_dsn
