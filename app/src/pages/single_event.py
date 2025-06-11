@@ -234,17 +234,11 @@ def map_popover(
                 border-radius: 5px;
                 white-space: nowrap;
             }
-            img {
-                max-width: 100px;
-                max-height: 100px;
-                border-radius: 0.25rem;
-                margin-right: 0.5rem;
-            }
         """,
     ):
         with st.popover(label, use_container_width=True):
             if image_path:
-                st.image(image_path, use_container_width=False)
+                st.image(image_path, use_container_width=False, width=200)
             st.markdown(f"#### {label}")
             if download_url:
                 st.markdown(f"⬇️ [Download Data]({download_url})")
