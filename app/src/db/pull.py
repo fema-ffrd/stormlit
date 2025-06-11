@@ -1,8 +1,11 @@
+import io
 import pandas as pd
 import geopandas as gpd
 import streamlit as st
 import shapely.wkb
 import duckdb
+import s3fs
+from PIL import Image
 import logging
 
 logger = logging.getLogger(__name__)
@@ -398,16 +401,16 @@ def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
 
 
 @st.cache_data
-def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> str:
+def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
     """
-    Query all thumbnail image files directly below the S3 model path.
+    Query a thumbnail image file directly below the S3 model path.
 
     Parameters:
         _conn (connection): A DuckDB connection object (not used for image loading).
         pilot (str): The pilot name for the S3 bucket.
         model_id (str): The HEC-RAS model ID to query.
     Returns:
-        file_path (str): The path to the thumbnail image file.
+        Image: A PIL Image object containing the thumbnail image.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/"
     query = f"SELECT file FROM glob('{s3_path}*')"
@@ -417,7 +420,10 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> str:
             file_path = row[0]
             rel_path = file_path[len(s3_path) :]
             if rel_path.startswith("thumbnail."):
-                return file_path
+                fs = s3fs.S3FileSystem(anon=False)
+                with fs.open(file_path, "rb") as f:
+                    img_bytes = f.read()
+                    return Image.open(io.BytesIO(img_bytes)).copy()
     except Exception as e:
         logger.error(f"Failed to list or read thumbnail files: {e}")
 
