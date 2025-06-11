@@ -1,6 +1,5 @@
 import os
 import geopandas as gpd
-import pandas as pd
 import streamlit as st
 import requests
 import json
@@ -140,7 +139,7 @@ def get_stac_img(plot_url: str):
     """
     response = requests.get(plot_url)
     if response.status_code == 200:
-        img = Image.open(BytesIO(response.content))
+        img = Image.open(BytesIO(response.content)).copy()
         return True, img
     else:
         return False, plot_url
