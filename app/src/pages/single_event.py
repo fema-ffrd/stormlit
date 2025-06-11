@@ -21,13 +21,10 @@ from db.pull import (
 )
 
 # standard imports
-import io
 import os
 import re
 import streamlit as st
 import pandas as pd
-import s3fs
-from PIL import Image
 from streamlit.errors import StreamlitDuplicateElementKey
 from dotenv import load_dotenv
 from streamlit_folium import st_folium
@@ -47,26 +44,6 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-
-def load_s3_uri_img(s3_uri: str):
-    """
-    Load an image from an S3 URI.
-
-    Parameters
-    ----------
-    s3_uri: str
-        The S3 URI of the image to load.
-    Returns
-    -------
-    Image
-        The loaded image.
-    """
-    fs = s3fs.S3FileSystem(anon=False)
-    with fs.open(s3_uri, "rb") as f:
-        img_bytes = f.read()
-        img = Image.open(io.BytesIO(img_bytes)).copy()
-        return img
 
 
 def identify_gage_id(ref_id: str):
@@ -190,6 +167,7 @@ def focus_feature(
             "single_event_focus_map_click": map_click,
         }
     )
+
 
 def map_popover(
     label: str,
@@ -590,8 +568,6 @@ def single_event():
                 st.session_state["pilot"],
                 feature_label,
             )
-            # if model_thumbnail_path:
-            #     model_thumbnail_img = load_s3_uri_img(model_thumbnail_path)
             if model_thumbnail_img:
                 st.image(
                     model_thumbnail_img,
