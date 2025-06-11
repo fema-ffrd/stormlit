@@ -15,7 +15,8 @@ from db.pull import (query_s3_mod_flow,
                      query_s3_mod_vel,
                      query_s3_mod_stage,
                      query_s3_obs_flow,
-                     query_s3_event_list)
+                     query_s3_event_list,
+                     query_s3_model_thumbnail)
 
 # standard imports
 import os
@@ -346,10 +347,9 @@ def single_event():
         map_popover(
             "Basins",
             st.basins.to_dict("records"),
-            lambda basin: f"{basin['NAME']} ({basin['HUC8']})",
-            get_item_id=lambda basin: basin["HUC8"],
+            lambda basin: f"{basin['model']}",
+            get_item_id=lambda basin: basin["model"],
             feature_type=FeatureType.BASIN,
-            download_url=st.pilot_layers["Basins"],
             image_path=os.path.join(assetsDir, "basin_icon.jpg")
         )
     with col_dams:
@@ -501,8 +501,8 @@ def single_event():
                 feature_id = properties["site_no"]
                 feature_label = feature_id
             elif feature_type == FeatureType.BASIN:
-                feature_id = properties["HUC8"]
-                feature_label = f"{properties['NAME']} ({properties['HUC8']})"
+                feature_id = properties["model"]
+                feature_label = feature_id
         else:
             st.warning("No layer found in map feature properties.")
     else:
@@ -516,7 +516,15 @@ def single_event():
     with info_col:
         if feature_type == FeatureType.BASIN:
             info_col.markdown(f"### Basin: {feature_label}")
-            info_col.markdown("TODO: put more basin info here.")
+            model_thumbnail = query_s3_model_thumbnail(
+                st.session_state["s3_conn"],
+                st.session_state["pilot"],
+                feature_label,
+            )
+            if model_thumbnail:
+                st.image(model_thumbnail, use_container_width=False)
+            else:
+                st.warning("No thumbnail available for this basin.")
 
         elif feature_type == FeatureType.DAM:
             info_col.markdown(f"### Dam: {feature_label}")
