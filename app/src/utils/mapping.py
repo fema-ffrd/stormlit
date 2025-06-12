@@ -14,17 +14,20 @@ def highlight_function(feature):
     }
 
 
-def add_polygons_fg(
+def add_polygons(
+    fmap: folium.Map,
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
     style_function: callable,
 ):
     """
-    Add polygons to a folium map as a feature group
+    Add polygons to a folium map as a layer
 
     Parameters
     ----------
+    fmap: folium.Map
+        The folium map object to add the polygons to
     gdf: gpd.GeoDataFrame
         A GeoDataFrame with polygon geometries
     layer_name: str
@@ -36,35 +39,32 @@ def add_polygons_fg(
 
     Returns
     -------
-    folium.FeatureGroup
-        A folium feature group containing the polygons
+
     """
-
-    fg_polygons = folium.FeatureGroup(name=layer_name)
-    fg_polygons.add_child(
-        folium.GeoJson(
-            gdf,
-            name=layer_name,
-            zoom_on_click=True,
-            style_function=style_function,
-            highlight_function=highlight_function,
-            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-        )
-    )
-    return fg_polygons
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        zoom_on_click=False,
+        style_function=style_function,
+        highlight_function=highlight_function,
+        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+    ).add_to(fmap)
 
 
-def add_points_fg(
+def add_points(
+    fmap: folium.Map,
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
     color: str,
 ):
     """
-    Add points to a folium map as a feature group
+    Add points to a folium map as a layer
 
     Parameters
     ----------
+    fmap: folium.Map
+        The folium map object to add the points to
     gdf: gpd.GeoDataFrame
         A GeoDataFrame with point geometries
     layer_name: str
@@ -76,10 +76,8 @@ def add_points_fg(
 
     Returns
     -------
-    folium.FeatureGroup
-        A folium feature group containing the circles
+    None
     """
-    # Create a DivIcon marker
     div_icon = folium.DivIcon(
         html=f"""
         <div style="
@@ -91,19 +89,15 @@ def add_points_fg(
         """
     )
 
-    fg_points = folium.FeatureGroup(name=layer_name)
-    fg_points.add_child(
-        folium.GeoJson(
-            gdf,
-            name=layer_name,
-            marker=folium.Marker(icon=div_icon),
-            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-            popup=folium.GeoJsonPopup(fields=tooltip_fields),
-            highlight_function=highlight_function,
-            zoom_on_click=True,
-        )
-    )
-    return fg_points
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        marker=folium.Marker(icon=div_icon),
+        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        popup=folium.GeoJsonPopup(fields=tooltip_fields),
+        highlight_function=highlight_function,
+        zoom_on_click=True,
+    ).add_to(fmap)
 
 
 def style_basins(feature):
@@ -162,12 +156,20 @@ def get_map_pos(map_layer: str, layer_field: str):
 
 
 @st.cache_data
-def prep_fmap(cog_layer: str = None) -> folium.Map:
+def prep_fmap(
+    c_lat: float, c_lon: float, zoom: int, cog_layer: str = None
+) -> folium.Map:
     """
     Prep a folium map object given a geojson with a specificed basemap
 
     Parameters
     ----------
+    c_lat: float
+        The latitude to center the map on
+    c_lon: float
+        The longitude to center the map on
+    zoom: int
+        The initial zoom level for the map
     cog_layer: str, optional
         The name of the COG layer to add to the map. If None, no COG layer is added.
 
@@ -176,12 +178,9 @@ def prep_fmap(cog_layer: str = None) -> folium.Map:
     folium.Map
         Folium map object
     """
-    c_df = st.basins
-    c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
-
     # Create a folium map centered at the mean latitude and longitude
     m = folium.Map(
-        location=[c_lat, c_lon], zoom_start=4, crs="EPSG3857"
+        location=[c_lat, c_lon], zoom_start=zoom, crs="EPSG3857"
     )  # default web mercator crs
 
     folium.plugins.Fullscreen(
@@ -200,43 +199,22 @@ def prep_fmap(cog_layer: str = None) -> folium.Map:
         control=True,
         show=True,
     ).add_to(m)
-    # ESRI Basemap
-    folium.TileLayer(
-        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri",
-        name="Esri Satellite",
-        overlay=False,
-        control=True,
-        show=False,  # turn layer off
-    ).add_to(m)
-    # OpenStreetMap Basemap
-    folium.TileLayer("openstreetmap", overlay=False, control=True, show=False).add_to(m)
 
     # Add the selected layers to the map
     if st.basins is not None:
-        fg_basins = add_polygons_fg(st.basins, "Basins", ["model"], style_basins)
-        fg_basins.add_to(m)
+        add_polygons(m, st.basins, "Basins", ["model"], style_basins)
     if st.dams is not None:
-        fg_dams = add_points_fg(st.dams, "Dams", ["id"], "#e32636")
-        fg_dams.add_to(m)
+        add_points(m, st.dams, "Dams", ["id"], "#e32636")
     if st.gages is not None:
-        fg_gages = add_points_fg(st.gages, "Gages", ["site_no"], "#32cd32")
-        fg_gages.add_to(m)
+        add_points(m, st.gages, "Gages", ["site_no"], "#32cd32")
     if st.ref_lines is not None:
-        fg_ref_lines = add_polygons_fg(
-            st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
+        add_polygons(
+            m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
         )
-        fg_ref_lines.add_to(m)
     if st.ref_points is not None:
-        fg_ref_points = add_points_fg(
-            st.ref_points, "Reference Points", ["id", "model"], "#e6870b"
-        )
-        fg_ref_points.add_to(m)
+        add_points(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
     if st.bc_lines is not None:
-        fg_bc_lines = add_polygons_fg(
-            st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines
-        )
-        fg_bc_lines.add_to(m)
+        add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
 
     # Add COG layer if selected
     if cog_layer is not None:
