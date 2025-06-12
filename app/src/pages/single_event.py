@@ -64,8 +64,13 @@ def identify_gage_id(ref_id: str):
     gage_id = None
     if "gage" in ref_id:
         is_gage = True
-        gage_id = ref_id.split("_")[-1]
-        return is_gage, gage_id
+        ref_id = ref_id.split("_")
+        # find the index where usgs appears
+        for idx, part in enumerate(ref_id):
+            if "usgs" in part.lower():
+                gage_idx = idx + 1
+                gage_id = ref_id[gage_idx]
+                return is_gage, gage_id
     else:
         return is_gage, gage_id
 
@@ -487,11 +492,15 @@ def single_event():
 
     # Map
     with map_col:
-        with st.spinner("Loading Map..."):
-            st.fmap = prep_fmap(st.session_state["cog_layer"])
+        with st.spinner("Loading map..."):
+            st.fmap = prep_fmap(c_lat, c_lon, zoom, st.session_state["cog_layer"])
             # Fit the map to the bounding box of a selected polygon or line feature
             bbox = st.session_state.get("single_event_focus_bounding_box")
-            if bbox and feature_type in [FeatureType.BASIN, FeatureType.REFERENCE_LINE]:
+            if bbox and feature_type in [
+                FeatureType.BASIN,
+                FeatureType.REFERENCE_LINE,
+                FeatureType.BC_LINE,
+            ]:
                 st.fmap.fit_bounds(bbox)
                 st.map_output = st_folium(
                     st.fmap,
@@ -501,7 +510,11 @@ def single_event():
                         "last_active_drawing",
                     ],
                 )
-            elif feature_type:
+            elif feature_type in [
+                FeatureType.GAGE,
+                FeatureType.DAM,
+                FeatureType.REFERENCE_POINT,
+            ]:
                 st.map_output = st_folium(
                     st.fmap,
                     center=[c_lat, c_lon],
@@ -524,7 +537,6 @@ def single_event():
                         "last_active_drawing",
                     ],
                 )
-
     # Handle when a feature is selected from the map
     last_active_drawing = st.map_output.get("last_active_drawing", None)
     if last_active_drawing:
@@ -562,7 +574,21 @@ def single_event():
     # Feature Info
     with info_col:
         if feature_type == FeatureType.BASIN:
-            info_col.markdown(f"### Basin: {feature_label}")
+            st.markdown(f"### Basin: {feature_label}")
+            st.button(
+                "Zoom to Basin",
+                key="focus_basin",
+                on_click=focus_feature,
+                args=(
+                    st.basins.loc[st.basins["model"] == feature_label].to_dict(
+                        "records"
+                    )[0],
+                    feature_id,
+                    feature_label,
+                    FeatureType.BASIN,
+                    True,
+                ),
+            )
             model_thumbnail_img = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
@@ -579,6 +605,18 @@ def single_event():
 
         elif feature_type == FeatureType.DAM:
             info_col.markdown(f"### Dam: {feature_label}")
+            st.button(
+                "Zoom to Dam",
+                key="focus_dam",
+                on_click=focus_feature,
+                args=(
+                    st.dams.loc[st.dams["id"] == feature_label].to_dict("records")[0],
+                    feature_id,
+                    feature_label,
+                    FeatureType.DAM,
+                    True,
+                ),
+            )
             dam_data = define_dam_data(feature_id)
             dam_meta_url = dam_data["Metadata"]
             dam_meta_status_ok, dam_meta = get_stac_meta(dam_meta_url)
@@ -602,6 +640,20 @@ def single_event():
 
         elif feature_type == FeatureType.GAGE:
             info_col.markdown(f"### Gage: `{feature_label}`")
+            st.button(
+                "Zoom to Gage",
+                key="focus_gage",
+                on_click=focus_feature,
+                args=(
+                    st.gages.loc[st.gages["site_no"] == feature_label].to_dict(
+                        "records"
+                    )[0],
+                    feature_label,
+                    feature_label,
+                    FeatureType.GAGE,
+                    True,
+                ),
+            )
             gage_data = define_gage_data(feature_id)
             gage_meta_url = gage_data["Metadata"]
             gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
@@ -635,7 +687,24 @@ def single_event():
             feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Line: `{feature_label}`")
-            if st.session_state["ready_to_plot_ts"]:
+            st.button(
+                "Zoom to Reference Line",
+                key="focus_ref_line",
+                on_click=focus_feature,
+                args=(
+                    st.ref_lines.loc[st.ref_lines["id"] == feature_label].to_dict(
+                        "records"
+                    )[0],
+                    feature_label,
+                    feature_label,
+                    FeatureType.REFERENCE_LINE,
+                    True,
+                ),
+            )
+            if (
+                st.session_state["ready_to_plot_ts"] is True
+                and st.session_state["calibration_event"] is not None
+            ):
                 ref_line_flow_ts = query_s3_mod_flow(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
@@ -700,7 +769,24 @@ def single_event():
         elif feature_type == FeatureType.REFERENCE_POINT:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Point: `{feature_label}`")
-            if st.session_state["ready_to_plot_ts"]:
+            st.button(
+                "Zoom to Reference Point",
+                key="focus_ref_point",
+                on_click=focus_feature,
+                args=(
+                    st.ref_points.loc[st.ref_points["id"] == feature_label].to_dict(
+                        "records"
+                    )[0],
+                    feature_label,
+                    feature_label,
+                    FeatureType.REFERENCE_POINT,
+                    True,
+                ),
+            )
+            if (
+                st.session_state["ready_to_plot_ts"] is True
+                and st.session_state["calibration_event"] is not None
+            ):
                 ref_pt_wse_ts = query_s3_mod_wse(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
@@ -732,7 +818,24 @@ def single_event():
         elif feature_type == FeatureType.BC_LINE:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### BC Line: `{feature_label}`")
-            if st.session_state["ready_to_plot_ts"]:
+            st.button(
+                "Zoom to BC Line",
+                key="focus_bc_line",
+                on_click=focus_feature,
+                args=(
+                    st.bc_lines.loc[st.bc_lines["id"] == feature_label].to_dict(
+                        "records"
+                    )[0],
+                    feature_label,
+                    feature_label,
+                    FeatureType.BC_LINE,
+                    True,
+                ),
+            )
+            if (
+                st.session_state["ready_to_plot_ts"] is True
+                and st.session_state["calibration_event"] is not None
+            ):
                 bc_line_flow_ts = query_s3_mod_flow(
                     st.session_state["s3_conn"],
                     st.session_state["pilot"],
