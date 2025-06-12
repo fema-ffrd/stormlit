@@ -421,7 +421,7 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
         for row in result:
             file_path = row[0]
             rel_path = file_path[len(s3_path) :]
-            if rel_path.startswith("thumbnail."):
+            if rel_path.startswith("thumbnail.") and "hdf" in rel_path:
                 fs = s3fs.S3FileSystem(anon=False)
                 with fs.open(file_path, "rb") as f:
                     img_bytes = f.read()
