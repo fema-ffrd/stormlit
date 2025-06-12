@@ -39,8 +39,10 @@ def add_polygons(
 
     Returns
     -------
+    None
 
     """
+    gdf["geometry"] = gdf["geometry"].simplify(tolerance=0.001)
     folium.GeoJson(
         gdf,
         name=layer_name,
@@ -49,6 +51,58 @@ def add_polygons(
         highlight_function=highlight_function,
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
     ).add_to(fmap)
+
+
+def add_points_test(
+    fmap: folium.Map,
+    gdf: gpd.GeoDataFrame,
+    layer_name: str,
+    tooltip_fields: list,
+    color: str,
+):
+    """
+    Add points to a folium map as a layer
+
+    Parameters
+    ----------
+    fmap: folium.Map
+        The folium map object to add the points to
+    gdf: gpd.GeoDataFrame
+        A GeoDataFrame with point geometries
+    layer_name: str
+        The name of the layer to add to the map
+    tooltip_fields: list
+        A list of fields to display in the tooltip
+    color: str
+        The color of the squares to be used as markers
+
+    Returns
+    -------
+    None
+    """
+    div_icon = folium.DivIcon(
+        html=f"""
+        <div style="
+            background-color: {color};
+            border: 1px solid black;
+            width: 10px;
+            height: 10px">
+        </div>
+        """
+    )
+    for _, r in gdf.iterrows():
+        sim_geo = gpd.GeoSeries(r["geometry"])
+        geo_j = sim_geo.to_json()
+        geo_j = folium.GeoJson(
+            data=geo_j,
+            name=layer_name,
+            marker=folium.Marker(icon=div_icon),
+            tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+            popup=folium.GeoJsonPopup(fields=tooltip_fields),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+        )
+        geo_j.add_to(fmap)
 
 
 def add_points(
@@ -155,7 +209,7 @@ def get_map_pos(map_layer: str, layer_field: str):
     return c_lat, c_lon, c_zoom
 
 
-@st.cache_data
+# @st.cache_data
 def prep_fmap(
     c_lat: float, c_lon: float, zoom: int, cog_layer: str = None
 ) -> folium.Map:
