@@ -88,9 +88,11 @@ def query_db(
         df["datetime"] = pd.to_datetime(df["datetime"])
         # rename the datetime column to 'time'
         df.rename(columns={"datetime": "time"}, inplace=True)
+        df = df.sort_values(by="time").drop_duplicates(subset=["time"])
     if "time" in df.columns:
         # Convert time column to pandas datetime
         df["time"] = pd.to_datetime(df["time"])
+        df = df.sort_values(by="time").drop_duplicates(subset=["time"])
     if "geometry" in df.columns:
         # Convert the DataFrame to a GeoDataFrame
         df = format_to_gdf(df)
