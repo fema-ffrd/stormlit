@@ -219,7 +219,7 @@ def map_popover(
                 item_id = get_item_id(item)
                 current_feature_id = st.session_state.get(
                     "single_event_focus_feature_id"
-                )
+                )      
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
                 button_key = f"btn_{item_id}_{idx}"
@@ -283,18 +283,15 @@ def about_popover():
             }
         """,
     ):
-        with st.popover("About this App", use_container_width=True):
+        with st.popover("About this App ℹ️", use_container_width=True):
             st.markdown(
                 """
-                This app allows you to explore single event data for both historic and stochastic simulations.
-                First, please select which pilot study you would like to explore to initialize the dataset.
-                Second, select the event type you would like to explore. Calibration events are historic
-                simulations that have been run, whereas stochastic events are synthetically generated.
-                Third, select the event ID that you would like to explore. If a calibration event, this may be
-                a historic flood event from August 2017, or if a stochastic event, this may be a
-                synthetically generated event from a model with a specific storm rank. Lastly, you may 
-                then either select data from the map or drop down. After a selection has been made, 
-                statistics and analytics for that selection will be displayed to the right of the map.
+            1. Select the pilot study you want to explore to initialize the dataset.
+            2. Choose the event type:
+                - **Calibration events** are historic simulations.
+                - **Stochastic events** are synthetically generated.
+            3. Select data from the map or dropdown.
+            4. After making a selection, statistics and analytics for that selection will be displayed to the right of the map.
                 """
             )
 
@@ -319,7 +316,6 @@ def single_event():
         ],
         index=0,
     )
-    st.sidebar.markdown("---")
 
     if st.session_state["pg_connected"] is False:
         st.session_state["pg_conn"] = create_pg_connection()
@@ -344,7 +340,6 @@ def single_event():
     )
 
     # Create a map legend
-    st.sidebar.markdown("---")
     st.sidebar.markdown("## Map Legend")
     st.sidebar.markdown(
         """
@@ -356,7 +351,6 @@ def single_event():
         - 🟪 BC Lines
         """
     )
-    st.sidebar.markdown("---")
 
     col_about, col_models, col_dams, col_gages = st.columns(4)
     col_ref_lines, col_ref_points, col_bc_lines, col_cogs = st.columns(4)
@@ -433,6 +427,7 @@ def single_event():
                 {
                     "cog_layer": cog,
                     "single_event_focus_feature_type": FeatureType.COG.value,
+                    "single_event_focus_feature_id": cog,
                 }
             ),
             feature_type=None,
