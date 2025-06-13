@@ -399,7 +399,7 @@ def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/model_geometry.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, layer="Basins")
+    return query_db(_conn, query, layer="Models")
 
 
 @st.cache_data
@@ -421,7 +421,7 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
         for row in result:
             file_path = row[0]
             rel_path = file_path[len(s3_path) :]
-            if rel_path.startswith("thumbnail.") and "hdf" in rel_path:
+            if rel_path.startswith("thumbnail."):
                 fs = s3fs.S3FileSystem(anon=False)
                 with fs.open(file_path, "rb") as f:
                     img_bytes = f.read()
