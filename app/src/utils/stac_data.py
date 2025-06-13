@@ -84,7 +84,7 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
     st.gages = prep_gdf(df_gages, "Gages")
 
-    st.basins = query_s3_model_bndry(s3_conn, pilot, "all")
+    st.models = query_s3_model_bndry(s3_conn, pilot, "all")
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
