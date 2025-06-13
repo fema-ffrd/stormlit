@@ -219,7 +219,7 @@ def map_popover(
                 item_id = get_item_id(item)
                 current_feature_id = st.session_state.get(
                     "single_event_focus_feature_id"
-                )      
+                )
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
                 button_key = f"btn_{item_id}_{idx}"
