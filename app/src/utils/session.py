@@ -44,7 +44,7 @@ def init_session_state():
     st.session_state["model_qc_results"] = None
     st.session_state["model_qc_status"] = True
 
-    st.basins = None
+    st.models = None
     st.reservoirs = None
     st.fmap = None
     st.map_output = None
