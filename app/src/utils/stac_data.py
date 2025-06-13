@@ -1,11 +1,17 @@
 import os
 import geopandas as gpd
-import pandas as pd
 import streamlit as st
 import requests
 import json
 from PIL import Image
 from io import BytesIO
+
+from db.pull import (
+    query_s3_ref_points,
+    query_s3_ref_lines,
+    query_s3_bc_lines,
+    query_s3_model_bndry,
+)
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
 srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
@@ -44,20 +50,25 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def init_pilot(pilot: str):
+def init_pilot(pg_conn, s3_conn, pilot: str):
     """
     Initialize the map data for the selected pilot study
+
+    Parameters
+    ----------
+    pg_conn: duckdb.DuckDBPyConnection
+        The connection to the PostgreSQL database
+    s3_conn: duckdb.DuckDBPyConnection
+        The connection to the S3 account
+    pilot: str
+        The name of the pilot study to initialize data for
     """
-    if pilot == "Trinity":
-        st.pilot_base_url = "https://trinity-pilot.s3.amazonaws.com/stac/prod-support"
+    if pilot == "trinity-pilot":
+        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/prod-support"
         ## TODO: Need to add local data to a STAC catalog
         st.pilot_layers = {
-            "Basins": os.path.join(assetsDir, "basins.geojson"),
             "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
             "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
-            "Storms": f"{st.pilot_base_url}/storms/72hr-events/storms.geojson",
-            "Reference Lines": os.path.join(assetsDir, "ref_lines.geojson"),
-            "Reference Points": os.path.join(assetsDir, "ref_pts.geojson"),
         }
         st.cog_layers = {
             "Bedias Creek": "s3://trinity-pilot/stac/prod-support/models/testing/bediascreek-depth-max-aug2017.cog.tif",
@@ -67,24 +78,16 @@ def init_pilot(pilot: str):
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
-    df_basins = gpd.read_file(st.pilot_layers["Basins"])
-    st.basins = prep_gdf(df_basins, "Basins")
-
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
     st.dams = prep_gdf(df_dams, "Dams")
 
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
     st.gages = prep_gdf(df_gages, "Gages")
 
-    df_storms = gpd.read_file(st.pilot_layers["Storms"])
-    df_storms["rank"] = df_storms["rank"].astype(int)
-    st.storms = prep_gdf(df_storms, "Storms")
-
-    df_ref_lines = gpd.read_file(st.pilot_layers["Reference Lines"])
-    st.ref_lines = prep_gdf(df_ref_lines, "Reference Lines")
-
-    df_ref_points = gpd.read_file(st.pilot_layers["Reference Points"])
-    st.ref_points = prep_gdf(df_ref_points, "Reference Points")
+    st.models = query_s3_model_bndry(s3_conn, pilot, "all")
+    st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
+    st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
+    st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
 
 
 def define_gage_data(gage_id: str):
@@ -139,7 +142,7 @@ def get_stac_img(plot_url: str):
     """
     response = requests.get(plot_url)
     if response.status_code == 200:
-        img = Image.open(BytesIO(response.content))
+        img = Image.open(BytesIO(response.content)).copy()
         return True, img
     else:
         return False, plot_url
@@ -167,50 +170,3 @@ def get_stac_meta(url: str):
         return True, data
     else:
         return False, url
-
-
-@st.cache_data
-def get_ref_line_ts(ref_line_id: str):
-    """
-    Get the time series data for a reference line
-
-    Parameters
-    ----------
-    ref_line_id: str
-        The ID of the reference line to get the time series data for
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing the time series data for the reference line
-    """
-    ## TODO: Need to add local data to a STAC catalog
-    st.session_state["assets"] = assetsDir
-    file_path = os.path.join(assetsDir, "ref_lines.parquet")
-    ts = pd.read_parquet(
-        file_path, engine="pyarrow", filters=[("id", "=", ref_line_id)]
-    )
-    if "time" in ts.columns:
-        ts["time"] = pd.to_datetime(ts["time"])
-    return ts
-
-
-@st.cache_data
-def get_ref_pt_ts(ref_pt_id: str):
-    """
-    Get the time series data for a reference point
-
-    Parameters
-    ----------
-    ref_pt_id: str
-        The ID of the reference point to get the time series data for
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing the time series data for the reference point
-    """
-    ## TODO: Need to add local data to a STAC catalog
-    file_path = os.path.join(assetsDir, "ref_pts.parquet")
-    ts = pd.read_parquet(file_path, engine="pyarrow", filters=[("id", "=", ref_pt_id)])
-    if "time" in ts.columns:
-        ts["time"] = pd.to_datetime(ts["time"])
-    return ts

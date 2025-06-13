@@ -28,7 +28,7 @@ def create_pg_connection():
     a connection to the pgAdmin database.
 
     Returns:
-        DuckDB connection object: A connection object representing the connection to the PostgreSQL server.
+        DuckDB connection object
     """
     conn = duckdb.connect()
     conn.execute("INSTALL postgres; LOAD postgres;")
@@ -45,7 +45,7 @@ def create_s3_connection():
     to an S3 account.
 
     Returns:
-        DuckDB connection object: A connection object representing the connection to the S3 bucket.
+        DuckDB connection object
     """
     conn = duckdb.connect()
     conn.execute("INSTALL 'httpfs'")
