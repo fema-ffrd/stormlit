@@ -76,13 +76,14 @@ def identify_gage_id(ref_id: str):
 
 
 class FeatureType(Enum):
-    BASIN = "Basin"
+    MODEL = "Model"
     GAGE = "Gage"
     DAM = "Dam"
     REFERENCE_LINE = "Reference Line"
     REFERENCE_POINT = "Reference Point"
     BC_LINE = "BC Line"
     COG = "COG"
+    CALIBRATION_EVENT = "Calibration Event"
 
 
 def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator":
@@ -144,7 +145,7 @@ def focus_feature(
     item_label: str
         The label of the item.
     feature_type: FeatureType
-        The type of feature (Basin, Gage, Dam, Reference Line, Reference Point, BC Line)
+        The type of feature (Model, Gage, Dam, Reference Line, Reference Point, BC Line)
     map_click: bool
         Whether the focus was triggered by a map click or a button click.
     """
@@ -158,6 +159,11 @@ def focus_feature(
         bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
     else:
         bbox = None
+
+    # if model is in item, set model_id in session state
+    if "model" in item:
+        st.session_state["model_id"] = item["model"]
+        logger.debug(f"Model ID set to: {st.session_state['model_id']}")
 
     st.session_state.update(
         {
@@ -214,8 +220,6 @@ def map_popover(
                 current_feature_id = st.session_state.get(
                     "single_event_focus_feature_id"
                 )
-                if get_model_id:
-                    st.session_state["model_id"] = get_model_id(item)
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
                 button_key = f"btn_{item_id}_{idx}"
@@ -300,7 +304,7 @@ def single_event():
     if "session_id" not in st.session_state:
         init_session_state()
 
-    st.title("Single Event")
+    st.title("Single Event Viewer")
 
     # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")
@@ -339,41 +343,6 @@ def single_event():
         index=0,
     )
 
-    if st.session_state["event_type"] == "Calibration Events":
-        if st.session_state["model_id"] is None:
-            st.sidebar.warning(
-                "Please select a reference line or point from the map or drop down list"
-            )
-        else:
-            calibration_events = query_s3_event_list(
-                st.session_state["s3_conn"],
-                st.session_state["pilot"],
-                st.session_state["model_id"],
-            )
-            st.session_state["calibration_event"] = st.sidebar.selectbox(
-                "Select from",
-                calibration_events,
-                index=None,
-            )
-            if st.session_state["calibration_event"] is None:
-                st.sidebar.warning(
-                    "Please select a calibration event to view time series data."
-                )
-            else:
-                st.session_state["ready_to_plot_ts"] = True
-    else:
-        st.session_state["stochastic_event"] = st.sidebar.selectbox(
-            "Select from",
-            ["Stochastic Event 1", "Stochastic Event 2", "Stochastic Event 3"],
-            index=None,
-        )
-        if st.session_state["stochastic_event"] is None:
-            st.sidebar.warning(
-                "Please select a stochastic event to view time series data."
-            )
-        else:
-            st.session_state["ready_to_plot_ts"] = True
-
     # Create a map legend
     st.sidebar.markdown("---")
     st.sidebar.markdown("## Map Legend")
@@ -383,26 +352,26 @@ def single_event():
         - 🟧 Reference Points
         - 🟨 Reference Lines
         - 🟩 Gages
-        - 🟦 Basins
+        - 🟦 Models
         - 🟪 BC Lines
         """
     )
     st.sidebar.markdown("---")
 
-    col_about, col_basins, col_dams, col_gages = st.columns(4)
+    col_about, col_models, col_dams, col_gages = st.columns(4)
     col_ref_lines, col_ref_points, col_bc_lines, col_cogs = st.columns(4)
 
     with col_about:
         about_popover()
 
-    with col_basins:
+    with col_models:
         map_popover(
-            "Basins",
-            st.basins.to_dict("records"),
-            lambda basin: f"{basin['model']}",
-            get_item_id=lambda basin: basin["model"],
-            feature_type=FeatureType.BASIN,
-            image_path=os.path.join(assetsDir, "basin_icon.jpg"),
+            "Models",
+            st.models.to_dict("records"),
+            lambda model: f"{model['model']}",
+            get_item_id=lambda model: model["model"],
+            feature_type=FeatureType.MODEL,
+            image_path=os.path.join(assetsDir, "model_icon.jpg"),
         )
     with col_dams:
         map_popover(
@@ -497,7 +466,7 @@ def single_event():
             # Fit the map to the bounding box of a selected polygon or line feature
             bbox = st.session_state.get("single_event_focus_bounding_box")
             if bbox and feature_type in [
-                FeatureType.BASIN,
+                FeatureType.MODEL,
                 FeatureType.REFERENCE_LINE,
                 FeatureType.BC_LINE,
             ]:
@@ -526,9 +495,6 @@ def single_event():
                     ],
                 )
             else:
-                bounds = st.basins.total_bounds
-                bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
-                st.fmap.fit_bounds(bbox)
                 st.map_output = st_folium(
                     st.fmap,
                     height=500,
@@ -559,7 +525,7 @@ def single_event():
             elif feature_type == FeatureType.GAGE:
                 feature_id = properties["site_no"]
                 feature_label = feature_id
-            elif feature_type == FeatureType.BASIN:
+            elif feature_type == FeatureType.MODEL:
                 feature_id = properties["model"]
                 feature_label = feature_id
         else:
@@ -573,22 +539,9 @@ def single_event():
 
     # Feature Info
     with info_col:
-        if feature_type == FeatureType.BASIN:
-            st.markdown(f"### Basin: {feature_label}")
-            st.button(
-                "Zoom to Basin",
-                key="focus_basin",
-                on_click=focus_feature,
-                args=(
-                    st.basins.loc[st.basins["model"] == feature_label].to_dict(
-                        "records"
-                    )[0],
-                    feature_id,
-                    feature_label,
-                    FeatureType.BASIN,
-                    True,
-                ),
-            )
+        if feature_type == FeatureType.MODEL:
+            st.session_state["model_id"] = feature_label
+            st.markdown(f"### Model: `{feature_label}`")
             model_thumbnail_img = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
@@ -601,22 +554,10 @@ def single_event():
                     use_container_width=False,
                 )
             else:
-                st.warning("No thumbnail available for this basin.")
+                st.warning("No thumbnail available for this model.")
 
         elif feature_type == FeatureType.DAM:
-            info_col.markdown(f"### Dam: {feature_label}")
-            st.button(
-                "Zoom to Dam",
-                key="focus_dam",
-                on_click=focus_feature,
-                args=(
-                    st.dams.loc[st.dams["id"] == feature_label].to_dict("records")[0],
-                    feature_id,
-                    feature_label,
-                    FeatureType.DAM,
-                    True,
-                ),
-            )
+            info_col.markdown(f"### Dam: `{feature_label}`")
             dam_data = define_dam_data(feature_id)
             dam_meta_url = dam_data["Metadata"]
             dam_meta_status_ok, dam_meta = get_stac_meta(dam_meta_url)
@@ -640,20 +581,6 @@ def single_event():
 
         elif feature_type == FeatureType.GAGE:
             info_col.markdown(f"### Gage: `{feature_label}`")
-            st.button(
-                "Zoom to Gage",
-                key="focus_gage",
-                on_click=focus_feature,
-                args=(
-                    st.gages.loc[st.gages["site_no"] == feature_label].to_dict(
-                        "records"
-                    )[0],
-                    feature_label,
-                    feature_label,
-                    FeatureType.GAGE,
-                    True,
-                ),
-            )
             gage_data = define_gage_data(feature_id)
             gage_meta_url = gage_data["Metadata"]
             gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
@@ -687,20 +614,30 @@ def single_event():
             feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Line: `{feature_label}`")
-            st.button(
-                "Zoom to Reference Line",
-                key="focus_ref_line",
-                on_click=focus_feature,
-                args=(
-                    st.ref_lines.loc[st.ref_lines["id"] == feature_label].to_dict(
-                        "records"
-                    )[0],
-                    feature_label,
-                    feature_label,
-                    FeatureType.REFERENCE_LINE,
-                    True,
-                ),
-            )
+            if st.session_state["event_type"] == "Calibration Events":
+                if st.session_state["model_id"] is None:
+                    st.warning(
+                        "Please select a model object from the map or drop down list"
+                    )
+                else:
+                    calibration_events = query_s3_event_list(
+                        st.session_state["s3_conn"],
+                        st.session_state["pilot"],
+                        st.session_state["model_id"],
+                    )
+                    st.session_state["calibration_event"] = st.selectbox(
+                        "Select from",
+                        calibration_events,
+                        index=None,
+                    )
+                    if st.session_state["calibration_event"] is None:
+                        st.warning(
+                            "Please select a calibration event to view time series data."
+                        )
+                    else:
+                        st.session_state["ready_to_plot_ts"] = True
+            else:
+                st.write("Coming soon...")
             if (
                 st.session_state["ready_to_plot_ts"] is True
                 and st.session_state["calibration_event"] is not None
@@ -769,20 +706,30 @@ def single_event():
         elif feature_type == FeatureType.REFERENCE_POINT:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### Reference Point: `{feature_label}`")
-            st.button(
-                "Zoom to Reference Point",
-                key="focus_ref_point",
-                on_click=focus_feature,
-                args=(
-                    st.ref_points.loc[st.ref_points["id"] == feature_label].to_dict(
-                        "records"
-                    )[0],
-                    feature_label,
-                    feature_label,
-                    FeatureType.REFERENCE_POINT,
-                    True,
-                ),
-            )
+            if st.session_state["event_type"] == "Calibration Events":
+                if st.session_state["model_id"] is None:
+                    st.warning(
+                        "Please select a model object from the map or drop down list"
+                    )
+                else:
+                    calibration_events = query_s3_event_list(
+                        st.session_state["s3_conn"],
+                        st.session_state["pilot"],
+                        st.session_state["model_id"],
+                    )
+                    st.session_state["calibration_event"] = st.selectbox(
+                        "Select from",
+                        calibration_events,
+                        index=None,
+                    )
+                    if st.session_state["calibration_event"] is None:
+                        st.warning(
+                            "Please select a calibration event to view time series data."
+                        )
+                    else:
+                        st.session_state["ready_to_plot_ts"] = True
+            else:
+                st.write("Coming soon...")
             if (
                 st.session_state["ready_to_plot_ts"] is True
                 and st.session_state["calibration_event"] is not None
@@ -818,20 +765,30 @@ def single_event():
         elif feature_type == FeatureType.BC_LINE:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"### BC Line: `{feature_label}`")
-            st.button(
-                "Zoom to BC Line",
-                key="focus_bc_line",
-                on_click=focus_feature,
-                args=(
-                    st.bc_lines.loc[st.bc_lines["id"] == feature_label].to_dict(
-                        "records"
-                    )[0],
-                    feature_label,
-                    feature_label,
-                    FeatureType.BC_LINE,
-                    True,
-                ),
-            )
+            if st.session_state["event_type"] == "Calibration Events":
+                if st.session_state["model_id"] is None:
+                    st.warning(
+                        "Please select a model object from the map or drop down list"
+                    )
+                else:
+                    calibration_events = query_s3_event_list(
+                        st.session_state["s3_conn"],
+                        st.session_state["pilot"],
+                        st.session_state["model_id"],
+                    )
+                    st.session_state["calibration_event"] = st.selectbox(
+                        "Select from",
+                        calibration_events,
+                        index=None,
+                    )
+                    if st.session_state["calibration_event"] is None:
+                        st.warning(
+                            "Please select a calibration event to view time series data."
+                        )
+                    else:
+                        st.session_state["ready_to_plot_ts"] = True
+            else:
+                st.write("Coming soon...")
             if (
                 st.session_state["ready_to_plot_ts"] is True
                 and st.session_state["calibration_event"] is not None
@@ -895,7 +852,7 @@ def single_event():
         else:
             st.markdown("### Single Event View")
             st.markdown(
-                "Select a Basin, Gage, Dam, Boundary Condition (BC) Line, Raster Layer, Reference Line, or Reference Point for details."
+                "Select a Model, Gage, Dam, Boundary Condition (BC) Line, Raster Layer, Reference Line, or Reference Point for details."
             )
 
     # Session state
