@@ -46,7 +46,7 @@ def add_polygons(
     folium.GeoJson(
         gdf,
         name=layer_name,
-        zoom_on_click=False,
+        zoom_on_click=True,
         style_function=style_function,
         highlight_function=highlight_function,
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
@@ -102,7 +102,7 @@ def add_points(
     ).add_to(fmap)
 
 
-def style_basins(feature):
+def style_models(feature):
     return {"fillColor": "#1e90ff"}
 
 
@@ -129,8 +129,8 @@ def get_map_pos(map_layer: str, layer_field: str):
     tuple
         A tuple containing the latitude, longitude, and zoom level
     """
-    if map_layer == "Basins":
-        c_df = st.basins
+    if map_layer == "Models":
+        c_df = st.models
         c_lat, c_lon = (
             c_df[c_df["NAME"] == layer_field]["lat"].mean(),
             c_df[c_df["NAME"] == layer_field]["lon"].mean(),
@@ -151,7 +151,7 @@ def get_map_pos(map_layer: str, layer_field: str):
         )
         c_zoom = 14
     else:
-        c_df = st.basins
+        c_df = st.models
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
         c_zoom = 8
     return c_lat, c_lon, c_zoom
@@ -203,8 +203,8 @@ def prep_fmap(
     ).add_to(m)
 
     # Add the selected layers to the map
-    if st.basins is not None:
-        add_polygons(m, st.basins, "Basins", ["model"], style_basins)
+    if st.models is not None:
+        add_polygons(m, st.models, "Models", ["model"], style_models)
     if st.dams is not None:
         add_points(m, st.dams, "Dams", ["id"], "#e32636")
     if st.gages is not None:
