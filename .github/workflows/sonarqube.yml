@@ -47,3 +47,28 @@ jobs:
             -Dsonar.host.url=http://localhost:9000 \
             -Dsonar.token=$SONAR_TOKEN \
             -Dsonar.exclusions="**/*.yml,**/*.yaml,**/*.json,**/node_modules/**,**/cdktf.out/**"
+      
+      - name: Get SonarQube Results
+        run: |
+          # Wait for analysis to be processed
+          sleep 10
+          
+          echo "## SonarQube Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get project measures
+          MEASURES=$(curl -s -u admin:admin "http://localhost:9000/api/measures/component?component=stormlit&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,sqale_rating,reliability_rating,security_rating")
+          
+          echo "### Key Metrics:" >> $GITHUB_STEP_SUMMARY
+          echo "$MEASURES" | jq -r '.component.measures[] | "- **\(.metric)**: \(.value // "N/A")"' >> $GITHUB_STEP_SUMMARY
+          
+          # Get issues summary
+          ISSUES=$(curl -s -u admin:admin "http://localhost:9000/api/issues/search?componentKeys=stormlit&facets=severities,types")
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Issues by Severity:" >> $GITHUB_STEP_SUMMARY
+          echo "$ISSUES" | jq -r '.facets[] | select(.property == "severities") | .values[] | "- **\(.val)**: \(.count)"' >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Issues by Type:" >> $GITHUB_STEP_SUMMARY
+          echo "$ISSUES" | jq -r '.facets[] | select(.property == "types") | .values[] | "- **\(.val)**: \(.count)"' >> $GITHUB_STEP_SUMMARY
