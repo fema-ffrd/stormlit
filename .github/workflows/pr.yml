@@ -5,12 +5,18 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: read
     uses: ./.github/workflows/test.yml
 
   sonarqube:
+    permissions:
+      contents: read
     uses: ./.github/workflows/sonarqube.yml
 
   synth:
+    permissions:
+      contents: read
     uses: ./.github/workflows/synth.yml
 
   build:

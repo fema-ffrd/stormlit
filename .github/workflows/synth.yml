@@ -1,5 +1,8 @@
 name: Synth Terraform
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
 
