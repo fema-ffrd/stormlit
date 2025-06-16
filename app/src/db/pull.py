@@ -192,8 +192,9 @@ def query_s3_event_list(_conn, pilot: str, model_id: str) -> list:
                     event_names.add(event)
         return sorted(event_names)
     except Exception as e:
-        logger.error(f"Failed to list S3 folders: {e}")
-        return []
+        msg = f"DuckDB S3 Error: {e}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from e
 
 
 @st.cache_data
@@ -427,7 +428,9 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
                     img_bytes = f.read()
                     return Image.open(io.BytesIO(img_bytes)).copy()
     except Exception as e:
-        logger.error(f"Failed to list or read thumbnail files: {e}")
+        msg = f"DuckDB S3 Error: {e}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from e
 
 
 # if __name__ == "__main__":
