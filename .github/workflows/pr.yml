@@ -7,6 +7,9 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
 
+  sonarqube:
+    uses: ./.github/workflows/sonarqube.yml
+
   synth:
     uses: ./.github/workflows/synth.yml
 

@@ -1,0 +1,36 @@
+name: SonarQube Analysis
+
+on:
+  workflow_call:
+
+jobs:
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+        env:
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Wait for SonarQube
+        run: |
+          timeout 300 bash -c 'until curl -s http://localhost:9000/api/system/status | grep -q "UP"; do sleep 5; done'
+      
+      - name: Setup SonarQube Scanner
+        uses: warchant/setup-sonar-scanner@v8
+      
+      - name: Run SonarQube Analysis
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=stormlit \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.token=sqa_$(echo -n "admin:admin" | base64) \
+            -Dsonar.exclusions="**/*.yml,**/*.yaml,**/*.json,**/node_modules/**,**/cdktf.out/**"

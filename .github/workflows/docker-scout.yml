@@ -1,0 +1,29 @@
+name: Docker Scout Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        required: true
+        description: 'Docker image tag to scan'
+
+jobs:
+  docker-scout:
+    name: Docker Scout Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Docker Scout CVE scan
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ inputs.image_tag }}
+          only-severities: critical,high
+          summary: true

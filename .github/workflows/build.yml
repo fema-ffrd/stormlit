@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
 
     steps:
       - name: Checkout repository
@@ -56,6 +58,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: ./app
@@ -65,3 +68,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  docker-scout:
+    needs: build-streamlit-image
+    if: always()
+    uses: ./.github/workflows/docker-scout.yml
+    with:
+      image_tag: ${{ needs.build-streamlit-image.outputs.image_tag || format('{0}/{1}:latest', env.REGISTRY, env.IMAGE_NAME) }}
+    secrets: inherit
