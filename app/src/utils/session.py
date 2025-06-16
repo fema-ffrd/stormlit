@@ -44,16 +44,22 @@ def init_session_state():
     st.session_state["model_qc_results"] = None
     st.session_state["model_qc_status"] = True
 
-    st.models = None
-    st.reservoirs = None
-    st.fmap = None
-    st.map_output = None
-    st.gages = None
     st.dams = None
-    st.bc_lines = None
     st.ref_lines = None
     st.ref_points = None
-    st.storms = None
+    st.gages = None
+    st.models = None
+    st.bc_lines = None
+
+    st.session_state["dams_filtered"] = None
+    st.session_state["ref_points_filtered"] = None
+    st.session_state["ref_lines_filtered"] = None
+    st.session_state["gages_filtered"] = None
+    st.session_state["models_filtered"] = None
+    st.session_state["bc_lines_filtered"] = None
+
+    st.fmap = None
+    st.map_output = None
     st.pilot_layers = None
     st.pilot_base_url = None
     st.sel_map_obj = None
