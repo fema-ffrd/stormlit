@@ -25,6 +25,7 @@ import os
 import re
 import streamlit as st
 import pandas as pd
+import geopandas as gpd
 from streamlit.errors import StreamlitDuplicateElementKey
 from dotenv import load_dotenv
 from streamlit_folium import st_folium
@@ -163,7 +164,6 @@ def focus_feature(
     # if model is in item, set model_id in session state
     if "model" in item:
         st.session_state["model_id"] = item["model"]
-        logger.debug(f"Model ID set to: {st.session_state['model_id']}")
 
     st.session_state.update(
         {
@@ -362,100 +362,9 @@ def single_event():
         index=0,
     )
 
-    # Create a map legend
-    st.sidebar.markdown("## Map Legend")
-    st.sidebar.markdown(
-        """
-        - 🟥 Dams
-        - 🟧 Reference Points
-        - 🟨 Reference Lines
-        - 🟩 Gages
-        - 🟦 Models
-        - 🟪 BC Lines
-        """
-    )
-
-    col_about, col_dams, col_ref_lines, col_ref_points = st.columns(4)
-    col_gages, col_models, col_bc_lines, col_cogs = st.columns(4)
-
-    with col_about:
-        about_popover()
-    with col_dams:
-        map_popover(
-            "Dams",
-            st.dams.to_dict("records"),
-            lambda dam: dam["id"],
-            get_item_id=lambda dam: dam["id"],
-            feature_type=FeatureType.DAM,
-            download_url=st.pilot_layers["Dams"],
-            image_path=os.path.join(assetsDir, "dam_icon.jpg"),
-        )
-    with col_ref_lines:
-        map_popover(
-            "Reference Lines",
-            st.ref_lines.to_dict("records"),
-            lambda ref_line: ref_line["id"],
-            get_item_id=lambda ref_line: ref_line["id"],
-            get_model_id=lambda ref_line: ref_line["model"],
-            feature_type=FeatureType.REFERENCE_LINE,
-            image_path=os.path.join(assetsDir, "ref_line_icon.png"),
-        )
-    with col_ref_points:
-        map_popover(
-            "Reference Points",
-            st.ref_points.to_dict("records"),
-            lambda ref_point: ref_point["id"],
-            get_item_id=lambda ref_point: ref_point["id"],
-            get_model_id=lambda ref_point: ref_point["model"],
-            feature_type=FeatureType.REFERENCE_POINT,
-            image_path=os.path.join(assetsDir, "ref_point_icon.png"),
-        )
-    with col_gages:
-        map_popover(
-            "Gages",
-            st.gages.to_dict("records"),
-            lambda gage: gage["site_no"],
-            get_item_id=lambda gage: gage["site_no"],
-            feature_type=FeatureType.GAGE,
-            download_url=st.pilot_layers["Gages"],
-            image_path=os.path.join(assetsDir, "gage_icon.png"),
-        )
-    with col_models:
-        map_popover(
-            "Models",
-            st.models.to_dict("records"),
-            lambda model: f"{model['model']}",
-            get_item_id=lambda model: model["model"],
-            feature_type=FeatureType.MODEL,
-            image_path=os.path.join(assetsDir, "model_icon.jpg"),
-        )
-    with col_bc_lines:
-        map_popover(
-            "BC Lines",
-            st.bc_lines.to_dict("records"),
-            lambda bc_line: bc_line["id"],
-            get_item_id=lambda bc_line: bc_line["id"],
-            get_model_id=lambda bc_line: bc_line["model"],
-            feature_type=FeatureType.BC_LINE,
-            image_path=os.path.join(assetsDir, "bc_line_icon.jpg"),
-        )
-    with col_cogs:
-        map_popover(
-            "Raster Layers",
-            list(st.cog_layers.keys()),
-            lambda cog: cog,
-            get_item_id=lambda cog: cog,
-            callback=lambda cog: st.session_state.update(
-                {
-                    "cog_layer": cog,
-                    "single_event_focus_feature_type": FeatureType.COG.value,
-                    "single_event_focus_feature_id": cog,
-                }
-            ),
-            feature_type=None,
-            image_path=os.path.join(assetsDir, "cog_icon.png"),
-        )
-
+    dropdown_container = st.container(key="dropdown_container",)
+    col_about, col_dams, col_ref_lines, col_ref_points = dropdown_container.columns(4)
+    col_gages, col_models, col_bc_lines, col_cogs = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
 
     # Map Position
@@ -523,6 +432,7 @@ def single_event():
     # Handle when a feature is selected from the map
     last_active_drawing = st.map_output.get("last_active_drawing", None)
     if last_active_drawing:
+
         logger.debug("Map feature selected")
         properties = last_active_drawing.get("properties", {})
         layer = properties.get("layer")
@@ -871,6 +781,133 @@ def single_event():
             st.markdown(
                 "Select a Model, Gage, Dam, Boundary Condition (BC) Line, Raster Layer, Reference Line, or Reference Point for details."
             )
+
+    with dropdown_container:
+        if st.session_state["model_id"] is None:
+            # Default stats for entire pilot study
+            num_dams = len(st.dams)
+            num_ref_points = len(st.ref_points)
+            num_ref_lines = len(st.ref_lines)
+            num_gages = len(st.gages)
+            num_models = len(st.models)
+            num_bc_lines = len(st.bc_lines)
+        else:
+            # Filter datasets based on selected model
+            st.session_state["dams_filtered"] = gpd.sjoin(
+                st.dams,
+                st.models[st.models["model"] == st.session_state["model_id"]],
+                how="inner",
+                predicate="intersects",
+            )
+            num_dams = len(st.session_state["dams_filtered"])
+            st.session_state["ref_points_filtered"] = st.ref_points[st.ref_points["model"] == st.session_state["model_id"]]
+            num_ref_points = len(st.session_state["ref_points_filtered"])
+            st.session_state["ref_lines_filtered"] = st.ref_lines[st.ref_lines["model"] == st.session_state["model_id"]]
+            num_ref_lines =  len(st.session_state["ref_lines_filtered"])
+            st.session_state["gages_filtered"] = gpd.sjoin(
+                st.gages,
+                st.models[st.models["model"] == st.session_state["model_id"]],
+                how="inner",
+                predicate="intersects",
+            )
+            num_gages = len(st.session_state["gages_filtered"])
+            num_models = 1
+            st.session_state["bc_lines_filtered"] = st.bc_lines[
+                st.bc_lines["model"] == st.session_state["model_id"]
+            ]
+            num_bc_lines = len(st.session_state["bc_lines_filtered"])
+
+    with col_about:
+        about_popover()
+    with col_dams:
+        map_popover(
+            "Dams",
+            st.dams.to_dict("records") if st.session_state["dams_filtered"] is None else st.session_state["dams_filtered"].to_dict("records"),
+            lambda dam: dam["id"],
+            get_item_id=lambda dam: dam["id"],
+            feature_type=FeatureType.DAM,
+            download_url=st.pilot_layers["Dams"],
+            image_path=os.path.join(assetsDir, "dam_icon.jpg"),
+        )
+        
+    with col_ref_lines:
+        map_popover(
+            "Reference Lines",
+            st.ref_lines.to_dict("records") if st.session_state["ref_lines_filtered"] is None else st.session_state["ref_lines_filtered"].to_dict("records"),
+            lambda ref_line: ref_line["id"],
+            get_item_id=lambda ref_line: ref_line["id"],
+            get_model_id=lambda ref_line: ref_line["model"],
+            feature_type=FeatureType.REFERENCE_LINE,
+            image_path=os.path.join(assetsDir, "ref_line_icon.png"),
+        )
+    with col_ref_points:
+        map_popover(
+            "Reference Points",
+            st.ref_points.to_dict("records") if st.session_state["ref_points_filtered"] is None else st.session_state["ref_points_filtered"].to_dict("records"),
+            lambda ref_point: ref_point["id"],
+            get_item_id=lambda ref_point: ref_point["id"],
+            get_model_id=lambda ref_point: ref_point["model"],
+            feature_type=FeatureType.REFERENCE_POINT,
+            image_path=os.path.join(assetsDir, "ref_point_icon.png"),
+        )
+    with col_gages:
+        map_popover(
+            "Gages",
+            st.gages.to_dict("records") if st.session_state["gages_filtered"] is None else st.session_state["gages_filtered"].to_dict("records"),
+            lambda gage: gage["site_no"],
+            get_item_id=lambda gage: gage["site_no"],
+            feature_type=FeatureType.GAGE,
+            download_url=st.pilot_layers["Gages"],
+            image_path=os.path.join(assetsDir, "gage_icon.png"),
+        )
+    with col_models:
+        map_popover(
+            "Models",
+            st.models.to_dict("records"),
+            lambda model: f"{model['model']}",
+            get_item_id=lambda model: model["model"],
+            feature_type=FeatureType.MODEL,
+            image_path=os.path.join(assetsDir, "model_icon.jpg"),
+        )
+    with col_bc_lines:
+        map_popover(
+            "BC Lines",
+            st.bc_lines.to_dict("records") if st.session_state["bc_lines_filtered"] is None else st.session_state["bc_lines_filtered"].to_dict("records"),
+            lambda bc_line: bc_line["id"],
+            get_item_id=lambda bc_line: bc_line["id"],
+            get_model_id=lambda bc_line: bc_line["model"],
+            feature_type=FeatureType.BC_LINE,
+            image_path=os.path.join(assetsDir, "bc_line_icon.jpg"),
+        )
+    with col_cogs:
+        map_popover(
+            "Raster Layers",
+            list(st.cog_layers.keys()),
+            lambda cog: cog,
+            get_item_id=lambda cog: cog,
+            callback=lambda cog: st.session_state.update(
+                {
+                    "cog_layer": cog,
+                    "single_event_focus_feature_type": FeatureType.COG.value,
+                    "single_event_focus_feature_id": cog,
+                }
+            ),
+            feature_type=None,
+            image_path=os.path.join(assetsDir, "cog_icon.png"),
+        )
+
+    # Create a map legend
+    st.sidebar.markdown("## Map Legend")
+    st.sidebar.markdown(
+        f"""
+        - 🟥 {num_dams} Dams
+        - 🟧 {num_ref_points} Reference Points
+        - 🟨 {num_ref_lines} Reference Lines
+        - 🟩 {num_gages} Gages
+        - 🟦 {num_models} Models
+        - 🟪 {num_bc_lines} BC Lines
+        """
+    )
 
     # Session state
     with st.expander("Session State"):
