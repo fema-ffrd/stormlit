@@ -185,6 +185,7 @@ def map_popover(
     items: List[dict],
     get_item_label: Callable,
     get_item_id: Callable,
+    color: str = "#f0f0f0",
     get_model_id: Optional[Callable] = None,
     callback: Optional[Callable] = None,
     feature_type: Optional[FeatureType] = None,
@@ -193,19 +194,43 @@ def map_popover(
 ):
     """
     Create a popover with buttons for each item in the button_data list.
-    If image_path is provided, display the image next to the popover label using stylable_container.
+
+    When clicked, each button will update the session state with the
+    corresponding item's latitude and longitude, and zoom level.
+    Parameters
+    ----------
+    label: str
+        The label for the popover
+    items: list
+        A list of dictionaries containing the button data
+    get_item_label: Callable
+        A function that takes an item and returns the label for the button
+    get_item_id: Callable
+        A function that takes an item and returns the ID for the button
+    get_model_id: Optional[Callable]
+        A function that takes an item and returns the model ID for the button
+    callback: Optional[Callable]
+        A function to be called when the button is clicked. Accepts the item as an argument.
+    feature_type: Optional[FeatureType]
+        The type of feature (Basin, Gage, Dam, Reference Line, Reference Point)
+    download_url: Optional[str]
+        A URL to download data related to the items
+    image_path: Optional[str]
+        A path to an image to display in the popover
+    Returns
+    -------
+    None
+
     """
     with stylable_container(
         key=f"popover_container_{label}",
-        css_styles="""
-            button {
-                width: 200px;
-                height: 50px;
-                background-color: white;
+        css_styles=f"""
+            button {{
+                background-color: {color};
                 color: black;
                 border-radius: 5px;
                 white-space: nowrap;
-            }
+            }}
         """,
     ):
         with st.popover(label, use_container_width=True):
@@ -266,21 +291,19 @@ def map_popover(
     st.map_output = None
 
 
-def about_popover():
+def about_popover(color: str = "#f0f0f0"):
     """
     Render the styled About popover section.
     """
     with stylable_container(
         key="popover_container_about",
-        css_styles="""
-            button {
-                width: 200px;
-                height: 50px;
-                background-color: white;
+        css_styles=f"""
+            button {{
+                background-color: {color};
                 color: black;
                 border-radius: 5px;
                 white-space: nowrap;
-            }
+            }}
         """,
     ):
         with st.popover("About this App ℹ️", use_container_width=True):
@@ -352,21 +375,11 @@ def single_event():
         """
     )
 
-    col_about, col_models, col_dams, col_gages = st.columns(4)
-    col_ref_lines, col_ref_points, col_bc_lines, col_cogs = st.columns(4)
+    col_about, col_dams, col_ref_lines, col_ref_points = st.columns(4)
+    col_gages, col_models, col_bc_lines, col_cogs = st.columns(4)
 
     with col_about:
         about_popover()
-
-    with col_models:
-        map_popover(
-            "Models",
-            st.models.to_dict("records"),
-            lambda model: f"{model['model']}",
-            get_item_id=lambda model: model["model"],
-            feature_type=FeatureType.MODEL,
-            image_path=os.path.join(assetsDir, "model_icon.jpg"),
-        )
     with col_dams:
         map_popover(
             "Dams",
@@ -376,16 +389,6 @@ def single_event():
             feature_type=FeatureType.DAM,
             download_url=st.pilot_layers["Dams"],
             image_path=os.path.join(assetsDir, "dam_icon.jpg"),
-        )
-    with col_gages:
-        map_popover(
-            "Gages",
-            st.gages.to_dict("records"),
-            lambda gage: gage["site_no"],
-            get_item_id=lambda gage: gage["site_no"],
-            feature_type=FeatureType.GAGE,
-            download_url=st.pilot_layers["Gages"],
-            image_path=os.path.join(assetsDir, "gage_icon.png"),
         )
     with col_ref_lines:
         map_popover(
@@ -406,6 +409,25 @@ def single_event():
             get_model_id=lambda ref_point: ref_point["model"],
             feature_type=FeatureType.REFERENCE_POINT,
             image_path=os.path.join(assetsDir, "ref_point_icon.png"),
+        )
+    with col_gages:
+        map_popover(
+            "Gages",
+            st.gages.to_dict("records"),
+            lambda gage: gage["site_no"],
+            get_item_id=lambda gage: gage["site_no"],
+            feature_type=FeatureType.GAGE,
+            download_url=st.pilot_layers["Gages"],
+            image_path=os.path.join(assetsDir, "gage_icon.png"),
+        )
+    with col_models:
+        map_popover(
+            "Models",
+            st.models.to_dict("records"),
+            lambda model: f"{model['model']}",
+            get_item_id=lambda model: model["model"],
+            feature_type=FeatureType.MODEL,
+            image_path=os.path.join(assetsDir, "model_icon.jpg"),
         )
     with col_bc_lines:
         map_popover(
