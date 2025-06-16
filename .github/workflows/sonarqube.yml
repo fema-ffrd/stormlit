@@ -51,24 +51,70 @@ jobs:
       - name: Get SonarQube Results
         run: |
           # Wait for analysis to be processed
-          sleep 10
+          sleep 15
           
           echo "## SonarQube Analysis Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Get project measures
-          MEASURES=$(curl -s -u admin:admin "http://localhost:9000/api/measures/component?component=stormlit&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,sqale_rating,reliability_rating,security_rating")
+          # Check SonarQube status
+          echo "Checking SonarQube status..."
+          STATUS=$(curl -s http://localhost:9000/api/system/status)
+          echo "SonarQube Status: $STATUS"
           
-          echo "### Key Metrics:" >> $GITHUB_STEP_SUMMARY
-          echo "$MEASURES" | jq -r '.component.measures[] | "- **\(.metric)**: \(.value // "N/A")"' >> $GITHUB_STEP_SUMMARY
+          # Get project measures with error handling
+          echo "Fetching project measures..."
+          MEASURES_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -u admin:admin "http://localhost:9000/api/measures/component?component=stormlit&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,sqale_rating,reliability_rating,security_rating")
+          HTTP_CODE=$(echo "$MEASURES_RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+          MEASURES=$(echo "$MEASURES_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
           
-          # Get issues summary
-          ISSUES=$(curl -s -u admin:admin "http://localhost:9000/api/issues/search?componentKeys=stormlit&facets=severities,types")
+          echo "Measures API Response Code: $HTTP_CODE"
+          echo "Measures Response: $MEASURES"
+          
+          if [ "$HTTP_CODE" = "200" ] && [ -n "$MEASURES" ]; then
+            echo "### Key Metrics:" >> $GITHUB_STEP_SUMMARY
+            if echo "$MEASURES" | jq -e '.component.measures' > /dev/null 2>&1; then
+              echo "$MEASURES" | jq -r '.component.measures[] | "- **\(.metric)**: \(.value // "N/A")"' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- No metrics data available" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### Key Metrics:" >> $GITHUB_STEP_SUMMARY
+            echo "- Failed to fetch metrics (HTTP: $HTTP_CODE)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Get issues summary with error handling
+          echo "Fetching issues..."
+          ISSUES_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -u admin:admin "http://localhost:9000/api/issues/search?componentKeys=stormlit&facets=severities,types")
+          ISSUES_HTTP_CODE=$(echo "$ISSUES_RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+          ISSUES=$(echo "$ISSUES_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+          
+          echo "Issues API Response Code: $ISSUES_HTTP_CODE"
+          echo "Issues Response: $ISSUES"
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Issues by Severity:" >> $GITHUB_STEP_SUMMARY
-          echo "$ISSUES" | jq -r '.facets[] | select(.property == "severities") | .values[] | "- **\(.val)**: \(.count)"' >> $GITHUB_STEP_SUMMARY
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Issues by Type:" >> $GITHUB_STEP_SUMMARY
-          echo "$ISSUES" | jq -r '.facets[] | select(.property == "types") | .values[] | "- **\(.val)**: \(.count)"' >> $GITHUB_STEP_SUMMARY
+          if [ "$ISSUES_HTTP_CODE" = "200" ] && [ -n "$ISSUES" ]; then
+            echo "### Issues Summary:" >> $GITHUB_STEP_SUMMARY
+            if echo "$ISSUES" | jq -e '.facets' > /dev/null 2>&1; then
+              SEVERITY_COUNT=$(echo "$ISSUES" | jq -r '.facets[] | select(.property == "severities") | .values[] | "\(.val): \(.count)"' | wc -l)
+              TYPE_COUNT=$(echo "$ISSUES" | jq -r '.facets[] | select(.property == "types") | .values[] | "\(.val): \(.count)"' | wc -l)
+              
+              if [ "$SEVERITY_COUNT" -gt 0 ]; then
+                echo "**By Severity:**" >> $GITHUB_STEP_SUMMARY
+                echo "$ISSUES" | jq -r '.facets[] | select(.property == "severities") | .values[] | "- \(.val): \(.count)"' >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              if [ "$TYPE_COUNT" -gt 0 ]; then
+                echo "**By Type:**" >> $GITHUB_STEP_SUMMARY
+                echo "$ISSUES" | jq -r '.facets[] | select(.property == "types") | .values[] | "- \(.val): \(.count)"' >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              if [ "$SEVERITY_COUNT" -eq 0 ] && [ "$TYPE_COUNT" -eq 0 ]; then
+                echo "- No issues found! ✅" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "- No issues data available" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### Issues Summary:" >> $GITHUB_STEP_SUMMARY
+            echo "- Failed to fetch issues (HTTP: $ISSUES_HTTP_CODE)" >> $GITHUB_STEP_SUMMARY
+          fi
