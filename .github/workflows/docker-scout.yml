@@ -1,5 +1,8 @@
 name: Docker Scout Security Scan
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:

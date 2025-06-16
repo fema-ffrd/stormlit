@@ -72,6 +72,8 @@ jobs:
   docker-scout:
     needs: build-streamlit-image
     if: always()
+    permissions:
+      contents: read
     uses: ./.github/workflows/docker-scout.yml
     with:
       image_tag: ${{ needs.build-streamlit-image.outputs.image_tag || format('{0}/{1}:latest', env.REGISTRY, env.IMAGE_NAME) }}
