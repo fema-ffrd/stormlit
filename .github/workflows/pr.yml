@@ -12,6 +12,8 @@ jobs:
   sonarqube:
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
     uses: ./.github/workflows/sonarqube.yml
 
   synth:
