@@ -28,6 +28,14 @@ jobs:
         run: |
           timeout 300 bash -c 'until curl -s http://localhost:9000/api/system/status | grep -q "UP"; do sleep 5; done'
       
+      - name: Generate SonarQube token
+        run: |
+          # Wait a bit more for SonarQube to be fully ready
+          sleep 10
+          # Generate a token using the default admin:admin credentials
+          TOKEN=$(curl -s -u admin:admin -X POST "http://localhost:9000/api/user_tokens/generate?name=github-actions" | jq -r '.token')
+          echo "SONAR_TOKEN=$TOKEN" >> $GITHUB_ENV
+      
       - name: Setup SonarQube Scanner
         uses: warchant/setup-sonar-scanner@v8
       
@@ -37,5 +45,5 @@ jobs:
             -Dsonar.projectKey=stormlit \
             -Dsonar.sources=. \
             -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.token=sqa_$(echo -n "admin:admin" | base64) \
+            -Dsonar.token=$SONAR_TOKEN \
             -Dsonar.exclusions="**/*.yml,**/*.yaml,**/*.json,**/node_modules/**,**/cdktf.out/**"

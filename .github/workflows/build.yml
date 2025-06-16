@@ -74,6 +74,7 @@ jobs:
     if: always()
     permissions:
       contents: read
+      pull-requests: write
     uses: ./.github/workflows/docker-scout.yml
     with:
       image_tag: ${{ needs.build-streamlit-image.outputs.image_tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
