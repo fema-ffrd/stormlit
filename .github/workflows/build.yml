@@ -76,5 +76,5 @@ jobs:
       contents: read
     uses: ./.github/workflows/docker-scout.yml
     with:
-      image_tag: ${{ needs.build-streamlit-image.outputs.image_tag || 'ghcr.io/${{ github.repository }}:latest' }}
+      image_tag: ${{ needs.build-streamlit-image.outputs.image_tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
     secrets: inherit

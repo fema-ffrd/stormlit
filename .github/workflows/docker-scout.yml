@@ -35,6 +35,6 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ inputs.image_tag || format('ghcr.io/{0}/stormlit:latest', github.repository_owner) }}
+          image: ${{ inputs.image_tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
           only-severities: critical,high
           summary: true
