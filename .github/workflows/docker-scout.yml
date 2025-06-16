@@ -7,6 +7,8 @@ on:
         type: string
         required: true
         description: 'Docker image tag to scan'
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM UTC
 
 jobs:
   docker-scout:
@@ -24,6 +26,6 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ inputs.image_tag }}
+          image: ${{ inputs.image_tag || format('ghcr.io/{0}/stormlit:latest', github.repository_owner) }}
           only-severities: critical,high
           summary: true

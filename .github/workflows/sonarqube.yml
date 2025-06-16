@@ -2,6 +2,8 @@ name: SonarQube Analysis
 
 on:
   workflow_call:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly on Monday at 3 AM UTC
 
 jobs:
   sonarqube:
