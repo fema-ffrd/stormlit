@@ -362,7 +362,9 @@ def single_event():
         index=0,
     )
 
-    dropdown_container = st.container(key="dropdown_container",)
+    dropdown_container = st.container(
+        key="dropdown_container",
+    )
     col_about, col_dams, col_ref_lines, col_ref_points = dropdown_container.columns(4)
     col_gages, col_models, col_bc_lines, col_cogs = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
@@ -432,7 +434,6 @@ def single_event():
     # Handle when a feature is selected from the map
     last_active_drawing = st.map_output.get("last_active_drawing", None)
     if last_active_drawing:
-
         logger.debug("Map feature selected")
         properties = last_active_drawing.get("properties", {})
         layer = properties.get("layer")
@@ -800,10 +801,14 @@ def single_event():
                 predicate="intersects",
             )
             num_dams = len(st.session_state["dams_filtered"])
-            st.session_state["ref_points_filtered"] = st.ref_points[st.ref_points["model"] == st.session_state["model_id"]]
+            st.session_state["ref_points_filtered"] = st.ref_points[
+                st.ref_points["model"] == st.session_state["model_id"]
+            ]
             num_ref_points = len(st.session_state["ref_points_filtered"])
-            st.session_state["ref_lines_filtered"] = st.ref_lines[st.ref_lines["model"] == st.session_state["model_id"]]
-            num_ref_lines =  len(st.session_state["ref_lines_filtered"])
+            st.session_state["ref_lines_filtered"] = st.ref_lines[
+                st.ref_lines["model"] == st.session_state["model_id"]
+            ]
+            num_ref_lines = len(st.session_state["ref_lines_filtered"])
             st.session_state["gages_filtered"] = gpd.sjoin(
                 st.gages,
                 st.models[st.models["model"] == st.session_state["model_id"]],
@@ -822,18 +827,22 @@ def single_event():
     with col_dams:
         map_popover(
             "Dams",
-            st.dams.to_dict("records") if st.session_state["dams_filtered"] is None else st.session_state["dams_filtered"].to_dict("records"),
+            st.dams.to_dict("records")
+            if st.session_state["dams_filtered"] is None
+            else st.session_state["dams_filtered"].to_dict("records"),
             lambda dam: dam["id"],
             get_item_id=lambda dam: dam["id"],
             feature_type=FeatureType.DAM,
             download_url=st.pilot_layers["Dams"],
             image_path=os.path.join(assetsDir, "dam_icon.jpg"),
         )
-        
+
     with col_ref_lines:
         map_popover(
             "Reference Lines",
-            st.ref_lines.to_dict("records") if st.session_state["ref_lines_filtered"] is None else st.session_state["ref_lines_filtered"].to_dict("records"),
+            st.ref_lines.to_dict("records")
+            if st.session_state["ref_lines_filtered"] is None
+            else st.session_state["ref_lines_filtered"].to_dict("records"),
             lambda ref_line: ref_line["id"],
             get_item_id=lambda ref_line: ref_line["id"],
             get_model_id=lambda ref_line: ref_line["model"],
@@ -843,7 +852,9 @@ def single_event():
     with col_ref_points:
         map_popover(
             "Reference Points",
-            st.ref_points.to_dict("records") if st.session_state["ref_points_filtered"] is None else st.session_state["ref_points_filtered"].to_dict("records"),
+            st.ref_points.to_dict("records")
+            if st.session_state["ref_points_filtered"] is None
+            else st.session_state["ref_points_filtered"].to_dict("records"),
             lambda ref_point: ref_point["id"],
             get_item_id=lambda ref_point: ref_point["id"],
             get_model_id=lambda ref_point: ref_point["model"],
@@ -853,7 +864,9 @@ def single_event():
     with col_gages:
         map_popover(
             "Gages",
-            st.gages.to_dict("records") if st.session_state["gages_filtered"] is None else st.session_state["gages_filtered"].to_dict("records"),
+            st.gages.to_dict("records")
+            if st.session_state["gages_filtered"] is None
+            else st.session_state["gages_filtered"].to_dict("records"),
             lambda gage: gage["site_no"],
             get_item_id=lambda gage: gage["site_no"],
             feature_type=FeatureType.GAGE,
@@ -872,7 +885,9 @@ def single_event():
     with col_bc_lines:
         map_popover(
             "BC Lines",
-            st.bc_lines.to_dict("records") if st.session_state["bc_lines_filtered"] is None else st.session_state["bc_lines_filtered"].to_dict("records"),
+            st.bc_lines.to_dict("records")
+            if st.session_state["bc_lines_filtered"] is None
+            else st.session_state["bc_lines_filtered"].to_dict("records"),
             lambda bc_line: bc_line["id"],
             get_item_id=lambda bc_line: bc_line["id"],
             get_model_id=lambda bc_line: bc_line["model"],
