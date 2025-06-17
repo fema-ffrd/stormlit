@@ -800,6 +800,28 @@ def single_event():
                 how="inner",
                 predicate="intersects",
             )
+            st.session_state["dams_filtered"]["lat"] = st.session_state[
+                "dams_filtered"
+            ]["lat_left"]
+            st.session_state["dams_filtered"]["lon"] = st.session_state[
+                "dams_filtered"
+            ]["lon_left"]
+            st.session_state["dams_filtered"]["index"] = st.session_state[
+                "dams_filtered"
+            ]["index_right"]
+            st.session_state["dams_filtered"]["layer"] = "Dams"
+            st.session_state["dams_filtered"].drop(
+                columns=[
+                    "lat_left",
+                    "lon_left",
+                    "lat_right",
+                    "lon_right",
+                    "layer_right",
+                    "layer_left",
+                    "index_right",
+                ],
+                inplace=True,
+            )
             num_dams = len(st.session_state["dams_filtered"])
             st.session_state["ref_points_filtered"] = st.ref_points[
                 st.ref_points["model"] == st.session_state["model_id"]
@@ -814,6 +836,28 @@ def single_event():
                 st.models[st.models["model"] == st.session_state["model_id"]],
                 how="inner",
                 predicate="intersects",
+            )
+            st.session_state["gages_filtered"]["lat"] = st.session_state[
+                "gages_filtered"
+            ]["lat_left"]
+            st.session_state["gages_filtered"]["lon"] = st.session_state[
+                "gages_filtered"
+            ]["lon_left"]
+            st.session_state["gages_filtered"]["index"] = st.session_state[
+                "gages_filtered"
+            ]["index_right"]
+            st.session_state["gages_filtered"]["layer"] = "Gages"
+            st.session_state["gages_filtered"].drop(
+                columns=[
+                    "lat_left",
+                    "lon_left",
+                    "lat_right",
+                    "lon_right",
+                    "layer_right",
+                    "layer_left",
+                    "index_right",
+                ],
+                inplace=True,
             )
             num_gages = len(st.session_state["gages_filtered"])
             num_models = 1
