@@ -247,7 +247,7 @@ def map_popover(
                 )
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
-                button_key = f"btn_{item_id}_{idx}"
+                button_key = f"btn_{label}_{item_id}_{idx}"
 
                 if label != "Raster Layers":
                     try:
@@ -541,7 +541,7 @@ def single_event():
         elif feature_type == FeatureType.REFERENCE_LINE:
             feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
-            st.markdown(f"### Reference Line: `{feature_label}`")
+            st.markdown(f"#### Reference Line: `{feature_label}`")
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -576,6 +576,7 @@ def single_event():
                     feature_label,
                     "ref_line",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 ref_line_flow_ts.rename(columns={"flow": "model_flow"}, inplace=True)
                 ref_line_wse_ts = query_s3_mod_wse(
@@ -584,6 +585,7 @@ def single_event():
                     feature_label,
                     "ref_line",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 ref_line_wse_ts.rename(columns={"wse": "model_wse"}, inplace=True)
                 ref_line_ts = ref_line_flow_ts.merge(
@@ -633,7 +635,7 @@ def single_event():
 
         elif feature_type == FeatureType.REFERENCE_POINT:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
-            st.markdown(f"### Reference Point: `{feature_label}`")
+            st.markdown(f"#### Reference Point: `{feature_label}`")
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -668,6 +670,7 @@ def single_event():
                     feature_label,
                     "ref_point",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 ref_pt_vel_ts = query_s3_mod_vel(
                     st.session_state["s3_conn"],
@@ -675,6 +678,7 @@ def single_event():
                     feature_label,
                     "ref_point",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 ref_pt_ts = ref_pt_wse_ts.merge(ref_pt_vel_ts, on="time", how="outer")
                 info_col.markdown("### Modeled WSE & Velocity")
@@ -692,7 +696,7 @@ def single_event():
 
         elif feature_type == FeatureType.BC_LINE:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
-            st.markdown(f"### BC Line: `{feature_label}`")
+            st.markdown(f"#### BC Line: `{feature_label}`")
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -727,6 +731,7 @@ def single_event():
                     feature_label,
                     "bc_line",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 bc_line_stage_ts = query_s3_mod_stage(
                     st.session_state["s3_conn"],
@@ -734,6 +739,7 @@ def single_event():
                     feature_label,
                     "bc_line",
                     st.session_state["calibration_event"],
+                    st.session_state["model_id"],
                 )
                 bc_line_ts = bc_line_flow_ts.merge(
                     bc_line_stage_ts, on="time", how="outer"
