@@ -29,6 +29,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/build.yml
     with:
       push_to_registry: true
