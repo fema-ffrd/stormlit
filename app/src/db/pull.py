@@ -210,7 +210,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
     Returns:
         pd.DataFrame: A pandas DataFrame containing the observed gage flow data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/pq-test/**/data.pq"
+    s3_path = f"s3://{pilot}/stac/prod-support/pq-test/gage={gage_id}/*/data.pq"
     query = f"""SELECT datetime, flow as 'flow'
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE gage='{gage_id}' and event='{event_id}';"""
@@ -219,7 +219,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
 
 @st.cache_data
 def query_s3_mod_wse(
-    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str, model_id: str
 ) -> pd.DataFrame:
     """
     Query modeled water surface elevation (WSE) time series data from the S3 bucket.
@@ -230,21 +230,19 @@ def query_s3_mod_wse(
         ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
         ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
+        model_id (str): The HEC-RAS model ID to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled flow data.
     """
-    s3_path = (
-        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/wsel.pq"
-    )
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/wsel.pq"
     query = f"""SELECT time, {ref_type}, water_surface as wse
-            FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
 
 
 @st.cache_data
 def query_s3_mod_flow(
-    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str, model_id: str
 ) -> pd.DataFrame:
     """
     Query modeled flow time series data from the S3 bucket.
@@ -255,21 +253,19 @@ def query_s3_mod_flow(
         ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
         ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
+        model_id (str): The HEC-RAS model ID to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled WSE data.
     """
-    s3_path = (
-        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/flow.pq"
-    )
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/flow.pq"
     query = f"""SELECT time, {ref_type}, flow as flow
-            FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
 
 
 @st.cache_data
 def query_s3_mod_vel(
-    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str, model_id: str
 ) -> pd.DataFrame:
     """
     Query modeled velocity time series data from the S3 bucket.
@@ -280,21 +276,19 @@ def query_s3_mod_vel(
         ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
         ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
+        model_id (str): The HEC-RAS model ID to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled velocity data.
     """
-    s3_path = (
-        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/velocity.pq"
-    )
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/velocity.pq"
     query = f"""SELECT time, {ref_type}, velocity as velocity
-            FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
 
 
 @st.cache_data
 def query_s3_mod_stage(
-    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str
+    _conn, pilot: str, ref_id: str, ref_type: str, event_id: str, model_id: str
 ) -> pd.DataFrame:
     """
     Query modeled stage time series data from the S3 bucket.
@@ -305,15 +299,13 @@ def query_s3_mod_stage(
         ref_id (str): The reference element ID to query (e.g., 'gage_usgs_08065200', 'nid_tx03268')
         ref_type (str): The type of reference element (e.g., 'ref_line', 'ref_point', 'bc_line').
         event_id (str): The ID of the event to query.
+        model_id (str): The HEC-RAS model ID to query.
     Returns:
         pd.DataFrame: A pandas DataFrame containing the modeled stage data.
     """
-    s3_path = (
-        f"s3://{pilot}/stac/prod-support/calibration/*/event=*/{ref_type}=*/stage.pq"
-    )
+    s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/stage.pq"
     query = f"""SELECT time, {ref_type}, stage as stage
-            FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE event='{event_id}' and {ref_type}='{ref_id}';"""
+            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
 
 
