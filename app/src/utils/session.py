@@ -37,6 +37,7 @@ def init_session_state():
     st.session_state["zoom_to_field"] = None
     st.session_state["assets"] = None
     st.session_state["ready_to_plot_ts"] = False
+    st.session_state["gage_event"] = None
 
     # model qc session
     st.session_state["model_qc_file_path"] = None

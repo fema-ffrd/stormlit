@@ -76,6 +76,30 @@ def identify_gage_id(ref_id: str):
         return is_gage, gage_id
 
 
+def identify_event_date(event_id: str):
+    """
+    Identify the event date from an event ID.
+
+    Parameters
+    ----------
+    event_id: str
+        The event ID to extract the event type and ID from.
+        e.g. "calibration_nov2015"
+
+    Returns
+    -------
+    event_date: str
+        The event date extracted from the event ID.
+        e.g. "nov2015"
+    """
+    event_date = event_id.split("_")
+    if len(event_date) > 1:
+        event_date = event_date[-1]
+    else:
+        event_date = event_id
+    return event_date
+
+
 class FeatureType(Enum):
     MODEL = "Model"
     GAGE = "Gage"
@@ -564,6 +588,9 @@ def single_event():
                         )
                     else:
                         st.session_state["ready_to_plot_ts"] = True
+                        st.session_state["gage_event"] = identify_event_date(
+                            st.session_state["calibration_event"]
+                        )
             else:
                 st.write("Coming soon...")
             if (
@@ -596,7 +623,7 @@ def single_event():
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
                         feature_gage_id,
-                        st.session_state["calibration_event"],
+                        st.session_state["gage_event"],
                     )
                     obs_flow_ts.rename(columns={"flow": "obs_flow"}, inplace=True)
                     gage_flow_ts = obs_flow_ts.merge(
@@ -658,6 +685,9 @@ def single_event():
                         )
                     else:
                         st.session_state["ready_to_plot_ts"] = True
+                        st.session_state["gage_event"] = identify_event_date(
+                            st.session_state["calibration_event"]
+                        )
             else:
                 st.write("Coming soon...")
             if (
@@ -719,6 +749,9 @@ def single_event():
                         )
                     else:
                         st.session_state["ready_to_plot_ts"] = True
+                        st.session_state["gage_event"] = identify_event_date(
+                            st.session_state["calibration_event"]
+                        )
             else:
                 st.write("Coming soon...")
             if (
