@@ -210,7 +210,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
     Returns:
         pd.DataFrame: A pandas DataFrame containing the observed gage flow data.
     """
-    s3_path = f"s3://{pilot}/stac/prod-support/pq-test/gage={gage_id}/*/data.pq"
+    s3_path = f"s3://{pilot}/stac/prod-support/pq-test/*/*/data.pq"
     query = f"""SELECT datetime, flow as 'flow'
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE gage='{gage_id}' and event='{event_id}';"""

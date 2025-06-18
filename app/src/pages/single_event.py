@@ -647,14 +647,14 @@ def single_event():
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
                         st.dataframe(gage_flow_ts)
 
-                info_col.markdown("### Modeled WSE & Flow")
+                info_col.markdown("### Observed vs Modeled WSE")
                 with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
                     plot_ts(
-                        ref_line_flow_ts,
+                        pd.DataFrame(),
                         ref_line_wse_ts,
-                        "model_flow",
+                        "obs_wse",
                         "model_wse",
-                        dual_y_axis=True,
+                        dual_y_axis=False,
                         title=feature_label,
                     )
                 with info_col.expander("Data Table", expanded=False, icon="🔢"):
