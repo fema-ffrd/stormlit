@@ -5,15 +5,27 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: read
     uses: ./.github/workflows/test.yml
 
+  sonarqube:
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/sonarqube.yml
+
   synth:
+    permissions:
+      contents: read
     uses: ./.github/workflows/synth.yml
 
   build:
     permissions:
       contents: read
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/build.yml
     with:
       push_to_registry: false
