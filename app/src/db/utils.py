@@ -37,7 +37,7 @@ def create_pg_connection():
     return conn
 
 
-def create_s3_connection():
+def create_s3_connection(aws_region: str = "us-east-1"):
     """
     Create a connection to an S3 account using DuckDB.
 
@@ -50,9 +50,6 @@ def create_s3_connection():
     conn = duckdb.connect()
     conn.execute("INSTALL 'httpfs'")
     conn.execute("LOAD 'httpfs'")
-
-    conn.execute(f"SET s3_access_key_id='{os.getenv('AWS_ACCESS_KEY_ID')}'")
-    conn.execute(f"SET s3_secret_access_key='{os.getenv('AWS_SECRET_ACCESS_KEY')}'")
-    conn.execute(f"SET s3_region='{os.getenv('AWS_REGION')}'")
+    conn.execute(f"SET s3_region='{aws_region}'")
     st.session_state["s3_connected"] = True
     return conn
