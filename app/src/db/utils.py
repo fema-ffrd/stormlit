@@ -41,15 +41,26 @@ def create_s3_connection(aws_region: str = "us-east-1"):
     """
     Create a connection to an S3 account using DuckDB.
 
-    This function retrieves S3 credentials from environment variables and establishes a connection
-    to an S3 account.
+    This function uses the AWS extension with credential_chain provider to automatically
+    fetch credentials using AWS SDK default provider chain, supporting ECS instance credentials.
 
     Returns:
         DuckDB connection object
     """
     conn = duckdb.connect()
+    conn.execute("INSTALL 'aws'")
+    conn.execute("LOAD 'aws'")
     conn.execute("INSTALL 'httpfs'")
     conn.execute("LOAD 'httpfs'")
-    conn.execute(f"SET s3_region='{aws_region}'")
+    
+    # Create S3 secret using credential_chain provider for automatic credential detection
+    conn.execute(f"""
+        CREATE OR REPLACE SECRET aws_secret (
+            TYPE s3,
+            PROVIDER credential_chain,
+            REGION '{aws_region}'
+        )
+    """)
+    
     st.session_state["s3_connected"] = True
     return conn
