@@ -24,6 +24,7 @@ jobs:
       packages: write
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
+      first_tag: ${{ steps.first-tag.outputs.tag }}
 
     steps:
       - name: Checkout repository
@@ -56,6 +57,12 @@ jobs:
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
             # main branch gets latest tag
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # PR builds get a unique tag based on PR number and commit
+            type=ref,event=pr
+
+      - name: Extract first tag for Docker Scout
+        id: first-tag
+        run: echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         id: build
@@ -94,7 +101,7 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: local://${{ needs.build-streamlit-image.outputs.image_tag }}
+          image: ${{ needs.build-streamlit-image.outputs.first_tag }}
           only-severities: critical,high
           summary: true
           exit-code: true
