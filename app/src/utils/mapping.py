@@ -105,13 +105,17 @@ def add_points(
 def style_models(feature):
     return {"fillColor": "#1e90ff"}
 
+def style_subbasins(feature):
+    return {"fillColor": "brown"}
 
 def style_ref_lines(feature):
     return {"color": "yellow", "weight": 4}
 
+def style_reaches(feature):
+    return {"color": "#0a0703", "weight": 4}
 
 def style_bc_lines(feature):
-    return {"color": "purple", "weight": 4}
+    return {"color": "#8f44cc", "weight": 4}
 
 
 def get_map_pos(map_layer: str, layer_field: str):
@@ -199,14 +203,14 @@ def prep_fmap(
         name="Google Satellite",
         overlay=False,
         control=True,
-        show=True,
+        show=False,
     ).add_to(m)
 
     # Add the selected layers to the map
     if st.models is not None:
         add_polygons(m, st.models, "Models", ["model"], style_models)
     if st.dams is not None:
-        add_points(m, st.dams, "Dams", ["id"], "#e32636")
+        add_points(m, st.dams, "Dams", ["id"], "#e21426")
     if st.gages is not None:
         add_points(m, st.gages, "Gages", ["site_no"], "#32cd32")
     if st.ref_lines is not None:
@@ -217,6 +221,16 @@ def prep_fmap(
         add_points(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
     if st.bc_lines is not None:
         add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
+    if st.subbasins is not None:
+        add_polygons(
+            m, st.subbasins, "Subbasins", ["id", "layer"], style_function=style_subbasins
+        )
+    if st.reaches is not None:
+        add_polygons(
+            m, st.reaches, "Reaches", ["id", "layer"], style_function=style_reaches
+        )
+    if st.junctions is not None:
+        add_points(m, st.junctions, "Junctions", ["id", "layer"], "#fafafa")
 
     # Add COG layer if selected
     if cog_layer is not None:
@@ -232,7 +246,8 @@ def prep_fmap(
                 stats_url, params={"url": cog_s3uri}, timeout=30
             )
             stats_data = stats_response.json()
-            st.session_state[f"cog_stats_{cog_layer}"] = stats_data
+            st.session_state["cog_stats"] = stats_data["b1"]
+            st.session_state["cog_hist"] = stats_data["b1"]["histogram"]
 
             # Get min/max values for rescaling
             min_value = stats_data["b1"]["min"]
@@ -250,7 +265,7 @@ def prep_fmap(
                 timeout=10,
             )
             tilejson_data = tilejson_response.json()
-            st.session_state[f"cog_tilejson_{cog_layer}"] = tilejson_data
+            st.session_state["cog_tilejson"] = tilejson_data
 
             # Add the COG as a TileLayer to the map
             if "tiles" in tilejson_data:
@@ -278,16 +293,16 @@ def prep_fmap(
                         ]
                     )
                 else:
-                    st.session_state[f"cog_error_{cog_layer}"] = (
+                    st.session_state["cog_error"] = (
                         "No bounds found in TileJSON response"
                     )
             else:
-                st.session_state[f"cog_error_{cog_layer}"] = (
+                st.session_state["cog_error"] = (
                     "No tiles found in TileJSON response"
                 )
 
         except Exception as e:
-            st.session_state[f"cog_error_{cog_layer}"] = str(e)
+            st.session_state["cog_error"] = str(e)
     else:
         pass
 
