@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:2.0.5 AS builder
+FROM mambaorg/micromamba:2.3.0 AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY src src
 COPY src/main.py src/main.py
 COPY .streamlit .streamlit
 
-FROM mambaorg/micromamba:2.0.5
+FROM mambaorg/micromamba:2.3.0
 
 COPY --from=builder /opt/conda /opt/conda
 COPY --from=builder /app /app
