@@ -101,7 +101,6 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ needs.build-streamlit-image.outputs.first_tag }}
           only-severities: critical,high
           summary: true
           exit-code: true
