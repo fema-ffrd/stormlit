@@ -1,5 +1,6 @@
 # module imports
 from utils.session import init_session_state
+from utils.custom import stylable_container
 from utils.stac_data import (
     init_pilot,
     define_gage_data,
@@ -22,7 +23,6 @@ from db.pull import (
 
 # standard imports
 import os
-import re
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
@@ -34,10 +34,6 @@ from urllib.parse import urljoin
 from enum import Enum
 import logging
 from shapely.geometry import shape
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from streamlit.delta_generator import DeltaGenerator
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
@@ -45,6 +41,36 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def reset_selections():
+    """
+    Reset the session state for single event selections.
+    This is useful when switching between different features or events.
+    """
+    st.session_state.update(
+        {
+            "single_event_focus_feature_label": None,
+            "single_event_focus_feature_id": None,
+            "single_event_focus_lat": None,
+            "single_event_focus_lon": None,
+            "single_event_focus_bounding_box": None,
+            "single_event_focus_feature_type": None,
+            "single_event_focus_map_click": False,
+            "model_id": None,
+            "calibration_event": None,
+            "gage_event": None,
+            "ready_to_plot_ts": False,
+            "cog_layer": None,
+            "cog_hist": None,
+            "cog_stats": None,
+            "dams_filtered": None,
+            "ref_points_filtered": None,
+            "ref_lines_filtered": None,
+            "gages_filtered": None,
+            "bc_lines_filtered": None,
+        }
+    )
 
 
 def identify_gage_id(ref_id: str):
@@ -74,6 +100,30 @@ def identify_gage_id(ref_id: str):
                 return is_gage, gage_id
     else:
         return is_gage, gage_id
+
+
+def identify_model(geom: gpd.GeoSeries):
+    """
+    Identify the model that a provided geodataframe may be within.
+
+    Parameters
+    ----------
+    geom: gpd.GeoSeries
+        The GeoSeries containing model data.
+    Returns
+    -------
+    model_id: str
+        The model ID extracted from the GeoDataFrame.
+    """
+    # Get the centroids of the geometries in the GeoDataFrame
+    centroid = geom.centroid
+    # Check if the centroid is within any model geometry
+    mask = centroid.within(st.models.geometry)
+    filtered_gdf = st.models[mask].copy()
+    if not filtered_gdf.empty:
+        model_id = filtered_gdf.iloc[0]["model"]
+        logger.debug(f"Identified model ID: {model_id}")
+        return model_id
 
 
 def identify_event_date(event_id: str):
@@ -107,48 +157,11 @@ class FeatureType(Enum):
     REFERENCE_LINE = "Reference Line"
     REFERENCE_POINT = "Reference Point"
     BC_LINE = "BC Line"
+    SUBBASIN = "Subbasin"
+    REACH = "Reach"
+    JUNCTION = "Junction"
     COG = "COG"
     CALIBRATION_EVENT = "Calibration Event"
-
-
-def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator":
-    """
-    Insert a container into your app which you can style using CSS.
-    This is useful to style specific elements in your app.
-
-    This is taken from the streamlit-extras package here:
-    https://github.com/arnaudmiribel/streamlit-extras/blob/main/src/streamlit_extras/stylable_container/__init__.py
-
-    Args:
-        key (str): The key associated with this container. This needs to be unique since all styles will be
-            applied to the container with this key.
-        css_styles (str | List[str]): The CSS styles to apply to the container elements.
-            This can be a single CSS block or a list of CSS blocks.
-
-    Returns:
-        DeltaGenerator: A container object. Elements can be added to this container using either the 'with'
-            notation or by calling methods directly on the returned object.
-    """
-
-    class_name = re.sub(r"[^a-zA-Z0-9_-]", "-", key.strip())
-    class_name = f"st-key-{class_name}"
-
-    if isinstance(css_styles, str):
-        css_styles = [css_styles]
-
-    # Remove unneeded spacing that is added by the html:
-    css_styles.append("""> div:first-child {margin-bottom: -1rem;}""")
-
-    style_text = "<style>\n"
-
-    for style in css_styles:
-        style_text += f""".st-key-{class_name} {style}"""
-
-    style_text += "</style>\n"
-
-    container = st.container(key=class_name)
-    container.html(style_text)
-    return container
 
 
 def focus_feature(
@@ -210,7 +223,6 @@ def map_popover(
     get_item_label: Callable,
     get_item_id: Callable,
     color: str = "#f0f0f0",
-    get_model_id: Optional[Callable] = None,
     callback: Optional[Callable] = None,
     feature_type: Optional[FeatureType] = None,
     download_url: Optional[str] = None,
@@ -231,8 +243,6 @@ def map_popover(
         A function that takes an item and returns the label for the button
     get_item_id: Callable
         A function that takes an item and returns the ID for the button
-    get_model_id: Optional[Callable]
-        A function that takes an item and returns the model ID for the button
     callback: Optional[Callable]
         A function to be called when the button is clicked. Accepts the item as an argument.
     feature_type: Optional[FeatureType]
@@ -251,6 +261,7 @@ def map_popover(
         css_styles=f"""
             button {{
                 background-color: {color};
+                color: black;
                 color: black;
                 border-radius: 5px;
                 white-space: nowrap;
@@ -315,7 +326,7 @@ def map_popover(
     st.map_output = None
 
 
-def about_popover(color: str = "#f0f0f0"):
+def about_popover(color: str = "white"):
     """
     Render the styled About popover section.
     """
@@ -330,14 +341,14 @@ def about_popover(color: str = "#f0f0f0"):
             }}
         """,
     ):
-        with st.popover("About this App ℹ️", use_container_width=True):
+        with st.popover("Ream Me!", use_container_width=False):
             st.markdown(
                 """
-            1. Select the pilot study you want to explore to initialize the dataset.
-            2. Choose the event type:
+            1. Select a pilot study to initialize the dataset.
+            2. Select data from the map or dropdown.
+            3. Choose the event type and ID:
                 - **Calibration events** are historic simulations.
                 - **Stochastic events** are synthetically generated.
-            3. Select data from the map or dropdown.
             4. After making a selection, statistics and analytics for that selection will be displayed to the right of the map.
                 """
             )
@@ -354,7 +365,13 @@ def single_event():
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
-    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer ⛈️")
+    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer 💧")
+    st.sidebar.page_link("pages/multi_event.py", label="Multi Event Viewer 🌧️")
+
+    st.sidebar.markdown("## About this App ℹ️")
+    with st.sidebar:
+        about_popover()
+
     st.sidebar.markdown("## Select Study")
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
@@ -373,25 +390,23 @@ def single_event():
     if st.session_state["init_pilot"] is False:
         with st.spinner("Initializing datasets..."):
             init_pilot(
-                st.session_state["pg_conn"],
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
             )
             st.session_state["init_pilot"] = True
 
-    st.sidebar.markdown("## Select Event")
-    st.session_state["event_type"] = st.sidebar.radio(
-        "Select from",
-        ["Calibration Events", "Stochastic Events"],
-        index=0,
-    )
-
     dropdown_container = st.container(
         key="dropdown_container",
     )
-    col_about, col_dams, col_ref_lines, col_ref_points = dropdown_container.columns(4)
-    col_gages, col_models, col_bc_lines, col_cogs = dropdown_container.columns(4)
+    col_dams, col_ref_points, col_ref_lines, col_gages  = dropdown_container.columns(4)
+    col_models, col_bc_lines, col_subbasins, col_reaches = dropdown_container.columns(4)
+    col_junctions, col_cogs, reset_col, empty01 = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
+
+    with reset_col:
+        if st.button("Reset Selections", type="primary", use_container_width=True):
+            reset_selections()
+            st.rerun()
 
     # Map Position
     if st.session_state["single_event_focus_feature_label"]:
@@ -421,6 +436,7 @@ def single_event():
                 FeatureType.MODEL,
                 FeatureType.REFERENCE_LINE,
                 FeatureType.BC_LINE,
+                FeatureType.SUBBASIN
             ]:
                 st.fmap.fit_bounds(bbox)
                 st.map_output = st_folium(
@@ -461,8 +477,12 @@ def single_event():
         logger.debug("Map feature selected")
         properties = last_active_drawing.get("properties", {})
         layer = properties.get("layer")
+        geom = last_active_drawing.get("geometry", None)
+        if geom and isinstance(geom, dict):
+            # Convert dict to Geometry object if necessary
+            geom = shape(geom)
         if layer:
-            feature_type = FeatureType(layer[:-1])
+            feature_type = FeatureType(layer)
             if feature_type in (
                 FeatureType.REFERENCE_LINE,
                 FeatureType.REFERENCE_POINT,
@@ -474,12 +494,22 @@ def single_event():
             elif feature_type == FeatureType.DAM:
                 feature_id = properties["id"]
                 feature_label = feature_id
+                st.session_state["model_id"] = identify_model(geom)
             elif feature_type == FeatureType.GAGE:
                 feature_id = properties["site_no"]
                 feature_label = feature_id
+                st.session_state["model_id"] = identify_model(geom)
             elif feature_type == FeatureType.MODEL:
                 feature_id = properties["model"]
                 feature_label = feature_id
+            elif feature_type in (
+                FeatureType.SUBBASIN,
+                FeatureType.REACH,
+                FeatureType.JUNCTION,
+            ):
+                feature_id = properties["id"]
+                feature_label = feature_id
+                st.session_state["model_id"] = identify_model(geom)
         else:
             st.warning("No layer found in map feature properties.")
     else:
@@ -509,7 +539,8 @@ def single_event():
                 st.warning("No thumbnail available for this model.")
 
         elif feature_type == FeatureType.DAM:
-            info_col.markdown(f"### Dam: `{feature_label}`")
+            info_col.markdown(f"### Model: `{st.session_state['model_id']}`")
+            info_col.markdown(f"#### Dam: `{feature_label}`")
             dam_data = define_dam_data(feature_id)
             dam_meta_url = dam_data["Metadata"]
             dam_meta_status_ok, dam_meta = get_stac_meta(dam_meta_url)
@@ -532,7 +563,8 @@ def single_event():
                         st.markdown(f"📊 [{asset_name}]({asset_url})")
 
         elif feature_type == FeatureType.GAGE:
-            info_col.markdown(f"### Gage: `{feature_label}`")
+            info_col.markdown(f"### Model: `{st.session_state['model_id']}`")
+            info_col.markdown(f"#### Gage: `{feature_label}`")
             gage_data = define_gage_data(feature_id)
             gage_meta_url = gage_data["Metadata"]
             gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
@@ -566,6 +598,13 @@ def single_event():
             feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### Reference Line: `{feature_label}`")
+            st.markdown("#### Select Event")
+            col_event_type, col_event_id = info_col.columns(2)
+            st.session_state["event_type"] = col_event_type.radio(
+                "Select from",
+                ["Calibration Events", "Stochastic Events"],
+                index=0,
+            )
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -577,7 +616,7 @@ def single_event():
                         st.session_state["pilot"],
                         st.session_state["model_id"],
                     )
-                    st.session_state["calibration_event"] = st.selectbox(
+                    st.session_state["calibration_event"] = col_event_id.selectbox(
                         "Select from",
                         calibration_events,
                         index=None,
@@ -663,6 +702,13 @@ def single_event():
         elif feature_type == FeatureType.REFERENCE_POINT:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### Reference Point: `{feature_label}`")
+            st.markdown("#### Select Event")
+            col_event_type, col_event_id = info_col.columns(2)
+            st.session_state["event_type"] = col_event_type.radio(
+                "Select from",
+                ["Calibration Events", "Stochastic Events"],
+                index=0,
+            )
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -674,7 +720,7 @@ def single_event():
                         st.session_state["pilot"],
                         st.session_state["model_id"],
                     )
-                    st.session_state["calibration_event"] = st.selectbox(
+                    st.session_state["calibration_event"] = col_event_id.selectbox(
                         "Select from",
                         calibration_events,
                         index=None,
@@ -727,6 +773,13 @@ def single_event():
         elif feature_type == FeatureType.BC_LINE:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### BC Line: `{feature_label}`")
+            st.markdown("#### Select Event")
+            col_event_type, col_event_id = info_col.columns(2)
+            st.session_state["event_type"] = col_event_type.radio(
+                "Select from",
+                ["Calibration Events", "Stochastic Events"],
+                index=0,
+            )
             if st.session_state["event_type"] == "Calibration Events":
                 if st.session_state["model_id"] is None:
                     st.warning(
@@ -738,7 +791,7 @@ def single_event():
                         st.session_state["pilot"],
                         st.session_state["model_id"],
                     )
-                    st.session_state["calibration_event"] = st.selectbox(
+                    st.session_state["calibration_event"] = col_event_id.selectbox(
                         "Select from",
                         calibration_events,
                         index=None,
@@ -790,16 +843,21 @@ def single_event():
                     )
                 with info_col.expander("Data Table", expanded=False, icon="🔢"):
                     st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
+        elif feature_type == FeatureType.SUBBASIN:
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
+            st.markdown(f"#### Subbasin: `{feature_label}`")
+        elif feature_type == FeatureType.REACH:
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
+            st.markdown(f"#### Reach: `{feature_label}`")
+        elif feature_type == FeatureType.JUNCTION:
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
+            st.markdown(f"#### Junction: `{feature_label}`")
+            
         elif feature_type == FeatureType.COG:
             st.markdown(f"### Raster Layer: `{st.session_state['cog_layer']}`")
-
-            cog_stats = st.session_state[f"cog_stats_{st.session_state['cog_layer']}"][
-                "b1"
-            ]
-            cog_hist = cog_stats["histogram"]
             with st.expander("Statistics", expanded=True, icon="📊"):
                 # plot a histogram of the COG
-                hist_df = pd.DataFrame(cog_hist).T
+                hist_df = pd.DataFrame(st.session_state["cog_hist"]).T
                 hist_df.columns = ["Count", "Value"]
                 st.session_state["cog_hist_nbins"] = st.slider(
                     "Select number of bins for histogram",
@@ -814,7 +872,7 @@ def single_event():
                     nbins=st.session_state["cog_hist_nbins"],
                 )
                 st.plotly_chart(hist_fig, use_container_width=True)
-                st.write(cog_stats)
+                st.write(st.session_state["cog_stats"])
 
         else:
             st.markdown("### Single Event View")
@@ -831,8 +889,11 @@ def single_event():
             num_gages = len(st.gages)
             num_models = len(st.models)
             num_bc_lines = len(st.bc_lines)
+            num_subbasins = len(st.subbasins)
+            num_reaches = len(st.reaches)
+            num_junctions = len(st.junctions)
         else:
-            # Filter datasets based on selected model
+            # Dams
             st.session_state["dams_filtered"] = gpd.sjoin(
                 st.dams,
                 st.models[st.models["model"] == st.session_state["model_id"]],
@@ -862,14 +923,17 @@ def single_event():
                 inplace=True,
             )
             num_dams = len(st.session_state["dams_filtered"])
+            # Reference Points
             st.session_state["ref_points_filtered"] = st.ref_points[
                 st.ref_points["model"] == st.session_state["model_id"]
             ]
             num_ref_points = len(st.session_state["ref_points_filtered"])
+            # Reference Lines
             st.session_state["ref_lines_filtered"] = st.ref_lines[
                 st.ref_lines["model"] == st.session_state["model_id"]
             ]
             num_ref_lines = len(st.session_state["ref_lines_filtered"])
+            # Gages
             st.session_state["gages_filtered"] = gpd.sjoin(
                 st.gages,
                 st.models[st.models["model"] == st.session_state["model_id"]],
@@ -899,17 +963,52 @@ def single_event():
                 inplace=True,
             )
             num_gages = len(st.session_state["gages_filtered"])
+            # Models
             num_models = 1
+            selected_model = st.models[st.models["model"] == st.session_state["model_id"]]
+            # BC Lines
             st.session_state["bc_lines_filtered"] = st.bc_lines[
                 st.bc_lines["model"] == st.session_state["model_id"]
             ]
             num_bc_lines = len(st.session_state["bc_lines_filtered"])
+            # Subbasins
+            if not selected_model.empty:
+                model_geom = selected_model.geometry.iloc[0]
+                centroids = st.subbasins.geometry.centroid
+                mask = centroids.within(model_geom)
+                st.session_state["subbasins_filtered"] = st.subbasins[mask].copy()
+                st.session_state["subbasins_filtered"]["model"] = st.session_state["model_id"]
+                num_subbasins = len(st.session_state["subbasins_filtered"])
+            else:
+                st.session_state["subbasins_filtered"] = None
+                num_subbasins = 0
+            num_subbasins = len(st.session_state["subbasins_filtered"])
+            # Reaches
+            if not selected_model.empty:
+                model_geom = selected_model.geometry.iloc[0]
+                centroids = st.reaches.geometry.centroid
+                mask = centroids.within(model_geom)
+                st.session_state["reaches_filtered"] = st.reaches[mask].copy()
+                st.session_state["reaches_filtered"]["model"] = st.session_state["model_id"]
+            else:
+                st.session_state["reaches_filtered"] = None
+                num_reaches = 0
+            num_reaches = len(st.session_state["reaches_filtered"])
+            # Junctions
+            if not selected_model.empty:
+                model_geom = selected_model.geometry.iloc[0]
+                centroids = st.junctions.geometry.centroid
+                mask = centroids.within(model_geom)
+                st.session_state["junctions_filtered"] = st.junctions[mask].copy()
+                st.session_state["junctions_filtered"]["model"] = st.session_state["model_id"]
+            else:
+                st.session_state["junctions_filtered"] = None
+                num_junctions = 0
+            num_junctions = len(st.session_state["junctions_filtered"])
 
-    with col_about:
-        about_popover()
     with col_dams:
         map_popover(
-            "Dams",
+            "🟥 Dams",
             st.dams.to_dict("records")
             if st.session_state["dams_filtered"] is None
             else st.session_state["dams_filtered"].to_dict("records"),
@@ -919,34 +1018,31 @@ def single_event():
             download_url=st.pilot_layers["Dams"],
             image_path=os.path.join(assetsDir, "dam_icon.jpg"),
         )
-
-    with col_ref_lines:
-        map_popover(
-            "Reference Lines",
-            st.ref_lines.to_dict("records")
-            if st.session_state["ref_lines_filtered"] is None
-            else st.session_state["ref_lines_filtered"].to_dict("records"),
-            lambda ref_line: ref_line["id"],
-            get_item_id=lambda ref_line: ref_line["id"],
-            get_model_id=lambda ref_line: ref_line["model"],
-            feature_type=FeatureType.REFERENCE_LINE,
-            image_path=os.path.join(assetsDir, "ref_line_icon.png"),
-        )
     with col_ref_points:
         map_popover(
-            "Reference Points",
+            "🟧 Reference Points",
             st.ref_points.to_dict("records")
             if st.session_state["ref_points_filtered"] is None
             else st.session_state["ref_points_filtered"].to_dict("records"),
             lambda ref_point: ref_point["id"],
             get_item_id=lambda ref_point: ref_point["id"],
-            get_model_id=lambda ref_point: ref_point["model"],
             feature_type=FeatureType.REFERENCE_POINT,
             image_path=os.path.join(assetsDir, "ref_point_icon.png"),
         )
+    with col_ref_lines:
+        map_popover(
+            "🟨 Reference Lines",
+            st.ref_lines.to_dict("records")
+            if st.session_state["ref_lines_filtered"] is None
+            else st.session_state["ref_lines_filtered"].to_dict("records"),
+            lambda ref_line: ref_line["id"],
+            get_item_id=lambda ref_line: ref_line["id"],
+            feature_type=FeatureType.REFERENCE_LINE,
+            image_path=os.path.join(assetsDir, "ref_line_icon.png"),
+        )
     with col_gages:
         map_popover(
-            "Gages",
+            "🟩 Gages",
             st.gages.to_dict("records")
             if st.session_state["gages_filtered"] is None
             else st.session_state["gages_filtered"].to_dict("records"),
@@ -958,7 +1054,7 @@ def single_event():
         )
     with col_models:
         map_popover(
-            "Models",
+            "🟦 Models",
             st.models.to_dict("records"),
             lambda model: f"{model['model']}",
             get_item_id=lambda model: model["model"],
@@ -967,19 +1063,51 @@ def single_event():
         )
     with col_bc_lines:
         map_popover(
-            "BC Lines",
+            "🟪 BC Lines",
             st.bc_lines.to_dict("records")
             if st.session_state["bc_lines_filtered"] is None
             else st.session_state["bc_lines_filtered"].to_dict("records"),
             lambda bc_line: bc_line["id"],
             get_item_id=lambda bc_line: bc_line["id"],
-            get_model_id=lambda bc_line: bc_line["model"],
             feature_type=FeatureType.BC_LINE,
             image_path=os.path.join(assetsDir, "bc_line_icon.jpg"),
         )
+    with col_subbasins:
+        map_popover(
+            "🟫 Subbasins",
+            st.subbasins.to_dict("records")
+            if st.session_state["subbasins_filtered"] is None
+            else st.session_state["subbasins_filtered"].to_dict("records"),
+            lambda subbasin: subbasin["id"],
+            get_item_id=lambda subbasin: subbasin["id"],
+            feature_type=FeatureType.SUBBASIN,
+            image_path=os.path.join(assetsDir, "subbasins_icon.png"),
+        )
+    with col_reaches:
+        map_popover(
+            "⬛ Reaches",
+            st.reaches.to_dict("records")
+            if st.session_state["reaches_filtered"] is None
+            else st.session_state["reaches_filtered"].to_dict("records"),
+            lambda reach: reach["id"],
+            get_item_id=lambda reach: reach["id"],
+            feature_type=FeatureType.REACH,
+            image_path=os.path.join(assetsDir, "reaches_icon.png"),
+        )
+    with col_junctions:
+        map_popover(
+            "⬜ Junctions",
+            st.junctions.to_dict("records")
+            if st.session_state["junctions_filtered"] is None
+            else st.session_state["junctions_filtered"].to_dict("records"),
+            lambda junction: junction["id"],
+            get_item_id=lambda junction: junction["id"],
+            feature_type=FeatureType.JUNCTION,
+            image_path=os.path.join(assetsDir, "reaches_icon.png"),
+        )
     with col_cogs:
         map_popover(
-            "Raster Layers",
+            "🌐 Raster Layers",
             list(st.cog_layers.keys()),
             lambda cog: cog,
             get_item_id=lambda cog: cog,
@@ -1004,6 +1132,10 @@ def single_event():
         - 🟩 {num_gages} Gages
         - 🟦 {num_models} Models
         - 🟪 {num_bc_lines} BC Lines
+        - 🟫 {num_subbasins} Subbasins
+        - ⬛ {num_reaches} Reaches
+        - ⬜ {num_junctions} Junctions
+        - 🌐 {len(st.cog_layers)} Raster Layers
         """
     )
 
