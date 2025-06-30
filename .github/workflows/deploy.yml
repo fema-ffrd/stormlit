@@ -33,7 +33,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       push_to_registry: true
-      platforms: 'linux/amd64,linux/arm64'
+      platforms: 'linux/amd64'
     secrets: inherit
 
   deploy-infrastructure:
