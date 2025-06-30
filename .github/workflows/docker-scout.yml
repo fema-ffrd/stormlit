@@ -32,15 +32,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract first image tag
-        id: extract-tag
-        run: echo "tag=$(echo '${{ inputs.image_tag }}' | head -n1)" >> $GITHUB_OUTPUT
-
       - name: Run Docker Scout CVE scan
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ steps.extract-tag.outputs.tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
+          image: ${{ inputs.image_tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
           only-severities: critical,high
           summary: true
           exit-code: true
