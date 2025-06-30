@@ -19,7 +19,7 @@ COPY .streamlit .streamlit
 
 FROM mambaorg/micromamba:2.3.0
 
-# fix for CVE-2024-10963 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1087019
+# fix for CVE-2025-6020 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1087019
 USER root
 RUN echo "deb http://deb.debian.org/debian unstable main" > /etc/apt/sources.list.d/unstable.list && \
     apt-get update && \
