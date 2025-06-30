@@ -11,6 +11,10 @@ on:
         type: string
         default: 'linux/amd64,linux/arm64'
         required: false
+    outputs:
+      image_tag:
+        description: 'Docker image tags'
+        value: ${{ jobs.build-streamlit-image.outputs.image_tag }}
 
 env:
   REGISTRY: ghcr.io
