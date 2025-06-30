@@ -24,7 +24,6 @@ jobs:
       packages: write
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
-      first_tag: ${{ steps.first-tag.outputs.tag }}
 
     steps:
       - name: Checkout repository
@@ -60,10 +59,6 @@ jobs:
             # PR builds get a unique tag based on PR number and commit
             type=ref,event=pr
 
-      - name: Extract first tag for Docker Scout
-        id: first-tag
-        run: echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> $GITHUB_OUTPUT
-
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
@@ -75,27 +70,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  docker-scout:
-    needs: build-streamlit-image
-    if: always()
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Docker Scout CVE scan on built image
         uses: docker/scout-action@v1
