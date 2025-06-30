@@ -82,6 +82,7 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
+          image: local://ghcr.io/fema-ffrd/stormlit:${{ steps.meta.outputs.version }}
           only-severities: critical,high
           summary: true
           exit-code: true

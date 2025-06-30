@@ -20,11 +20,10 @@ COPY .streamlit .streamlit
 FROM mambaorg/micromamba:2.3.0
 
 # fix for CVE-2025-6020 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1087019
-# fix for CVE-2025-22874 - update Go to 1.24.4+
 USER root
 RUN echo "deb http://deb.debian.org/debian unstable main" > /etc/apt/sources.list.d/unstable.list && \
     apt-get update && \
-    apt-get install -y -t unstable libpam0g libpam-modules libpam-modules-bin libpam-runtime golang-1.24 && \
+    apt-get install -y -t unstable libpam0g libpam-modules libpam-modules-bin libpam-runtime && \
     rm /etc/apt/sources.list.d/unstable.list && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
