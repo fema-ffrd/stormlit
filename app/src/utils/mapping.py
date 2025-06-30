@@ -105,14 +105,18 @@ def add_points(
 def style_models(feature):
     return {"fillColor": "#1e90ff"}
 
+
 def style_subbasins(feature):
     return {"fillColor": "brown"}
+
 
 def style_ref_lines(feature):
     return {"color": "yellow", "weight": 4}
 
+
 def style_reaches(feature):
     return {"color": "#0a0703", "weight": 4}
+
 
 def style_bc_lines(feature):
     return {"color": "#8f44cc", "weight": 4}
@@ -223,7 +227,11 @@ def prep_fmap(
         add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
     if st.subbasins is not None:
         add_polygons(
-            m, st.subbasins, "Subbasins", ["id", "layer"], style_function=style_subbasins
+            m,
+            st.subbasins,
+            "Subbasins",
+            ["id", "layer"],
+            style_function=style_subbasins,
         )
     if st.reaches is not None:
         add_polygons(
@@ -297,9 +305,7 @@ def prep_fmap(
                         "No bounds found in TileJSON response"
                     )
             else:
-                st.session_state["cog_error"] = (
-                    "No tiles found in TileJSON response"
-                )
+                st.session_state["cog_error"] = "No tiles found in TileJSON response"
 
         except Exception as e:
             st.session_state["cog_error"] = str(e)

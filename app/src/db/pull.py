@@ -442,34 +442,32 @@ def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
     s3_path = f"s3://{pilot}/stac/prod-support/conformance/hydrology/trinity/assets/{layer}.geojson"
     query = f"SELECT * FROM read_json_auto('{s3_path}')"
     df = query_db(_conn, query)
-    features = df.loc[0, 'features']
+    features = df.loc[0, "features"]
     features_df = pd.json_normalize(features)
     for idx, row in features_df.iterrows():
-        geom_type = row.get('geometry.type', None)
-        geom_coords = row.get('geometry.coordinates', None)
-        name = row.get('properties.name', None)
+        geom_type = row.get("geometry.type", None)
+        geom_coords = row.get("geometry.coordinates", None)
+        name = row.get("properties.name", None)
         if geom_type and geom_coords:
-            if geom_type == 'Point':
-                features_df.at[idx, 'geometry'] = shape({
-                    'type': geom_type,
-                    'coordinates': geom_coords
-                })
-            elif geom_type in ['LineString', 'Polygon']:
-                features_df.at[idx, 'geometry'] = shape({
-                    'type': geom_type,
-                    'coordinates': geom_coords
-                })
+            if geom_type == "Point":
+                features_df.at[idx, "geometry"] = shape(
+                    {"type": geom_type, "coordinates": geom_coords}
+                )
+            elif geom_type in ["LineString", "Polygon"]:
+                features_df.at[idx, "geometry"] = shape(
+                    {"type": geom_type, "coordinates": geom_coords}
+                )
             else:
-                features_df.at[idx, 'geometry'] = None
+                features_df.at[idx, "geometry"] = None
         else:
-            features_df.at[idx, 'geometry'] = None
+            features_df.at[idx, "geometry"] = None
         if name:
-            features_df.at[idx, 'id'] = name
+            features_df.at[idx, "id"] = name
         else:
-            features_df.at[idx, 'id'] = None
+            features_df.at[idx, "id"] = None
     features_df = features_df.dropna()
     # Create a GeoDataFrame
-    gdf = gpd.GeoDataFrame(features_df, geometry='geometry')
+    gdf = gpd.GeoDataFrame(features_df, geometry="geometry")
     gdf.set_crs(epsg=4326, inplace=True)
     gdf["layer"] = layer
     if "geometry.type" in gdf.columns:

@@ -398,7 +398,7 @@ def single_event():
     dropdown_container = st.container(
         key="dropdown_container",
     )
-    col_dams, col_ref_points, col_ref_lines, col_gages  = dropdown_container.columns(4)
+    col_dams, col_ref_points, col_ref_lines, col_gages = dropdown_container.columns(4)
     col_models, col_bc_lines, col_subbasins, col_reaches = dropdown_container.columns(4)
     col_junctions, col_cogs, reset_col, empty01 = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
@@ -436,7 +436,7 @@ def single_event():
                 FeatureType.MODEL,
                 FeatureType.REFERENCE_LINE,
                 FeatureType.BC_LINE,
-                FeatureType.SUBBASIN
+                FeatureType.SUBBASIN,
             ]:
                 st.fmap.fit_bounds(bbox)
                 st.map_output = st_folium(
@@ -852,7 +852,7 @@ def single_event():
         elif feature_type == FeatureType.JUNCTION:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### Junction: `{feature_label}`")
-            
+
         elif feature_type == FeatureType.COG:
             st.markdown(f"### Raster Layer: `{st.session_state['cog_layer']}`")
             with st.expander("Statistics", expanded=True, icon="📊"):
@@ -965,7 +965,9 @@ def single_event():
             num_gages = len(st.session_state["gages_filtered"])
             # Models
             num_models = 1
-            selected_model = st.models[st.models["model"] == st.session_state["model_id"]]
+            selected_model = st.models[
+                st.models["model"] == st.session_state["model_id"]
+            ]
             # BC Lines
             st.session_state["bc_lines_filtered"] = st.bc_lines[
                 st.bc_lines["model"] == st.session_state["model_id"]
@@ -977,7 +979,9 @@ def single_event():
                 centroids = st.subbasins.geometry.centroid
                 mask = centroids.within(model_geom)
                 st.session_state["subbasins_filtered"] = st.subbasins[mask].copy()
-                st.session_state["subbasins_filtered"]["model"] = st.session_state["model_id"]
+                st.session_state["subbasins_filtered"]["model"] = st.session_state[
+                    "model_id"
+                ]
                 num_subbasins = len(st.session_state["subbasins_filtered"])
             else:
                 st.session_state["subbasins_filtered"] = None
@@ -989,7 +993,9 @@ def single_event():
                 centroids = st.reaches.geometry.centroid
                 mask = centroids.within(model_geom)
                 st.session_state["reaches_filtered"] = st.reaches[mask].copy()
-                st.session_state["reaches_filtered"]["model"] = st.session_state["model_id"]
+                st.session_state["reaches_filtered"]["model"] = st.session_state[
+                    "model_id"
+                ]
             else:
                 st.session_state["reaches_filtered"] = None
                 num_reaches = 0
@@ -1000,7 +1006,9 @@ def single_event():
                 centroids = st.junctions.geometry.centroid
                 mask = centroids.within(model_geom)
                 st.session_state["junctions_filtered"] = st.junctions[mask].copy()
-                st.session_state["junctions_filtered"]["model"] = st.session_state["model_id"]
+                st.session_state["junctions_filtered"]["model"] = st.session_state[
+                    "model_id"
+                ]
             else:
                 st.session_state["junctions_filtered"] = None
                 num_junctions = 0

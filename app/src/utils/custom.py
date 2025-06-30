@@ -2,6 +2,7 @@
 import re
 import streamlit as st
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
