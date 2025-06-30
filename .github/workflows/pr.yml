@@ -25,9 +25,18 @@ jobs:
     permissions:
       contents: read
       packages: write
-      pull-requests: write
     uses: ./.github/workflows/build.yml
     with:
-      push_to_registry: false
+      push_to_registry: true
       platforms: 'linux/amd64,linux/arm64'
+    secrets: inherit
+
+  docker-scout:
+    needs: build
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/docker-scout.yml
+    with:
+      image_tag: ${{ needs.build.outputs.image_tag }}
     secrets: inherit

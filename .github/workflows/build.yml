@@ -22,7 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      pull-requests: write
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
 
@@ -72,17 +71,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Log in to Docker Hub for Scout
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
-
-      - name: Run Docker Scout CVE scan on built image
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: local://fema-ffrd/stormlit:${{ steps.meta.outputs.version }}
-          only-severities: critical,high
-          summary: true
-          exit-code: true
