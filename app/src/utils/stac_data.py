@@ -11,6 +11,7 @@ from db.pull import (
     query_s3_ref_lines,
     query_s3_bc_lines,
     query_s3_model_bndry,
+    query_s3_geojson
 )
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
@@ -50,14 +51,12 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def init_pilot(pg_conn, s3_conn, pilot: str):
+def init_pilot(s3_conn, pilot: str):
     """
     Initialize the map data for the selected pilot study
 
     Parameters
     ----------
-    pg_conn: duckdb.DuckDBPyConnection
-        The connection to the PostgreSQL database
     s3_conn: duckdb.DuckDBPyConnection
         The connection to the S3 account
     pilot: str
@@ -79,15 +78,18 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
-    st.dams = prep_gdf(df_dams, "Dams")
+    st.dams = prep_gdf(df_dams, "Dam")
 
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
-    st.gages = prep_gdf(df_gages, "Gages")
+    st.gages = prep_gdf(df_gages, "Gage")
 
     st.models = query_s3_model_bndry(s3_conn, pilot, "all")
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
+    st.subbasins = query_s3_geojson(s3_conn, pilot, "Subbasin")
+    st.reaches = query_s3_geojson(s3_conn, pilot, "Reach")
+    st.junctions = query_s3_geojson(s3_conn, pilot, "Junction")
 
 
 def define_gage_data(gage_id: str):
