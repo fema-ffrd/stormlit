@@ -19,6 +19,17 @@ COPY .streamlit .streamlit
 
 FROM mambaorg/micromamba:2.3.0
 
+# fix for CVE-2024-10963 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1087019
+USER root
+RUN echo "deb http://deb.debian.org/debian unstable main" > /etc/apt/sources.list.d/unstable.list && \
+    apt-get update && \
+    apt-get install -y -t unstable libpam0g libpam-modules libpam-modules-bin libpam-runtime && \
+    rm /etc/apt/sources.list.d/unstable.list && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+USER mambauser
+
 COPY --from=builder /opt/conda /opt/conda
 COPY --from=builder /app /app
 
