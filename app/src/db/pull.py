@@ -7,6 +7,7 @@ import duckdb
 import s3fs
 from PIL import Image
 import logging
+from shapely.geometry import shape
 
 logger = logging.getLogger(__name__)
 
@@ -328,7 +329,7 @@ def query_s3_ref_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, layer="Reference Lines")
+    return query_db(_conn, query, layer="Reference Line")
 
 
 @st.cache_data
@@ -350,7 +351,7 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, layer="Reference Points")
+    return query_db(_conn, query, layer="Reference Point")
 
 
 @st.cache_data
@@ -372,7 +373,7 @@ def query_s3_bc_lines(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/bc_lines.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, layer="BC Lines")
+    return query_db(_conn, query, layer="BC Line")
 
 
 @st.cache_data
@@ -392,7 +393,7 @@ def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/model_geometry.pq"
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query, layer="Models")
+    return query_db(_conn, query, layer="Model")
 
 
 @st.cache_data
@@ -423,6 +424,66 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
         msg = f"DuckDB S3 Error: {e}"
         logger.error(msg)
         raise StormlitQueryException(msg) from e
+
+
+@st.cache_data
+def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
+    """
+    Query a GeoJSON file from S3 and return it as a GeoDataFrame.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        layer (str): The feature layer to assign as a column in the GeoDataFrame.
+
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame containing the features from the GeoJSON file.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/conformance/hydrology/trinity/assets/{layer}.geojson"
+    query = f"SELECT * FROM read_json_auto('{s3_path}')"
+    df = query_db(_conn, query)
+    features = df.loc[0, 'features']
+    features_df = pd.json_normalize(features)
+    for idx, row in features_df.iterrows():
+        geom_type = row.get('geometry.type', None)
+        geom_coords = row.get('geometry.coordinates', None)
+        name = row.get('properties.name', None)
+        if geom_type and geom_coords:
+            if geom_type == 'Point':
+                features_df.at[idx, 'geometry'] = shape({
+                    'type': geom_type,
+                    'coordinates': geom_coords
+                })
+            elif geom_type in ['LineString', 'Polygon']:
+                features_df.at[idx, 'geometry'] = shape({
+                    'type': geom_type,
+                    'coordinates': geom_coords
+                })
+            else:
+                features_df.at[idx, 'geometry'] = None
+        else:
+            features_df.at[idx, 'geometry'] = None
+        if name:
+            features_df.at[idx, 'id'] = name
+        else:
+            features_df.at[idx, 'id'] = None
+    features_df = features_df.dropna()
+    # Create a GeoDataFrame
+    gdf = gpd.GeoDataFrame(features_df, geometry='geometry')
+    gdf.set_crs(epsg=4326, inplace=True)
+    gdf["layer"] = layer
+    if "geometry.type" in gdf.columns:
+        # Drop the geometry.type column if it exists
+        gdf.drop(columns=["geometry.type"], inplace=True)
+    if "geometry.coordinates" in gdf.columns:
+        # Drop the geometry.coordinates column if it exists
+        gdf.drop(columns=["geometry.coordinates"], inplace=True)
+    if "properties.name" in gdf.columns:
+        # Rename the properties.name column to name
+        gdf.drop(columns=["properties.name"], inplace=True)
+    gdf["lat"] = gdf.geometry.centroid.y.astype(float)
+    gdf["lon"] = gdf.geometry.centroid.x.astype(float)
+    return gdf[["id", "geometry", "layer", "lat", "lon"]].copy()
 
 
 # if __name__ == "__main__":
