@@ -19,6 +19,10 @@ def init_session_state():
     st.session_state["init_pilot"] = False
     st.session_state["cog_layer"] = None
     st.session_state["cog_stats"] = None
+    st.session_state["cog_hist"] = None
+    st.session_state["cog_hist_nbins"] = 20
+    st.session_state["cog_tilejson"] = None
+    st.session_state["cog_error"] = None
     st.session_state["gage_plot_type"] = None
     st.session_state["model_id"] = None
     st.session_state["single_event_focus_feature_label"] = None
@@ -51,6 +55,9 @@ def init_session_state():
     st.gages = None
     st.models = None
     st.bc_lines = None
+    st.subbasins = None
+    st.reaches = None
+    st.junctions = None
 
     st.session_state["dams_filtered"] = None
     st.session_state["ref_points_filtered"] = None
@@ -58,6 +65,9 @@ def init_session_state():
     st.session_state["gages_filtered"] = None
     st.session_state["models_filtered"] = None
     st.session_state["bc_lines_filtered"] = None
+    st.session_state["subbasins_filtered"] = None
+    st.session_state["reaches_filtered"] = None
+    st.session_state["junctions_filtered"] = None
 
     st.fmap = None
     st.map_output = None
