@@ -133,8 +133,7 @@ def model_qc():
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
-    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer 💧")
-    st.sidebar.page_link("pages/multi_event.py", label="Multi Event Viewer 🌧️")
+    st.sidebar.page_link("pages/model_results.py", label="Model Results 🌧️")
 
     st.sidebar.markdown("## Toolbar")
 
