@@ -165,9 +165,9 @@ def query_pg_table_filter(
 
 
 @st.cache_data
-def query_s3_event_list(_conn, pilot: str, model_id: str) -> list:
+def query_s3_calibration_event_list(_conn, pilot: str, model_id: str) -> list:
     """
-    Query the list of events from the S3 bucket for a given ref ID.
+    Query the list of calibration events from the S3 bucket for a given model ID.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
@@ -462,9 +462,9 @@ def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
         else:
             features_df.at[idx, "geometry"] = None
         if name:
-            features_df.at[idx, "id"] = name
+            features_df.at[idx, "hms_element"] = name
         else:
-            features_df.at[idx, "id"] = None
+            features_df.at[idx, "hms_element"] = None
     features_df = features_df.dropna()
     # Create a GeoDataFrame
     gdf = gpd.GeoDataFrame(features_df, geometry="geometry")
@@ -481,89 +481,94 @@ def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
         gdf.drop(columns=["properties.name"], inplace=True)
     gdf["lat"] = gdf.geometry.centroid.y.astype(float)
     gdf["lon"] = gdf.geometry.centroid.x.astype(float)
-    return gdf[["id", "geometry", "layer", "lat", "lon"]].copy()
+    return gdf[["hms_element", "geometry", "layer", "lat", "lon"]].copy()
 
 
-# if __name__ == "__main__":
-#     from utils import create_pg_connection, create_s3_connection, get_pg_dsn
-#     # Create connections
-#     PG_CONNECTION = create_pg_connection()
-#     S3_CONNECTION = create_s3_connection()
-#     DSN = get_pg_dsn()
-#     PILOT="trinity-pilot"
-#     TEST_MODEL = "blw-elkhart"
-#     TEST_REF_LINE_ID = 'gage_usgs_08065350'
-#     EVENT_ID = "may2015"
-#     GAGE_ID = "08062800"
-#     TEST_PG_TABLE = "models_by_gage"
-#     TEST_PG_SCHEMA = "flat_stac"
+@st.cache_data
+def query_s3_stochastic_storm_list(_conn, pilot: str, element_id: str = "amon-g-carter_s010") -> list:
+    """
+    Query the list of stochastic storm events from the S3 bucket for a given HMS element ID.
 
-#     #Test querying model reference line geometry from S3
-#     test_ref_line_geometry_df = query_s3_ref_lines(
-#         S3_CONNECTION,  # S3 connection using DuckDB
-#         PILOT,  # Pilot name for the S3 bucket
-#         model_id=TEST_MODEL,  # HEC-RAS model ID
-#     )
-#     print(test_ref_line_geometry_df)
-#     test_ref_line_geometry_df.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_MODEL}_ref_line_geometry_df.parquet")
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+    Returns:
+        list: A list of simulated event IDs associated with the gage.
+    """
+    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/"
+    query = f"SELECT file FROM glob('{s3_path}**')"
+    try:
+        # Fetch as list of tuples, not DataFrame
+        result = _conn.execute(query).fetchall()
+        # Extract the next-level folder name after s3_path
+        storm_ids = set()
+        for row in result:
+            rel = row[0][len(s3_path) :].lstrip("/")
+            if "/" in rel:
+                folder = rel.split("/")[0]
+                if "storm_id=" in folder:
+                    # Extract the event ID from the folder name
+                    storm = folder.split("=")[-1]
+                    storm_ids.add(storm)
+        return sorted(storm_ids)
+    except Exception as e:
+        msg = f"DuckDB S3 Error: {e}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from e
 
-#     # Test querying model reference point geometry from S3
-#     test_ref_pt_geometry_df = query_s3_ref_points(
-#         S3_CONNECTION,  # S3 connection using DuckDB
-#         PILOT,  # Pilot name for the S3 bucket
-#         model_id=TEST_MODEL,  # HEC-RAS model ID
-#     )
-#     print(test_ref_pt_geometry_df)
-#     test_ref_pt_geometry_df.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_MODEL}_ref_pt_geometry_df.parquet")
 
-#     # Test querying observed gage flow data from S3
-#     test_obs_gage_flow_df = query_s3_obs_flow(
-#         S3_CONNECTION,  # S3 connection using DuckDB
-#         PILOT,  # Pilot name for the S3 bucket
-#         gage_id=GAGE_ID,  # Example gage ID
-#         event_id=EVENT_ID  # Example event ID
-#     )
-#     print(test_obs_gage_flow_df)
-#     test_obs_gage_flow_df.to_csv(f"/workspace/app/tests/data/csv/{TEST_MODEL}_obs_flow_df.csv")
+@st.cache_data
+def query_s3_stochastic_event_list(_conn, pilot: str, element_id: str, storm_id: str) -> list:
+    """
+    Query the list of stochastic events from the S3 bucket for a given element ID and storm ID.
 
-#     # Test querying modeled wse data from S3
-#     test_mod_wse_df = query_s3_mod_wse(
-#         S3_CONNECTION,  # S3 connection using DuckDB
-#         PILOT,  # Pilot name for the S3 bucket
-#         ref_id=TEST_REF_LINE_ID,  # Example reference element ID
-#         event_id=EVENT_ID  # Example event ID
-#     )
-#     print(test_mod_wse_df)
-#     test_mod_wse_df.to_csv(f"/workspace/app/tests/data/csv/{TEST_MODEL}_mod_wse_df.csv")
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        element_id (str): The element ID to query.
+        storm_id (str): The storm ID to query.
+    Returns:
+        list: A list of simulated event IDs associated with the element ID and storm ID.
+    """
+    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/"
+    query = f"SELECT file FROM glob('{s3_path}**')"
+    try:
+        # Fetch as list of tuples, not DataFrame
+        result = _conn.execute(query).fetchall()
+        # Extract the next-level folder name after s3_path
+        event_ids = set()
+        for row in result:
+            rel = row[0][len(s3_path) :].lstrip("/")
+            if "/" in rel:
+                folder = rel.split("/")[0]
+                if "event_id=" in folder:
+                    # Extract the event ID from the folder name
+                    event = folder.split("=")[-1]
+                    event_ids.add(event)
+        return sorted(event_ids)
+    except Exception as e:
+        msg = f"DuckDB S3 Error: {e}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from e
 
-#     # Test querying modeled flow data from S3
-#     test_mod_flow_df = query_s3_mod_flow(
-#         S3_CONNECTION,  # S3 connection using DuckDB
-#         PILOT,  # Pilot name for the S3 bucket
-#         ref_id=TEST_REF_LINE_ID,  # Example reference element ID
-#         event_id=EVENT_ID  # Example event ID
-#     )
-#     print(test_mod_flow_df)
-#     test_mod_flow_df.to_csv(f"/workspace/app/tests/data/csv/{TEST_MODEL}_mod_flow_df.csv")
 
-#     # Test querying all rows from a Postgres table
-#     test_models_by_gage_gdf = query_pg_table_all(
-#         PG_CONNECTION,  # Postgres connection using DuckDB
-#         DSN,  # DSN credentials for the PostgreSQL database
-#         TEST_PG_SCHEMA,  # Schema name where the table is located
-#         TEST_PG_TABLE  # Table name to query
-#     )
-#     print(test_models_by_gage_gdf)
-#     test_models_by_gage_gdf.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_PG_TABLE}_all.parquet")
+@st.cache_data
+def query_s3_stochastic_hms_flow(
+    _conn, pilot: str, element_id: str, storm_id: str, event_id: str
+) -> pd.DataFrame:
+    """
+    Query stochastic HMS flow timeseries data from the S3 bucket.
 
-#     # Test querying filtered rows from a Postgres table
-#     test_models_by_gage_filtered_gdf = query_pg_table_filter(
-#         PG_CONNECTION,  # Postgres connection using DuckDB
-#         DSN,  # DSN credentials for the PostgreSQL database
-#         TEST_PG_SCHEMA,  # Schema name where the table is located
-#         TEST_PG_TABLE,  # Table name to query
-#         col_name="gage_id",  # Column to filter by
-#         search_id=GAGE_ID  # ID to filter the column by
-#     )
-#     print(test_models_by_gage_filtered_gdf)
-#     test_models_by_gage_filtered_gdf.to_parquet(f"/workspace/app/tests/data/parquet/{TEST_PG_TABLE}_filtered.parquet")
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        element_id (str): The element ID to query (e.g., 'amon-g-carter_s010').
+        storm_id (str): The storm ID to query (e.g., '19790222').
+        event_id (str): The event ID to query (e.g., '13094').
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the stochastic HMS flow data.
+    """
+    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/event_id={event_id}/FLOW.pq"
+    query = f"""SELECT datetime, values as hms_flow
+            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+    return query_db(_conn, query)
