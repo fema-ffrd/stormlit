@@ -213,6 +213,7 @@ def focus_feature(
         st.session_state["model_id"] = item["model"]
     if "hms_element" in item:
         st.session_state["hms_element_id"] = item["hms_element"]
+        st.session_state["model_id"] = identify_model(geom)
 
     st.session_state.update(
         {
