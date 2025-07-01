@@ -39,3 +39,4 @@ jobs:
           image: ${{ inputs.image_tag || 'ghcr.io/fema-ffrd/stormlit:latest' }}
           only-severities: critical,high
           summary: true
+          exit-code: true

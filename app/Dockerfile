@@ -1,25 +1,49 @@
-FROM mambaorg/micromamba:2.3.0 AS builder
+FROM ubuntu:24.04 AS builder
 
 WORKDIR /app
 
-USER root
+RUN apt-get update && apt-get install -y \
+    curl \
+    tar \
+    bzip2 \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install build-essential -y \
-    && apt-get clean
+# Install micromamba using the recommended method
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba \
+    && mv bin/micromamba /usr/local/bin/micromamba \
+    && chmod +x /usr/local/bin/micromamba
 
-USER mambauser
+# Set up micromamba environment
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+RUN /usr/local/bin/micromamba shell init -s bash -r /opt/micromamba
 
 COPY env.yml env.yml
-RUN micromamba install -y -n base -f env.yml && \
+RUN eval "$(/usr/local/bin/micromamba shell hook -s posix)" && \
+    micromamba install -y -n base -f env.yml && \
     micromamba clean --all --yes
 
 COPY src src
 COPY src/main.py src/main.py
 COPY .streamlit .streamlit
 
-FROM mambaorg/micromamba:2.3.0
+FROM ubuntu:24.04
 
-COPY --from=builder /opt/conda /opt/conda
+RUN apt-get update && apt-get install -y \
+    curl \
+    tar \
+    bzip2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install micromamba in final image
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba \
+    && mv bin/micromamba /usr/local/bin/micromamba \
+    && chmod +x /usr/local/bin/micromamba
+
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+COPY --from=builder /opt/micromamba /opt/micromamba
 COPY --from=builder /app /app
 
 WORKDIR /app
@@ -30,5 +54,8 @@ EXPOSE 8501
 # Configure Streamlit to run on 0.0.0.0 to be accessible outside container
 ENV STREAMLIT_SERVER_ADDRESS="0.0.0.0"
 
+# Set up shell for micromamba
+RUN /usr/local/bin/micromamba shell init -s bash -r /opt/micromamba
+
 # Command to run your application
-CMD ["streamlit", "run", "src/main.py"]
+CMD ["bash", "-c", "eval \"$(/usr/local/bin/micromamba shell hook -s posix)\" && micromamba activate base && streamlit run src/main.py"]
