@@ -48,9 +48,7 @@ def create_s3_connection():
         DuckDB connection object
     """
     conn = duckdb.connect()
-    conn.execute("INSTALL 'httpfs'")
-    conn.execute("LOAD 'httpfs'")
-
+    conn.execute("INSTALL 'httpfs'; LOAD 'httpfs';")
     conn.execute(f"SET s3_access_key_id='{os.getenv('AWS_ACCESS_KEY_ID')}'")
     conn.execute(f"SET s3_secret_access_key='{os.getenv('AWS_SECRET_ACCESS_KEY')}'")
     conn.execute(f"SET s3_region='{os.getenv('AWS_REGION')}'")
