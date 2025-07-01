@@ -90,6 +90,7 @@ def init_pilot(s3_conn, pilot: str):
     st.subbasins = query_s3_geojson(s3_conn, pilot, "Subbasin")
     st.reaches = query_s3_geojson(s3_conn, pilot, "Reach")
     st.junctions = query_s3_geojson(s3_conn, pilot, "Junction")
+    st.reservoirs = query_s3_geojson(s3_conn, pilot, "Reservoir")
 
 
 def define_gage_data(gage_id: str):

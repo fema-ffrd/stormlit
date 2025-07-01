@@ -58,6 +58,7 @@ def init_session_state():
     st.subbasins = None
     st.reaches = None
     st.junctions = None
+    st.reservoirs = None
 
     st.session_state["dams_filtered"] = None
     st.session_state["ref_points_filtered"] = None
@@ -68,6 +69,7 @@ def init_session_state():
     st.session_state["subbasins_filtered"] = None
     st.session_state["reaches_filtered"] = None
     st.session_state["junctions_filtered"] = None
+    st.session_state["reservoirs_filtered"] = None
 
     st.fmap = None
     st.map_output = None

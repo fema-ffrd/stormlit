@@ -73,7 +73,7 @@ def reset_selections():
     )
 
 
-def identify_gage_id(ref_id: str):
+def identify_gage(ref_id: str):
     """
     Identify the gage ID from a reference point or line ID.
 
@@ -160,6 +160,7 @@ class FeatureType(Enum):
     SUBBASIN = "Subbasin"
     REACH = "Reach"
     JUNCTION = "Junction"
+    RESERVOIR = "Reservoir"
     COG = "COG"
     CALIBRATION_EVENT = "Calibration Event"
 
@@ -398,9 +399,9 @@ def single_event():
     dropdown_container = st.container(
         key="dropdown_container",
     )
-    col_dams, col_ref_points, col_ref_lines, col_gages = dropdown_container.columns(4)
-    col_models, col_bc_lines, col_subbasins, col_reaches = dropdown_container.columns(4)
-    col_junctions, col_cogs, reset_col, empty01 = dropdown_container.columns(4)
+    col_bc_lines, col_ref_points, col_ref_lines, col_models = dropdown_container.columns(4)
+    col_subbasins, col_reaches, col_junctions, col_reservoirs = dropdown_container.columns(4)
+    col_gages, col_dams, col_cogs, reset_col = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
 
     with reset_col:
@@ -479,26 +480,17 @@ def single_event():
         layer = properties.get("layer")
         geom = last_active_drawing.get("geometry", None)
         if geom and isinstance(geom, dict):
-            # Convert dict to Geometry object if necessary
             geom = shape(geom)
         if layer:
             feature_type = FeatureType(layer)
             if feature_type in (
-                FeatureType.REFERENCE_LINE,
-                FeatureType.REFERENCE_POINT,
                 FeatureType.BC_LINE,
+                FeatureType.REFERENCE_POINT,
+                FeatureType.REFERENCE_LINE,
             ):
                 feature_id = properties["id"]
                 feature_label = feature_id
                 st.session_state["model_id"] = properties["model"]
-            elif feature_type == FeatureType.DAM:
-                feature_id = properties["id"]
-                feature_label = feature_id
-                st.session_state["model_id"] = identify_model(geom)
-            elif feature_type == FeatureType.GAGE:
-                feature_id = properties["site_no"]
-                feature_label = feature_id
-                st.session_state["model_id"] = identify_model(geom)
             elif feature_type == FeatureType.MODEL:
                 feature_id = properties["model"]
                 feature_label = feature_id
@@ -506,7 +498,16 @@ def single_event():
                 FeatureType.SUBBASIN,
                 FeatureType.REACH,
                 FeatureType.JUNCTION,
+                FeatureType.RESERVOIR,
             ):
+                feature_id = properties["id"]
+                feature_label = feature_id
+                st.session_state["model_id"] = identify_model(geom)
+            elif feature_type == FeatureType.GAGE:
+                feature_id = properties["site_no"]
+                feature_label = feature_id
+                st.session_state["model_id"] = identify_model(geom)
+            elif feature_type == FeatureType.DAM:
                 feature_id = properties["id"]
                 feature_label = feature_id
                 st.session_state["model_id"] = identify_model(geom)
@@ -595,7 +596,7 @@ def single_event():
                             st.error(f"Error retrieving {plot_type} image.")
 
         elif feature_type == FeatureType.REFERENCE_LINE:
-            feature_gage_status, feature_gage_id = identify_gage_id(feature_label)
+            feature_gage_status, feature_gage_id = identify_gage(feature_label)
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### Reference Line: `{feature_label}`")
             st.markdown("#### Select Event")
@@ -852,6 +853,9 @@ def single_event():
         elif feature_type == FeatureType.JUNCTION:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### Junction: `{feature_label}`")
+        elif feature_type == FeatureType.RESERVOIR:
+            st.markdown(f"### Model: `{st.session_state['model_id']}`")
+            st.markdown(f"#### Reservoir: `{feature_label}`")
 
         elif feature_type == FeatureType.COG:
             st.markdown(f"### Raster Layer: `{st.session_state['cog_layer']}`")
@@ -892,37 +896,13 @@ def single_event():
             num_subbasins = len(st.subbasins)
             num_reaches = len(st.reaches)
             num_junctions = len(st.junctions)
+            num_reservoirs = len(st.reservoirs)
         else:
-            # Dams
-            st.session_state["dams_filtered"] = gpd.sjoin(
-                st.dams,
-                st.models[st.models["model"] == st.session_state["model_id"]],
-                how="inner",
-                predicate="intersects",
-            )
-            st.session_state["dams_filtered"]["lat"] = st.session_state[
-                "dams_filtered"
-            ]["lat_left"]
-            st.session_state["dams_filtered"]["lon"] = st.session_state[
-                "dams_filtered"
-            ]["lon_left"]
-            st.session_state["dams_filtered"]["index"] = st.session_state[
-                "dams_filtered"
-            ]["index_right"]
-            st.session_state["dams_filtered"]["layer"] = "Dams"
-            st.session_state["dams_filtered"].drop(
-                columns=[
-                    "lat_left",
-                    "lon_left",
-                    "lat_right",
-                    "lon_right",
-                    "layer_right",
-                    "layer_left",
-                    "index_right",
-                ],
-                inplace=True,
-            )
-            num_dams = len(st.session_state["dams_filtered"])
+            # BC Lines
+            st.session_state["bc_lines_filtered"] = st.bc_lines[
+                st.bc_lines["model"] == st.session_state["model_id"]
+            ]
+            
             # Reference Points
             st.session_state["ref_points_filtered"] = st.ref_points[
                 st.ref_points["model"] == st.session_state["model_id"]
@@ -933,44 +913,10 @@ def single_event():
                 st.ref_lines["model"] == st.session_state["model_id"]
             ]
             num_ref_lines = len(st.session_state["ref_lines_filtered"])
-            # Gages
-            st.session_state["gages_filtered"] = gpd.sjoin(
-                st.gages,
-                st.models[st.models["model"] == st.session_state["model_id"]],
-                how="inner",
-                predicate="intersects",
-            )
-            st.session_state["gages_filtered"]["lat"] = st.session_state[
-                "gages_filtered"
-            ]["lat_left"]
-            st.session_state["gages_filtered"]["lon"] = st.session_state[
-                "gages_filtered"
-            ]["lon_left"]
-            st.session_state["gages_filtered"]["index"] = st.session_state[
-                "gages_filtered"
-            ]["index_right"]
-            st.session_state["gages_filtered"]["layer"] = "Gages"
-            st.session_state["gages_filtered"].drop(
-                columns=[
-                    "lat_left",
-                    "lon_left",
-                    "lat_right",
-                    "lon_right",
-                    "layer_right",
-                    "layer_left",
-                    "index_right",
-                ],
-                inplace=True,
-            )
-            num_gages = len(st.session_state["gages_filtered"])
             # Models
             num_models = 1
             selected_model = st.models[
                 st.models["model"] == st.session_state["model_id"]
-            ]
-            # BC Lines
-            st.session_state["bc_lines_filtered"] = st.bc_lines[
-                st.bc_lines["model"] == st.session_state["model_id"]
             ]
             num_bc_lines = len(st.session_state["bc_lines_filtered"])
             # Subbasins
@@ -1013,22 +959,95 @@ def single_event():
                 st.session_state["junctions_filtered"] = None
                 num_junctions = 0
             num_junctions = len(st.session_state["junctions_filtered"])
-
-    with col_dams:
+            # Reservoirs
+            if not selected_model.empty:
+                model_geom = selected_model.geometry.iloc[0]
+                centroids = st.reservoirs.geometry.centroid
+                mask = centroids.within(model_geom)
+                st.session_state["reservoirs_filtered"] = st.reservoirs[mask].copy()
+                st.session_state["reservoirs_filtered"]["model"] = st.session_state[
+                    "model_id"
+                ]
+            else:
+                st.session_state["reservoirs_filtered"] = None
+                num_reservoirs = 0
+            num_reservoirs = len(st.session_state["reservoirs_filtered"])
+            # Gages
+            st.session_state["gages_filtered"] = gpd.sjoin(
+                st.gages,
+                st.models[st.models["model"] == st.session_state["model_id"]],
+                how="inner",
+                predicate="intersects",
+            )
+            st.session_state["gages_filtered"]["lat"] = st.session_state[
+                "gages_filtered"
+            ]["lat_left"]
+            st.session_state["gages_filtered"]["lon"] = st.session_state[
+                "gages_filtered"
+            ]["lon_left"]
+            st.session_state["gages_filtered"]["index"] = st.session_state[
+                "gages_filtered"
+            ]["index_right"]
+            st.session_state["gages_filtered"]["layer"] = "Gages"
+            st.session_state["gages_filtered"].drop(
+                columns=[
+                    "lat_left",
+                    "lon_left",
+                    "lat_right",
+                    "lon_right",
+                    "layer_right",
+                    "layer_left",
+                    "index_right",
+                ],
+                inplace=True,
+            )
+            num_gages = len(st.session_state["gages_filtered"])
+            # Dams
+            st.session_state["dams_filtered"] = gpd.sjoin(
+                st.dams,
+                st.models[st.models["model"] == st.session_state["model_id"]],
+                how="inner",
+                predicate="intersects",
+            )
+            st.session_state["dams_filtered"]["lat"] = st.session_state[
+                "dams_filtered"
+            ]["lat_left"]
+            st.session_state["dams_filtered"]["lon"] = st.session_state[
+                "dams_filtered"
+            ]["lon_left"]
+            st.session_state["dams_filtered"]["index"] = st.session_state[
+                "dams_filtered"
+            ]["index_right"]
+            st.session_state["dams_filtered"]["layer"] = "Dams"
+            st.session_state["dams_filtered"].drop(
+                columns=[
+                    "lat_left",
+                    "lon_left",
+                    "lat_right",
+                    "lon_right",
+                    "layer_right",
+                    "layer_left",
+                    "index_right",
+                ],
+                inplace=True,
+            )
+            num_dams = len(st.session_state["dams_filtered"])
+    
+    # Dropdowns for each feature type
+    with col_bc_lines:
         map_popover(
-            "🟥 Dams",
-            st.dams.to_dict("records")
-            if st.session_state["dams_filtered"] is None
-            else st.session_state["dams_filtered"].to_dict("records"),
-            lambda dam: dam["id"],
-            get_item_id=lambda dam: dam["id"],
-            feature_type=FeatureType.DAM,
-            download_url=st.pilot_layers["Dams"],
-            image_path=os.path.join(assetsDir, "dam_icon.jpg"),
+            "🟥BC Lines (HEC-RAS)",
+            st.bc_lines.to_dict("records")
+            if st.session_state["bc_lines_filtered"] is None
+            else st.session_state["bc_lines_filtered"].to_dict("records"),
+            lambda bc_line: bc_line["id"],
+            get_item_id=lambda bc_line: bc_line["id"],
+            feature_type=FeatureType.BC_LINE,
+            image_path=os.path.join(assetsDir, "bc_line_icon.jpg"),
         )
     with col_ref_points:
         map_popover(
-            "🟧 Reference Points",
+            "🟧 Reference Points (HEC-RAS)",
             st.ref_points.to_dict("records")
             if st.session_state["ref_points_filtered"] is None
             else st.session_state["ref_points_filtered"].to_dict("records"),
@@ -1039,7 +1058,7 @@ def single_event():
         )
     with col_ref_lines:
         map_popover(
-            "🟨 Reference Lines",
+            "🟨 Reference Lines (HEC-RAS)",
             st.ref_lines.to_dict("records")
             if st.session_state["ref_lines_filtered"] is None
             else st.session_state["ref_lines_filtered"].to_dict("records"),
@@ -1048,41 +1067,18 @@ def single_event():
             feature_type=FeatureType.REFERENCE_LINE,
             image_path=os.path.join(assetsDir, "ref_line_icon.png"),
         )
-    with col_gages:
-        map_popover(
-            "🟩 Gages",
-            st.gages.to_dict("records")
-            if st.session_state["gages_filtered"] is None
-            else st.session_state["gages_filtered"].to_dict("records"),
-            lambda gage: gage["site_no"],
-            get_item_id=lambda gage: gage["site_no"],
-            feature_type=FeatureType.GAGE,
-            download_url=st.pilot_layers["Gages"],
-            image_path=os.path.join(assetsDir, "gage_icon.png"),
-        )
     with col_models:
         map_popover(
-            "🟦 Models",
+            "🟩 Models (HEC-RAS)",
             st.models.to_dict("records"),
             lambda model: f"{model['model']}",
             get_item_id=lambda model: model["model"],
             feature_type=FeatureType.MODEL,
             image_path=os.path.join(assetsDir, "model_icon.jpg"),
         )
-    with col_bc_lines:
-        map_popover(
-            "🟪 BC Lines",
-            st.bc_lines.to_dict("records")
-            if st.session_state["bc_lines_filtered"] is None
-            else st.session_state["bc_lines_filtered"].to_dict("records"),
-            lambda bc_line: bc_line["id"],
-            get_item_id=lambda bc_line: bc_line["id"],
-            feature_type=FeatureType.BC_LINE,
-            image_path=os.path.join(assetsDir, "bc_line_icon.jpg"),
-        )
     with col_subbasins:
         map_popover(
-            "🟫 Subbasins",
+            "🟦 Subbasins (HEC-HMS)",
             st.subbasins.to_dict("records")
             if st.session_state["subbasins_filtered"] is None
             else st.session_state["subbasins_filtered"].to_dict("records"),
@@ -1093,7 +1089,7 @@ def single_event():
         )
     with col_reaches:
         map_popover(
-            "⬛ Reaches",
+            "🟪 Reaches (HEC-HMS)",
             st.reaches.to_dict("records")
             if st.session_state["reaches_filtered"] is None
             else st.session_state["reaches_filtered"].to_dict("records"),
@@ -1104,7 +1100,7 @@ def single_event():
         )
     with col_junctions:
         map_popover(
-            "⬜ Junctions",
+            "🟫 Junctions (HEC-HMS)",
             st.junctions.to_dict("records")
             if st.session_state["junctions_filtered"] is None
             else st.session_state["junctions_filtered"].to_dict("records"),
@@ -1112,6 +1108,41 @@ def single_event():
             get_item_id=lambda junction: junction["id"],
             feature_type=FeatureType.JUNCTION,
             image_path=os.path.join(assetsDir, "reaches_icon.png"),
+        )
+    with col_reservoirs:
+        map_popover(
+            "⬛ Reservoirs (HEC-HMS)",
+            st.reservoirs.to_dict("records")
+            if st.session_state["reservoirs_filtered"] is None
+            else st.session_state["reservoirs_filtered"].to_dict("records"),
+            lambda reservoir: reservoir["id"],
+            get_item_id=lambda reservoir: reservoir["id"],
+            feature_type=FeatureType.RESERVOIR,
+            image_path=os.path.join(assetsDir, "reaches_icon.png"),
+        )
+    with col_gages:
+        map_popover(
+            "🟢 Gages (USGS)",
+            st.gages.to_dict("records")
+            if st.session_state["gages_filtered"] is None
+            else st.session_state["gages_filtered"].to_dict("records"),
+            lambda gage: gage["site_no"],
+            get_item_id=lambda gage: gage["site_no"],
+            feature_type=FeatureType.GAGE,
+            download_url=st.pilot_layers["Gages"],
+            image_path=os.path.join(assetsDir, "gage_icon.png"),
+        )
+    with col_dams:
+        map_popover(
+            "🔴 Dams (NID)",
+            st.dams.to_dict("records")
+            if st.session_state["dams_filtered"] is None
+            else st.session_state["dams_filtered"].to_dict("records"),
+            lambda dam: dam["id"],
+            get_item_id=lambda dam: dam["id"],
+            feature_type=FeatureType.DAM,
+            download_url=st.pilot_layers["Dams"],
+            image_path=os.path.join(assetsDir, "dam_icon.jpg"),
         )
     with col_cogs:
         map_popover(
@@ -1134,15 +1165,16 @@ def single_event():
     st.sidebar.markdown("## Map Legend")
     st.sidebar.markdown(
         f"""
-        - 🟥 {num_dams} Dams
+        - 🟥 {num_bc_lines} BC Lines
         - 🟧 {num_ref_points} Reference Points
         - 🟨 {num_ref_lines} Reference Lines
-        - 🟩 {num_gages} Gages
-        - 🟦 {num_models} Models
-        - 🟪 {num_bc_lines} BC Lines
-        - 🟫 {num_subbasins} Subbasins
-        - ⬛ {num_reaches} Reaches
-        - ⬜ {num_junctions} Junctions
+        - 🟩 {num_models} Models
+        - 🟦 {num_subbasins} Subbasins 
+        - 🟪 {num_reaches} Reaches
+        - 🟫 {num_junctions} Junctions
+        - ⬛ {num_reservoirs} Reservoirs
+        - 🟢 {num_gages} Gages 
+        - 🔴 {num_dams} Dams 
         - 🌐 {len(st.cog_layers)} Raster Layers
         """
     )
