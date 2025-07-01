@@ -258,6 +258,16 @@ def prep_fmap(
     ).add_to(m)
 
     # Add the layers to the map
+    if st.models is not None:
+        add_polygons(m, st.models, "Models", ["model"], style_models)
+    if st.subbasins is not None:
+        add_polygons(
+            m,
+            st.subbasins,
+            "Subbasins",
+            ["hms_element", "layer"],
+            style_function=style_subbasins,
+        )
     if st.bc_lines is not None:
         add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
     if st.ref_points is not None:
@@ -266,26 +276,15 @@ def prep_fmap(
         add_polygons(
             m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
         )
-    if st.models is not None:
-        add_polygons(m, st.models, "Models", ["model"], style_models)
-    if st.subbasins is not None:
-        add_polygons(
-            m,
-            st.subbasins,
-            "Subbasins",
-            ["id", "layer"],
-            style_function=style_subbasins,
-            show_layer=False
-        )
     if st.reaches is not None:
         add_polygons(
-            m, st.reaches, "Reaches", ["id", "layer"], style_function=style_reaches
+            m, st.reaches, "Reaches", ["hms_element", "layer"], style_function=style_reaches
         )
     if st.junctions is not None:
-        add_squares(m, st.junctions, "Junctions", ["id", "layer"], "#70410c")
+        add_squares(m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c")
     if st.reservoirs is not None:
         add_squares(
-            m, st.reservoirs, "Reservoirs", ["id", "layer"], "#0a0703"
+            m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703"
         )
     if st.dams is not None:
         add_circles(m, st.dams, "Dams", ["id"], "#e21426")
