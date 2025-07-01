@@ -485,7 +485,9 @@ def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
 
 
 @st.cache_data
-def query_s3_stochastic_storm_list(_conn, pilot: str, element_id: str = "amon-g-carter_s010") -> list:
+def query_s3_stochastic_storm_list(
+    _conn, pilot: str, element_id: str = "amon-g-carter_s010"
+) -> list:
     """
     Query the list of stochastic storm events from the S3 bucket for a given HMS element ID.
 
@@ -518,7 +520,9 @@ def query_s3_stochastic_storm_list(_conn, pilot: str, element_id: str = "amon-g-
 
 
 @st.cache_data
-def query_s3_stochastic_event_list(_conn, pilot: str, element_id: str, storm_id: str) -> list:
+def query_s3_stochastic_event_list(
+    _conn, pilot: str, element_id: str, storm_id: str
+) -> list:
     """
     Query the list of stochastic events from the S3 bucket for a given element ID and storm ID.
 

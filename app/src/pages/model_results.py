@@ -413,8 +413,12 @@ def single_event():
     dropdown_container = st.container(
         key="dropdown_container",
     )
-    col_bc_lines, col_ref_points, col_ref_lines, col_models = dropdown_container.columns(4)
-    col_subbasins, col_reaches, col_junctions, col_reservoirs = dropdown_container.columns(4)
+    col_bc_lines, col_ref_points, col_ref_lines, col_models = (
+        dropdown_container.columns(4)
+    )
+    col_subbasins, col_reaches, col_junctions, col_reservoirs = (
+        dropdown_container.columns(4)
+    )
     col_gages, col_dams, col_cogs, reset_col = dropdown_container.columns(4)
     map_col, info_col = st.columns(2)
 
@@ -614,7 +618,11 @@ def single_event():
                         else:
                             st.error(f"Error retrieving {plot_type} image.")
         # HEC-RAS Model Objects
-        elif feature_type in [FeatureType.BC_LINE, FeatureType.REFERENCE_POINT, FeatureType.REFERENCE_LINE]:
+        elif feature_type in [
+            FeatureType.BC_LINE,
+            FeatureType.REFERENCE_POINT,
+            FeatureType.REFERENCE_LINE,
+        ]:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### {feature_type.value}: `{feature_label}`")
             st.markdown("#### Select Event")
@@ -675,9 +683,13 @@ def single_event():
                         st.session_state["calibration_event"],
                         st.session_state["model_id"],
                     )
-                    ref_pt_ts = ref_pt_wse_ts.merge(ref_pt_vel_ts, on="time", how="outer")
+                    ref_pt_ts = ref_pt_wse_ts.merge(
+                        ref_pt_vel_ts, on="time", how="outer"
+                    )
                     info_col.markdown("### Modeled WSE & Velocity")
-                    with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
+                    with info_col.expander(
+                        "Time Series Plots", expanded=False, icon="📈"
+                    ):
                         plot_ts(
                             ref_pt_wse_ts,
                             ref_pt_vel_ts,
@@ -710,7 +722,9 @@ def single_event():
                         bc_line_stage_ts, on="time", how="outer"
                     )
                     info_col.markdown("### Modeled Stage & Flow")
-                    with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
+                    with info_col.expander(
+                        "Time Series Plots", expanded=False, icon="📈"
+                    ):
                         plot_ts(
                             bc_line_flow_ts,
                             bc_line_stage_ts,
@@ -732,7 +746,9 @@ def single_event():
                         st.session_state["calibration_event"],
                         st.session_state["model_id"],
                     )
-                    ref_line_flow_ts.rename(columns={"flow": "model_flow"}, inplace=True)
+                    ref_line_flow_ts.rename(
+                        columns={"flow": "model_flow"}, inplace=True
+                    )
                     ref_line_wse_ts = query_s3_mod_wse(
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
@@ -775,7 +791,9 @@ def single_event():
                             st.dataframe(gage_flow_ts)
 
                     info_col.markdown("### Observed vs Modeled WSE")
-                    with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
+                    with info_col.expander(
+                        "Time Series Plots", expanded=False, icon="📈"
+                    ):
                         plot_ts(
                             pd.DataFrame(),
                             ref_line_wse_ts,
@@ -787,11 +805,16 @@ def single_event():
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
                         st.dataframe(ref_line_ts.drop(columns=["id_x", "id_y"]))
         # HEC-HMS Model Objects
-        elif feature_type in [FeatureType.SUBBASIN, FeatureType.REACH, FeatureType.JUNCTION, FeatureType.RESERVOIR]:
+        elif feature_type in [
+            FeatureType.SUBBASIN,
+            FeatureType.REACH,
+            FeatureType.JUNCTION,
+            FeatureType.RESERVOIR,
+        ]:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### {feature_type.value}: `{feature_label}`")
             st.markdown("#### Select Event")
-            col_event_type, col_storm_id, col_event_id  = info_col.columns(3)
+            col_event_type, col_storm_id, col_event_id = info_col.columns(3)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
                 ["Stochastic Events", "Calibration Events", "Multi Events"],
@@ -804,8 +827,7 @@ def single_event():
                     )
                 else:
                     stochastic_storms = query_s3_stochastic_storm_list(
-                        st.session_state["s3_conn"],
-                        st.session_state["pilot"]
+                        st.session_state["s3_conn"], st.session_state["pilot"]
                     )
                     st.session_state["stochastic_storm"] = col_storm_id.selectbox(
                         "Select Storm ID",
@@ -813,9 +835,7 @@ def single_event():
                         index=None,
                     )
                     if st.session_state["stochastic_storm"] is None:
-                        st.warning(
-                            "Please select a stochastic storm."
-                        )
+                        st.warning("Please select a stochastic storm.")
                     else:
                         stochastic_events = query_s3_stochastic_event_list(
                             st.session_state["s3_conn"],
@@ -829,9 +849,7 @@ def single_event():
                             index=None,
                         )
                         if st.session_state["stochastic_event"] is None:
-                            st.warning(
-                                "Please select a stochastic event."
-                            )
+                            st.warning("Please select a stochastic event.")
                 if (
                     st.session_state["stochastic_event"] is not None
                     and st.session_state["stochastic_storm"] is not None
@@ -841,10 +859,12 @@ def single_event():
                         st.session_state["pilot"],
                         st.session_state["hms_element_id"],
                         st.session_state["stochastic_storm"],
-                        st.session_state["stochastic_event"]
+                        st.session_state["stochastic_event"],
                     )
                     info_col.markdown("### Modeled Flow")
-                    with info_col.expander("Time Series Plots", expanded=False, icon="📈"):
+                    with info_col.expander(
+                        "Time Series Plots", expanded=False, icon="📈"
+                    ):
                         plot_ts(
                             stochastic_flow_ts,
                             pd.DataFrame(),
@@ -905,7 +925,7 @@ def single_event():
             st.session_state["bc_lines_filtered"] = st.bc_lines[
                 st.bc_lines["model"] == st.session_state["model_id"]
             ]
-            
+
             # Reference Points
             st.session_state["ref_points_filtered"] = st.ref_points[
                 st.ref_points["model"] == st.session_state["model_id"]
@@ -1035,7 +1055,7 @@ def single_event():
                 inplace=True,
             )
             num_dams = len(st.session_state["dams_filtered"])
-    
+
     # Dropdowns for each feature type
     with col_bc_lines:
         map_popover(

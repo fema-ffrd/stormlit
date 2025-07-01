@@ -52,7 +52,7 @@ def add_polygons(
         style_function=style_function,
         highlight_function=highlight_function,
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-        show=show_layer
+        show=show_layer,
     ).add_to(fmap)
 
 
@@ -108,7 +108,8 @@ def add_circles(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
     tooltip_fields: list,
-    color: str, ):
+    color: str,
+):
     """
     Add circles to a folium map as a layer
 
@@ -278,20 +279,20 @@ def prep_fmap(
         )
     if st.reaches is not None:
         add_polygons(
-            m, st.reaches, "Reaches", ["hms_element", "layer"], style_function=style_reaches
+            m,
+            st.reaches,
+            "Reaches",
+            ["hms_element", "layer"],
+            style_function=style_reaches,
         )
     if st.junctions is not None:
         add_squares(m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c")
     if st.reservoirs is not None:
-        add_squares(
-            m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703"
-        )
+        add_squares(m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703")
     if st.dams is not None:
         add_circles(m, st.dams, "Dams", ["id"], "#e21426")
     if st.gages is not None:
         add_circles(m, st.gages, "Gages", ["site_no"], "#32cd32")
-
-
 
     # Add COG layer if selected
     if cog_layer is not None:
