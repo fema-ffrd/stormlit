@@ -595,8 +595,21 @@ def query_s3_ensemble_peak_flow(
         s3://trinity-pilot/cloud-hms-db/ams/realization=1/block_group=1/peaks.pq
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group=*/peaks.pq"
-    query = f"""SELECT peak_flow, element as element_id
+    query = f"""
+        SELECT
+            MAX(peak_flow) AS peak_flow,
+            element_id,
+            block_group
+        FROM (
+            SELECT
+                peak_flow,
+                event_id,
+                element AS element_id,
+                block_group
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE element_id='{element_id}'
-            ORDER BY peak_flow;"""
+        )
+        GROUP BY block_group, element_id
+        ORDER BY peak_flow;
+    """
     return query_db(_conn, query)
