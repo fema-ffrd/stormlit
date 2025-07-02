@@ -203,6 +203,7 @@ def plot_flow_aep(
             title="AEP",
             autorange="reversed",
             type="log",
+            showgrid=True,
         ),
         xaxis2=dict(
             title="Return Period (Years)",
