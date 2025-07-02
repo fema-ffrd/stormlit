@@ -18,7 +18,7 @@ srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 
 
-def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
+def prep_gdf(gdf: gpd.GeoDataFrame, layer: str, hms: bool = False) -> gpd.GeoDataFrame:
     """
     Prepares a GeoDataFrame for plotting on a folium map.
 
@@ -28,6 +28,8 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
         A GeoDataFrame containing the map data
     layer: str
         The name of the layer
+    hms: bool, optional
+        Whether the layer is an HMS layer (default is False).
 
     Returns
     -------
@@ -47,17 +49,18 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str) -> gpd.GeoDataFrame:
     gdf["layer"] = layer
     gdf["crs"] = crs_str
     gdf["bbox"] = bbox_str
+    if hms:
+        if "name" in gdf.columns:
+            gdf.rename(columns={"name": "hms_element"}, inplace=True)
     return gdf
 
 
-def init_pilot(pg_conn, s3_conn, pilot: str):
+def init_pilot(s3_conn, pilot: str):
     """
     Initialize the map data for the selected pilot study
 
     Parameters
     ----------
-    pg_conn: duckdb.DuckDBPyConnection
-        The connection to the PostgreSQL database
     s3_conn: duckdb.DuckDBPyConnection
         The connection to the S3 account
     pilot: str
@@ -69,6 +72,10 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
         st.pilot_layers = {
             "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
             "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
+            "Subbasins": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Subbasin.geojson",
+            "Reaches": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Reach.geojson",
+            "Junctions": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Junction.geojson",
+            "Reservoirs": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Reservoir.geojson",
         }
         st.cog_layers = {
             "Bedias Creek": "s3://trinity-pilot/stac/prod-support/models/testing/bediascreek-depth-max-aug2017.cog.tif",
@@ -79,15 +86,24 @@ def init_pilot(pg_conn, s3_conn, pilot: str):
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
-    st.dams = prep_gdf(df_dams, "Dams")
+    st.dams = prep_gdf(df_dams, "Dam")
 
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
-    st.gages = prep_gdf(df_gages, "Gages")
+    st.gages = prep_gdf(df_gages, "Gage")
 
     st.models = query_s3_model_bndry(s3_conn, pilot, "all")
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
+
+    df_subbasins = gpd.read_file(st.pilot_layers["Subbasins"])
+    st.subbasins = prep_gdf(df_subbasins, "Subbasin", hms=True)
+    df_reaches = gpd.read_file(st.pilot_layers["Reaches"])
+    st.reaches = prep_gdf(df_reaches, "Reach", hms=True)
+    df_junctions = gpd.read_file(st.pilot_layers["Junctions"])
+    st.junctions = prep_gdf(df_junctions, "Junction", hms=True)
+    df_reservoirs = gpd.read_file(st.pilot_layers["Reservoirs"])
+    st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
 
 
 def define_gage_data(gage_id: str):

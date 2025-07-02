@@ -61,6 +61,5 @@ def create_s3_connection(aws_region: str = "us-east-1"):
             REGION '{aws_region}'
         )
     """)
-
     st.session_state["s3_connected"] = True
     return conn
