@@ -592,7 +592,6 @@ def query_s3_ensemble_peak_flow(
         element_id (str): The element ID to query (e.g., 'amon-g-carter_s010').
     Returns:
         pd.DataFrame: A pandas DataFrame containing the stochastic block group flow data.
-        s3://trinity-pilot/cloud-hms-db/ams/realization=1/block_group=1/peaks.pq
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group=*/peaks.pq"
     query = f"""
