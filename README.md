@@ -1,5 +1,8 @@
 # stormlit
-A streamlit application designed for interacting with probabilistic flood hazards modeling data 
+A streamlit application designed for interacting with probabilistic flood hazards modeling data
+
+[![Deploy](https://github.com/fema-ffrd/stormlit/actions/workflows/deploy.yml/badge.svg)](https://github.com/fema-ffrd/stormlit/actions/workflows/deploy.yml)
+[![Docker Scout](https://github.com/fema-ffrd/stormlit/actions/workflows/docker-scout.yml/badge.svg)](https://github.com/fema-ffrd/stormlit/actions/workflows/docker-scout.yml) 
 
 ## Stormlit Development Environment
 The development container provides a consistent environment for Stormlit development with Python (via Micromamba), Node.js, AWS CLI, CDKTF, PgStac API, and PostgreSQL.

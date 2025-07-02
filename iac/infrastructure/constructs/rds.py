@@ -21,7 +21,7 @@ class RdsConstruct(Construct):
     5. Security and monitoring settings
 
     Database Configuration:
-    - PostgreSQL 17.2 engine
+    - PostgreSQL 17.4 engine
     - Custom parameter group settings:
         * max_connections: 100
         * shared_buffers: 16MB
@@ -83,7 +83,7 @@ class RdsConstruct(Construct):
         - Instance is configured for PostgreSQL workloads
         - Storage is encrypted by default
         - Parameter group changes require instance reboot
-        - Auto minor version upgrades enabled
+        - Auto minor version upgrades disabled
         - Tags are copied to snapshots
         - Port 5432 is used for PostgreSQL
         - Max connections limited to 100
@@ -150,7 +150,7 @@ class RdsConstruct(Construct):
             "db-instance",
             identifier=f"{resource_prefix}-postgres",
             engine="postgres",
-            engine_version="17.2",
+            engine_version="17.4",
             instance_class=db_config.instance_class,
             allocated_storage=db_config.allocated_storage,
             max_allocated_storage=db_config.max_allocated_storage,
@@ -168,7 +168,7 @@ class RdsConstruct(Construct):
             publicly_accessible=db_config.publicly_accessible,
             apply_immediately=db_config.apply_immediately,
             copy_tags_to_snapshot=True,
-            auto_minor_version_upgrade=True,
+            auto_minor_version_upgrade=False,
             monitoring_interval=db_config.monitoring_interval,
             performance_insights_enabled=db_config.performance_insights_enabled,
             storage_encrypted=True,
