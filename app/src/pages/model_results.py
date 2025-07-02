@@ -371,7 +371,7 @@ def about_popover(color: str = "white"):
             )
 
 
-def single_event():
+def model_results():
     st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
     if "session_id" not in st.session_state:
         init_session_state()
@@ -1253,4 +1253,4 @@ def single_event():
 
 
 if __name__ == "__main__":
-    single_event()
+    model_results()

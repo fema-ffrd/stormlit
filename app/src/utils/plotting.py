@@ -200,7 +200,7 @@ def plot_flow_aep(
     # Update layout for dual y-axes
     fig.update_layout(
         xaxis=dict(
-            title="AEP (%)",
+            title="AEP",
             autorange="reversed",
             type="log",
         ),
