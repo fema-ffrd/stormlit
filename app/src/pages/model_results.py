@@ -8,7 +8,7 @@ from utils.stac_data import (
     get_stac_img,
     get_stac_meta,
 )
-from utils.plotting import plot_ts, plot_hist
+from utils.plotting import plot_ts, plot_hist, plot_flow_aep
 from utils.mapping import get_map_pos, prep_fmap
 from db.utils import create_pg_connection, create_s3_connection
 from db.pull import (
@@ -22,6 +22,7 @@ from db.pull import (
     query_s3_stochastic_hms_flow,
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
+    query_s3_ensemble_peak_flow
 )
 
 # standard imports
@@ -409,6 +410,15 @@ def single_event():
                 st.session_state["pilot"],
             )
             st.session_state["init_pilot"] = True
+
+    #test_df = pd.read_parquet("/workspace/app/src/assets/peaks.pq")
+    # test_df = query_s3_ensemble_peak_flow(
+    #     st.session_state["s3_conn"],
+    #     st.session_state["pilot"],
+    #     realization_id=1,
+    #     element_id="clear-ck_s100",
+    #     )
+    # st.dataframe(test_df)
 
     dropdown_container = st.container(
         key="dropdown_container",
@@ -875,6 +885,35 @@ def single_event():
                         )
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
                         st.dataframe(stochastic_flow_ts)
+            elif st.session_state["event_type"] == "Multi Events":
+                if st.session_state["hms_element_id"] is None:
+                    st.warning(
+                        "Please select a HEC-HMS model object from the map or drop down list"
+                    )
+                else:
+                    multi_event_peaks = query_s3_ensemble_peak_flow(
+                        st.session_state["s3_conn"],
+                        st.session_state["pilot"],
+                        realization_id=1,
+                        element_id=st.session_state["hms_element_id"],
+                        )
+                    multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(ascending=False)
+                    multi_event_peaks["aep"] = (
+                        multi_event_peaks["rank"] / (len(multi_event_peaks) + 1)
+                    )
+                    multi_event_peaks["return_period"] = (
+                        1 / multi_event_peaks["aep"]
+                    )
+                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(4)
+                    multi_event_peaks["return_period"] = multi_event_peaks["return_period"].round(1)
+                    multi_event_peaks["peak_flow"] = multi_event_peaks["peak_flow"].round(1)
+                    with info_col.expander(
+                        "Frequency Plots", expanded=False, icon="📈"
+                    ):
+                        plot_flow_aep(multi_event_peaks)
+                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                        st.dataframe(multi_event_peaks)
+
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
