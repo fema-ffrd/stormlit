@@ -22,7 +22,7 @@ from db.pull import (
     query_s3_stochastic_hms_flow,
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
-    query_s3_ensemble_peak_flow
+    query_s3_ensemble_peak_flow,
 )
 
 # standard imports
@@ -411,7 +411,7 @@ def single_event():
             )
             st.session_state["init_pilot"] = True
 
-    #test_df = pd.read_parquet("/workspace/app/src/assets/peaks.pq")
+    # test_df = pd.read_parquet("/workspace/app/src/assets/peaks.pq")
     # test_df = query_s3_ensemble_peak_flow(
     #     st.session_state["s3_conn"],
     #     st.session_state["pilot"],
@@ -896,17 +896,21 @@ def single_event():
                         st.session_state["pilot"],
                         realization_id=1,
                         element_id=st.session_state["hms_element_id"],
-                        )
-                    multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(ascending=False)
-                    multi_event_peaks["aep"] = (
-                        multi_event_peaks["rank"] / (len(multi_event_peaks) + 1)
                     )
-                    multi_event_peaks["return_period"] = (
-                        1 / multi_event_peaks["aep"]
+                    multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
+                        ascending=False
                     )
+                    multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
+                        len(multi_event_peaks) + 1
+                    )
+                    multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
                     multi_event_peaks["aep"] = multi_event_peaks["aep"].round(4)
-                    multi_event_peaks["return_period"] = multi_event_peaks["return_period"].round(1)
-                    multi_event_peaks["peak_flow"] = multi_event_peaks["peak_flow"].round(1)
+                    multi_event_peaks["return_period"] = multi_event_peaks[
+                        "return_period"
+                    ].round(1)
+                    multi_event_peaks["peak_flow"] = multi_event_peaks[
+                        "peak_flow"
+                    ].round(1)
                     with info_col.expander(
                         "Frequency Plots", expanded=False, icon="📈"
                     ):

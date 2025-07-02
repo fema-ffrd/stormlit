@@ -191,8 +191,10 @@ def plot_flow_aep(
             xaxis="x2",
             text=[
                 f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}"
-                for rp, peak_flow, aep in zip(df["return_period"], df["peak_flow"], df["aep"])
-            ]
+                for rp, peak_flow, aep in zip(
+                    df["return_period"], df["peak_flow"], df["aep"]
+                )
+            ],
         )
     )
     # Update layout for dual y-axes
