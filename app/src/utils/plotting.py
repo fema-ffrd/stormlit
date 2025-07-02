@@ -148,3 +148,80 @@ def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):
         showlegend=True,
     )
     return fig
+
+
+def plot_flow_aep(
+    df: pd.DataFrame,
+):
+    """Function for plotting Discharge Frequency Plot.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the AEP, Return Period, and Peak Flow data.
+    """
+    # Check if the DataFrames are empty
+    if df.empty:
+        st.warning("No data available for the selected variables in the dataset.")
+        return
+
+    fig = go.Figure()
+
+    # Add trace for AEP vs Peak Flow
+    fig.add_trace(
+        go.Scatter(
+            x=df["aep"],
+            y=df["peak_flow"],
+            mode="markers",
+            name="Discharge (cfs)",
+            marker=dict(color="white"),
+            yaxis="y1",
+            xaxis="x1",
+        )
+    )
+    # Add trace for Return Period vs Peak Flow
+    fig.add_trace(
+        go.Scatter(
+            x=df["return_period"],
+            y=df["peak_flow"],
+            mode="markers",
+            name="Discharge (cfs)",
+            marker=dict(color="red"),
+            yaxis="y2",
+            xaxis="x2",
+            text=[
+                f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}<br>Block Group: {block}"
+                for rp, peak_flow, aep, block in zip(
+                    df["return_period"], df["peak_flow"], df["aep"], df["block_group"]
+                )
+            ],
+        )
+    )
+    # Update layout for dual y-axes
+    fig.update_layout(
+        xaxis=dict(
+            title="AEP",
+            autorange="reversed",
+            type="log",
+        ),
+        xaxis2=dict(
+            title="Return Period (Years)",
+            overlaying="x",
+            side="top",
+            type="log",
+        ),
+        yaxis1=dict(
+            title="Discharge (cfs)",
+            type="log",
+        ),
+        yaxis2=dict(
+            title="Discharge (cfs)",
+            type="log",
+            overlaying="y1",
+            side="left",
+        ),
+        title="Block Maximum Discharge Frequency Plot",
+    )
+    # Remove the legend
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(fig)

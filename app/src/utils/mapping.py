@@ -20,6 +20,7 @@ def add_polygons(
     layer_name: str,
     tooltip_fields: list,
     style_function: callable,
+    show_layer: bool = True,
 ):
     """
     Add polygons to a folium map as a layer
@@ -36,7 +37,8 @@ def add_polygons(
         A list of fields to display in the tooltip
     style_function: callable
         A function to style the polygons
-
+    show_layer: bool
+        Whether to show the layer by default
     Returns
     -------
     None
@@ -50,10 +52,11 @@ def add_polygons(
         style_function=style_function,
         highlight_function=highlight_function,
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        show=show_layer,
     ).add_to(fmap)
 
 
-def add_points(
+def add_squares(
     fmap: folium.Map,
     gdf: gpd.GeoDataFrame,
     layer_name: str,
@@ -75,7 +78,6 @@ def add_points(
         A list of fields to display in the tooltip
     color: str
         The color of the squares to be used as markers
-
     Returns
     -------
     None
@@ -90,7 +92,6 @@ def add_points(
         </div>
         """
     )
-
     folium.GeoJson(
         gdf,
         name=layer_name,
@@ -102,16 +103,71 @@ def add_points(
     ).add_to(fmap)
 
 
-def style_models(feature):
-    return {"fillColor": "#1e90ff"}
+def add_circles(
+    fmap: folium.Map,
+    gdf: gpd.GeoDataFrame,
+    layer_name: str,
+    tooltip_fields: list,
+    color: str,
+):
+    """
+    Add circles to a folium map as a layer
+
+    Parameters
+    ----------
+    fmap: folium.Map
+        The folium map object to add the circles to
+    gdf: gpd.GeoDataFrame
+        A GeoDataFrame with point geometries
+    layer_name: str
+        The name of the layer to add to the map
+    tooltip_fields: list
+        A list of fields to display in the tooltip
+    color: str
+        The color of the circles to be used as markers
+    Returns
+    -------
+    None
+    """
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        marker=folium.CircleMarker(
+            radius=5,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=1,
+        ),
+        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        popup=folium.GeoJsonPopup(fields=tooltip_fields),
+        highlight_function=highlight_function,
+        zoom_on_click=True,
+    ).add_to(fmap)
+
+
+def style_bc_lines(feature):
+    return {"color": "#e21426", "weight": 4}
 
 
 def style_ref_lines(feature):
     return {"color": "yellow", "weight": 4}
 
 
-def style_bc_lines(feature):
-    return {"color": "purple", "weight": 4}
+def style_models(feature):
+    return {"fillColor": "#32cd32"}
+
+
+def style_subbasins(feature):
+    return {"fillColor": "#1e90ff"}
+
+
+def style_reaches(feature):
+    return {"color": "#8f44cc", "weight": 4}
+
+
+def style_reservoirs(feature):
+    return {"fillColor": "#0a0703", "weight": 4}
 
 
 def get_map_pos(map_layer: str, layer_field: str):
@@ -199,24 +255,44 @@ def prep_fmap(
         name="Google Satellite",
         overlay=False,
         control=True,
-        show=True,
+        show=False,
     ).add_to(m)
 
-    # Add the selected layers to the map
+    # Add the layers to the map
     if st.models is not None:
         add_polygons(m, st.models, "Models", ["model"], style_models)
-    if st.dams is not None:
-        add_points(m, st.dams, "Dams", ["id"], "#e32636")
-    if st.gages is not None:
-        add_points(m, st.gages, "Gages", ["site_no"], "#32cd32")
+    if st.subbasins is not None:
+        add_polygons(
+            m,
+            st.subbasins,
+            "Subbasins",
+            ["hms_element", "layer"],
+            style_function=style_subbasins,
+        )
+    if st.bc_lines is not None:
+        add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
+    if st.ref_points is not None:
+        add_squares(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
     if st.ref_lines is not None:
         add_polygons(
             m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
         )
-    if st.ref_points is not None:
-        add_points(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
-    if st.bc_lines is not None:
-        add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
+    if st.reaches is not None:
+        add_polygons(
+            m,
+            st.reaches,
+            "Reaches",
+            ["hms_element", "layer"],
+            style_function=style_reaches,
+        )
+    if st.junctions is not None:
+        add_squares(m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c")
+    if st.reservoirs is not None:
+        add_squares(m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703")
+    if st.dams is not None:
+        add_circles(m, st.dams, "Dams", ["id"], "#e21426")
+    if st.gages is not None:
+        add_circles(m, st.gages, "Gages", ["site_no"], "#32cd32")
 
     # Add COG layer if selected
     if cog_layer is not None:
@@ -232,7 +308,8 @@ def prep_fmap(
                 stats_url, params={"url": cog_s3uri}, timeout=30
             )
             stats_data = stats_response.json()
-            st.session_state[f"cog_stats_{cog_layer}"] = stats_data
+            st.session_state["cog_stats"] = stats_data["b1"]
+            st.session_state["cog_hist"] = stats_data["b1"]["histogram"]
 
             # Get min/max values for rescaling
             min_value = stats_data["b1"]["min"]
@@ -250,7 +327,7 @@ def prep_fmap(
                 timeout=10,
             )
             tilejson_data = tilejson_response.json()
-            st.session_state[f"cog_tilejson_{cog_layer}"] = tilejson_data
+            st.session_state["cog_tilejson"] = tilejson_data
 
             # Add the COG as a TileLayer to the map
             if "tiles" in tilejson_data:
@@ -278,16 +355,14 @@ def prep_fmap(
                         ]
                     )
                 else:
-                    st.session_state[f"cog_error_{cog_layer}"] = (
+                    st.session_state["cog_error"] = (
                         "No bounds found in TileJSON response"
                     )
             else:
-                st.session_state[f"cog_error_{cog_layer}"] = (
-                    "No tiles found in TileJSON response"
-                )
+                st.session_state["cog_error"] = "No tiles found in TileJSON response"
 
         except Exception as e:
-            st.session_state[f"cog_error_{cog_layer}"] = str(e)
+            st.session_state["cog_error"] = str(e)
     else:
         pass
 

@@ -29,7 +29,7 @@ def home_page():
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
-    st.sidebar.page_link("pages/single_event.py", label="Single Event Viewer ⛈️")
+    st.sidebar.page_link("pages/model_results.py", label="Model Results 🌧️")
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
@@ -99,8 +99,9 @@ def home_page():
         following pages:
 
         - **Home Page:** We are here!
-        - **Single Event Viewer:** Visualize the spatial modeling components for single event simulations.
         - **Model QC:** Run automated quality control checks for model compliance with standard operating procedures.
+        - **Model Results:** Visualize the spatial modeling components for calibration and stochastic single and multi event simulations.
+        
         """
     )
 
