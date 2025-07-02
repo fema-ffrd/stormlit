@@ -917,7 +917,6 @@ def model_results():
                         plot_flow_aep(multi_event_peaks)
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
                         st.dataframe(multi_event_peaks)
-
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
