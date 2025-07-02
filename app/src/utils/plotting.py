@@ -220,7 +220,7 @@ def plot_flow_aep(
             overlaying="y1",
             side="left",
         ),
-        title="Discharge Frequency Plot",
+        title="Block Maximum Discharge Frequency Plot",
     )
     # Remove the legend
     fig.update_layout(showlegend=False)
