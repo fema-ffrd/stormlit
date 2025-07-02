@@ -36,7 +36,7 @@ class DatabaseStack(BaseStack):
         * Managed access through IAM
 
     - RDS Instance:
-        * PostgreSQL 17.2 engine
+        * PostgreSQL 17.4 engine
         * Custom parameter group
         * Automated backups
         * Encryption at rest
