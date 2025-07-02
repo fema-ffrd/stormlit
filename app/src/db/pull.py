@@ -576,3 +576,27 @@ def query_s3_stochastic_hms_flow(
     query = f"""SELECT datetime, values as hms_flow
             FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query)
+
+
+@st.cache_data
+def query_s3_ensemble_peak_flow(
+    _conn, pilot: str, realization_id: int, element_id: str
+) -> pd.DataFrame:
+    """
+    Query stochastic block group flow timeseries data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        realization_id (int): The realization ID to query (e.g., 1).
+        element_id (str): The element ID to query (e.g., 'amon-g-carter_s010').
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the stochastic block group flow data.
+        s3://trinity-pilot/cloud-hms-db/ams/realization=1/block_group=1/peaks.pq
+    """
+    s3_path = f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group=*/peaks.pq"
+    query = f"""SELECT peak_flow, element as element_id
+            FROM read_parquet('{s3_path}', hive_partitioning=true)
+            WHERE element_id='{element_id}'
+            ORDER BY peak_flow;"""
+    return query_db(_conn, query)
