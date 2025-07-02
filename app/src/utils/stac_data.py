@@ -77,25 +77,18 @@ def init_pilot(s3_conn, pilot: str):
             "Junctions": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Junction.geojson",
             "Reservoirs": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Reservoir.geojson",
         }
-        st.cog_layers = {
-            "Bedias Creek": "s3://trinity-pilot/stac/prod-support/models/testing/bediascreek-depth-max-aug2017.cog.tif",
-            "Kickapoo": "s3://trinity-pilot/stac/prod-support/models/testing/kickapoo-depth-max-aug2017.cog.tif",
-            "Livingston": "s3://trinity-pilot/stac/prod-support/models/testing/livingston-depth-max-aug2017.cog.tif",
-        }
+        st.cog_layers = {}
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
     df_dams = gpd.read_file(st.pilot_layers["Dams"])
     st.dams = prep_gdf(df_dams, "Dam")
-
     df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
     st.gages = prep_gdf(df_gages, "Gage")
-
     st.models = query_s3_model_bndry(s3_conn, pilot, "all")
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
-
     df_subbasins = gpd.read_file(st.pilot_layers["Subbasins"])
     st.subbasins = prep_gdf(df_subbasins, "Subbasin", hms=True)
     df_reaches = gpd.read_file(st.pilot_layers["Reaches"])
