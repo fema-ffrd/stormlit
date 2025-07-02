@@ -907,10 +907,10 @@ def model_results():
                     multi_event_peaks["aep"] = multi_event_peaks["aep"].round(4)
                     multi_event_peaks["return_period"] = multi_event_peaks[
                         "return_period"
-                    ].round(1)
+                    ].round(4)
                     multi_event_peaks["peak_flow"] = multi_event_peaks[
                         "peak_flow"
-                    ].round(1)
+                    ].round(4)
                     with info_col.expander(
                         "Frequency Plots", expanded=False, icon="📈"
                     ):
@@ -927,22 +927,24 @@ def model_results():
             with st.expander("Statistics", expanded=True, icon="📊"):
                 # plot a histogram of the COG
                 hist_df = pd.DataFrame(st.session_state["cog_hist"]).T
-                hist_df.columns = ["Count", "Value"]
-                st.session_state["cog_hist_nbins"] = st.slider(
-                    "Select number of bins for histogram",
-                    min_value=5,
-                    max_value=100,
-                    value=20,
-                )
-                hist_fig = plot_hist(
-                    hist_df,
-                    x_col="Value",
-                    y_col="Count",
-                    nbins=st.session_state["cog_hist_nbins"],
-                )
-                st.plotly_chart(hist_fig, use_container_width=True)
-                st.write(st.session_state["cog_stats"])
-
+                if hist_df.empty:
+                    st.warning("No histogram data available for this COG layer.")
+                else:
+                    hist_df.columns = ["Count", "Value"]
+                    st.session_state["cog_hist_nbins"] = st.slider(
+                        "Select number of bins for histogram",
+                        min_value=5,
+                        max_value=100,
+                        value=20,
+                    )
+                    hist_fig = plot_hist(
+                        hist_df,
+                        x_col="Value",
+                        y_col="Count",
+                        nbins=st.session_state["cog_hist_nbins"],
+                    )
+                    st.plotly_chart(hist_fig, use_container_width=True)
+                    st.write(st.session_state["cog_stats"])
         else:
             st.markdown("### Single Event View")
             st.markdown(
