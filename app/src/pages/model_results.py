@@ -22,7 +22,6 @@ from db.pull import (
     query_s3_stochastic_hms_flow,
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
-    query_s3_geojson,
 )
 
 # standard imports
@@ -171,7 +170,7 @@ class FeatureType(Enum):
     REACH = "Reach"
     JUNCTION = "Junction"
     RESERVOIR = "Reservoir"
-    COG = "COG"
+    COG = "Raster Layer"
     CALIBRATION_EVENT = "Calibration Event"
 
 
@@ -199,7 +198,7 @@ def focus_feature(
         Whether the focus was triggered by a map click or a button click.
     """
     logger.info("Item selected: %s", item)
-    geom = item.get("geometry")
+    geom = item.get("geometry", None)
     if geom and isinstance(geom, dict):
         # Convert dict to Geometry object if necessary
         geom = shape(geom)
@@ -297,7 +296,7 @@ def map_popover(
                     item_label += " ✅"
                 button_key = f"btn_{label}_{item_id}_{idx}"
 
-                if label != "Raster Layers":
+                if label != "🌐 Raster Layers":
                     try:
                         st.button(
                             label=item_label,
