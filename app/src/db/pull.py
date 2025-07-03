@@ -609,7 +609,7 @@ def query_s3_ensemble_peak_flow(
     query = f"""
         SELECT
             MAX(peak_flow) AS peak_flow,
-            event_id,
+            ARG_MAX(event_id, peak_flow) AS event_id,
             block_group
         FROM (
             SELECT
