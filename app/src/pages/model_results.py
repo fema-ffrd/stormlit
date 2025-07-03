@@ -885,8 +885,8 @@ def model_results():
                     st.session_state["block_range"] = col_storm_id.slider(
                         "Select Block Range",
                         min_value=1,
-                        max_value=200,
-                        value=(50, 100),
+                        max_value=2000,
+                        value=(500, 1000),
                     )
                     block_start, block_end = st.session_state["block_range"]
                     multi_event_peaks = query_s3_ensemble_peak_flow(

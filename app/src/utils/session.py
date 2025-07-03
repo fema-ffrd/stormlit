@@ -43,7 +43,7 @@ def init_session_state():
     st.session_state["gage_event"] = None
     st.session_state["stochastic_event"] = None
     st.session_state["stochastic_storm"] = None
-    st.session_state["block_range"] = (50, 100)
+    st.session_state["block_range"] = (500, 1000)
 
     # model qc session
     st.session_state["model_qc_file_path"] = None
