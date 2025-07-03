@@ -2,6 +2,7 @@ import os
 import requests
 import folium
 import streamlit as st
+import pandas as pd
 import geopandas as gpd
 
 
@@ -309,7 +310,7 @@ def prep_fmap(
             )
             stats_data = stats_response.json()
             st.session_state["cog_stats"] = stats_data["b1"]
-            st.session_state["cog_hist"] = stats_data["b1"]["histogram"]
+            st.session_state["cog_hist"] = pd.DataFrame(stats_data["b1"]["histogram"]).T
 
             # Get min/max values for rescaling
             min_value = stats_data["b1"]["min"]

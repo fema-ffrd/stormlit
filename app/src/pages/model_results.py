@@ -411,15 +411,6 @@ def model_results():
             )
             st.session_state["init_pilot"] = True
 
-    # test_df = pd.read_parquet("/workspace/app/src/assets/peaks.pq")
-    # test_df = query_s3_ensemble_peak_flow(
-    #     st.session_state["s3_conn"],
-    #     st.session_state["pilot"],
-    #     realization_id=1,
-    #     element_id="clear-ck_s100",
-    #     )
-    # st.dataframe(test_df)
-
     dropdown_container = st.container(
         key="dropdown_container",
     )
@@ -827,7 +818,7 @@ def model_results():
             col_event_type, col_storm_id, col_event_id = info_col.columns(3)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
-                ["Stochastic Events", "Calibration Events", "Multi Events"],
+                ["Calibration Events", "Stochastic Events", "Multi Events"],
                 index=0,
             )
             if st.session_state["event_type"] == "Stochastic Events":
@@ -891,26 +882,42 @@ def model_results():
                         "Please select a HEC-HMS model object from the map or drop down list"
                     )
                 else:
+                    st.session_state["block_range"] = col_storm_id.slider(
+                        "Select Block Range",
+                        min_value=1,
+                        max_value=2000,
+                        value=(500, 1000),
+                    )
+                    block_start, block_end = st.session_state["block_range"]
                     multi_event_peaks = query_s3_ensemble_peak_flow(
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
                         realization_id=1,
                         element_id=st.session_state["hms_element_id"],
+                        block_group_start=block_start,
+                        block_group_end=block_end,
                     )
                     multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
                         ascending=False
                     )
                     multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
-                        len(multi_event_peaks) + 1
+                        len(multi_event_peaks)
                     )
                     multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
-                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(4)
+                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(5)
                     multi_event_peaks["return_period"] = multi_event_peaks[
                         "return_period"
-                    ].round(1)
+                    ].round(5)
                     multi_event_peaks["peak_flow"] = multi_event_peaks[
                         "peak_flow"
-                    ].round(1)
+                    ].round(5)
+                    multi_event_peaks = pd.merge(
+                        multi_event_peaks,
+                        st.storms,
+                        left_on="event_id",
+                        right_on="event_id",
+                        how="left",
+                    )
                     with info_col.expander(
                         "Frequency Plots", expanded=False, icon="📈"
                     ):
@@ -927,22 +934,24 @@ def model_results():
             with st.expander("Statistics", expanded=True, icon="📊"):
                 # plot a histogram of the COG
                 hist_df = pd.DataFrame(st.session_state["cog_hist"]).T
-                hist_df.columns = ["Count", "Value"]
-                st.session_state["cog_hist_nbins"] = st.slider(
-                    "Select number of bins for histogram",
-                    min_value=5,
-                    max_value=100,
-                    value=20,
-                )
-                hist_fig = plot_hist(
-                    hist_df,
-                    x_col="Value",
-                    y_col="Count",
-                    nbins=st.session_state["cog_hist_nbins"],
-                )
-                st.plotly_chart(hist_fig, use_container_width=True)
-                st.write(st.session_state["cog_stats"])
-
+                if hist_df.empty:
+                    st.warning("No histogram data available for this COG layer.")
+                else:
+                    hist_df.columns = ["Count", "Value"]
+                    st.session_state["cog_hist_nbins"] = st.slider(
+                        "Select number of bins for histogram",
+                        min_value=5,
+                        max_value=100,
+                        value=20,
+                    )
+                    hist_fig = plot_hist(
+                        hist_df,
+                        x_col="Value",
+                        y_col="Count",
+                        nbins=st.session_state["cog_hist_nbins"],
+                    )
+                    st.plotly_chart(hist_fig, use_container_width=True)
+                    st.write(st.session_state["cog_stats"])
         else:
             st.markdown("### Single Event View")
             st.markdown(
