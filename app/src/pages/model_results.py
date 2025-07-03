@@ -884,7 +884,7 @@ def model_results():
                 else:
                     st.session_state["block_range"] = col_storm_id.slider(
                         "Select Block Range",
-                        min_value=10,
+                        min_value=1,
                         max_value=200,
                         value=(50, 100),
                     )
@@ -901,7 +901,7 @@ def model_results():
                         ascending=False
                     )
                     multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
-                        len(multi_event_peaks) + 1
+                        len(multi_event_peaks)
                     )
                     multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
                     multi_event_peaks["aep"] = multi_event_peaks["aep"].round(5)
