@@ -3,6 +3,9 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'app/**'
+      - 'iac/**'
     tags: 
       - 'v*'
       - '!v*-dev'
