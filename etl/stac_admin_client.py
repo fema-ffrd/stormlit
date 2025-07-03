@@ -34,7 +34,6 @@ class AdminClient:
         """Get auth header for a given user."""
         load_dotenv()
         auth_server = os.getenv("AUTH_ISSUER")
-        print(auth_server)
         client_id = os.getenv("AUTH_ID")
         client_secret = os.getenv("AUTH_SECRET")
 
