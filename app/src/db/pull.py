@@ -608,19 +608,12 @@ def query_s3_ensemble_peak_flow(
     # Construct the query to read from multiple S3 paths
     query = f"""
         SELECT
+            block_group,
             MAX(peak_flow) AS peak_flow,
-            ARG_MAX(event_id, peak_flow) AS event_id,
-            block_group
-        FROM (
-            SELECT
-                peak_flow,
-                event_id,
-                block_group,
-                element AS element_id
-            FROM read_parquet([{paths_str}], hive_partitioning=true)
-            WHERE element_id='{element_id}'
-        )
-        GROUP BY block_group, event_id
+            ARG_MAX(event_id, peak_flow) AS event_id
+        FROM read_parquet([{paths_str}], hive_partitioning=true)
+        WHERE element='{element_id}'
+        GROUP BY block_group
         ORDER BY peak_flow DESC;
     """
     return query_db(_conn, query)
