@@ -169,7 +169,7 @@ def plot_flow_aep(
 
     # Add trace for AEP vs Peak Flow
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=df["aep"],
             y=df["peak_flow"],
             mode="markers",
@@ -177,11 +177,12 @@ def plot_flow_aep(
             marker=dict(color="white"),
             yaxis="y1",
             xaxis="x1",
+            hoverinfo="skip"
         )
     )
     # Add trace for Return Period vs Peak Flow
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=df["return_period"],
             y=df["peak_flow"],
             mode="markers",
@@ -190,9 +191,9 @@ def plot_flow_aep(
             yaxis="y2",
             xaxis="x2",
             text=[
-                f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}<br>Block Group: {block}"
-                for rp, peak_flow, aep, block in zip(
-                    df["return_period"], df["peak_flow"], df["aep"], df["block_group"]
+                f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}<br>Block Group: {block}<br>Event ID: {event_id}<br>Storm ID: {storm_id}"
+                for rp, peak_flow, aep, block, event_id, storm_id in zip(
+                    df["return_period"], df["peak_flow"], df["aep"], df["block_group"], df["event_id"], df["storm_id"]
                 )
             ],
         )
@@ -225,4 +226,4 @@ def plot_flow_aep(
     )
     # Remove the legend
     fig.update_layout(showlegend=False)
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
