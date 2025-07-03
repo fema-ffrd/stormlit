@@ -23,7 +23,6 @@ from db.pull import (
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
     query_s3_ensemble_peak_flow,
-    query_s3_hms_storms,
 )
 
 # standard imports
