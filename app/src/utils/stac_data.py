@@ -11,6 +11,7 @@ from db.pull import (
     query_s3_ref_lines,
     query_s3_bc_lines,
     query_s3_model_bndry,
+    query_s3_hms_storms
 )
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
@@ -89,6 +90,7 @@ def init_pilot(s3_conn, pilot: str):
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
+    st.storms = query_s3_hms_storms(s3_conn, pilot)
     df_subbasins = gpd.read_file(st.pilot_layers["Subbasins"])
     st.subbasins = prep_gdf(df_subbasins, "Subbasin", hms=True)
     df_reaches = gpd.read_file(st.pilot_layers["Reaches"])
