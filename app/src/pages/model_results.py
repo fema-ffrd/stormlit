@@ -23,7 +23,7 @@ from db.pull import (
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
     query_s3_ensemble_peak_flow,
-    query_s3_hms_storms
+    query_s3_hms_storms,
 )
 
 # standard imports
@@ -895,7 +895,7 @@ def model_results():
                         st.session_state["pilot"],
                         realization_id=1,
                         element_id=st.session_state["hms_element_id"],
-                        block_group_start= block_start,
+                        block_group_start=block_start,
                         block_group_end=block_end,
                     )
                     multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
@@ -912,7 +912,13 @@ def model_results():
                     multi_event_peaks["peak_flow"] = multi_event_peaks[
                         "peak_flow"
                     ].round(5)
-                    multi_event_peaks = pd.merge(multi_event_peaks, st.storms, left_on="event_id", right_on="event_id", how="left")
+                    multi_event_peaks = pd.merge(
+                        multi_event_peaks,
+                        st.storms,
+                        left_on="event_id",
+                        right_on="event_id",
+                        how="left",
+                    )
                     with info_col.expander(
                         "Frequency Plots", expanded=False, icon="📈"
                     ):

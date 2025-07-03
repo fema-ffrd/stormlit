@@ -177,7 +177,7 @@ def plot_flow_aep(
             marker=dict(color="white"),
             yaxis="y1",
             xaxis="x1",
-            hoverinfo="skip"
+            hoverinfo="skip",
         )
     )
     # Add trace for Return Period vs Peak Flow
@@ -193,7 +193,12 @@ def plot_flow_aep(
             text=[
                 f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}<br>Block Group: {block}<br>Event ID: {event_id}<br>Storm ID: {storm_id}"
                 for rp, peak_flow, aep, block, event_id, storm_id in zip(
-                    df["return_period"], df["peak_flow"], df["aep"], df["block_group"], df["event_id"], df["storm_id"]
+                    df["return_period"],
+                    df["peak_flow"],
+                    df["aep"],
+                    df["block_group"],
+                    df["event_id"],
+                    df["storm_id"],
                 )
             ],
         )

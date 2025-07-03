@@ -580,7 +580,12 @@ def query_s3_stochastic_hms_flow(
 
 @st.cache_data
 def query_s3_ensemble_peak_flow(
-    _conn, pilot: str, realization_id: int, element_id: str, block_group_start: int, block_group_end: int
+    _conn,
+    pilot: str,
+    realization_id: int,
+    element_id: str,
+    block_group_start: int,
+    block_group_end: int,
 ) -> pd.DataFrame:
     """
     Query stochastic block group peak flow data from the S3 bucket.
@@ -595,7 +600,10 @@ def query_s3_ensemble_peak_flow(
     Returns:
         pd.DataFrame: A pandas DataFrame containing the stochastic block group flow data.
     """
-    s3_paths = [f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group={i}/peaks.pq" for i in range(block_group_start, block_group_end + 1)]
+    s3_paths = [
+        f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group={i}/peaks.pq"
+        for i in range(block_group_start, block_group_end + 1)
+    ]
     paths_str = ", ".join([f"'{p}'" for p in s3_paths])
     # Construct the query to read from multiple S3 paths
     query = f"""
@@ -616,6 +624,7 @@ def query_s3_ensemble_peak_flow(
         ORDER BY peak_flow DESC;
     """
     return query_db(_conn, query)
+
 
 @st.cache_data
 def query_s3_hms_storms(_conn, pilot: str) -> pd.DataFrame:
