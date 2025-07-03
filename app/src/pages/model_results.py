@@ -23,6 +23,7 @@ from db.pull import (
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
     query_s3_ensemble_peak_flow,
+    query_s3_hms_storms
 )
 
 # standard imports
@@ -410,15 +411,6 @@ def model_results():
                 st.session_state["pilot"],
             )
             st.session_state["init_pilot"] = True
-
-    # test_df = pd.read_parquet("/workspace/app/src/assets/peaks.pq")
-    # test_df = query_s3_ensemble_peak_flow(
-    #     st.session_state["s3_conn"],
-    #     st.session_state["pilot"],
-    #     realization_id=1,
-    #     element_id="clear-ck_s100",
-    #     )
-    # st.dataframe(test_df)
 
     dropdown_container = st.container(
         key="dropdown_container",
@@ -827,7 +819,7 @@ def model_results():
             col_event_type, col_storm_id, col_event_id = info_col.columns(3)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
-                ["Stochastic Events", "Calibration Events", "Multi Events"],
+                ["Calibration Events", "Stochastic Events", "Multi Events"],
                 index=0,
             )
             if st.session_state["event_type"] == "Stochastic Events":
@@ -891,11 +883,20 @@ def model_results():
                         "Please select a HEC-HMS model object from the map or drop down list"
                     )
                 else:
+                    st.session_state["block_range"] = col_storm_id.slider(
+                        "Select Block Range",
+                        min_value=10,
+                        max_value=200,
+                        value=(50, 100),
+                    )
+                    block_start, block_end = st.session_state["block_range"]
                     multi_event_peaks = query_s3_ensemble_peak_flow(
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
                         realization_id=1,
                         element_id=st.session_state["hms_element_id"],
+                        block_group_start= block_start,
+                        block_group_end=block_end,
                     )
                     multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
                         ascending=False
@@ -904,13 +905,14 @@ def model_results():
                         len(multi_event_peaks) + 1
                     )
                     multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
-                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(4)
+                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(5)
                     multi_event_peaks["return_period"] = multi_event_peaks[
                         "return_period"
-                    ].round(4)
+                    ].round(5)
                     multi_event_peaks["peak_flow"] = multi_event_peaks[
                         "peak_flow"
-                    ].round(4)
+                    ].round(5)
+                    multi_event_peaks = pd.merge(multi_event_peaks, st.storms, left_on="event_id", right_on="event_id", how="left")
                     with info_col.expander(
                         "Frequency Plots", expanded=False, icon="📈"
                     ):
