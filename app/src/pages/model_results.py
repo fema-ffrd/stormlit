@@ -894,7 +894,7 @@ def model_results():
                         "Select Block Range",
                         min_value=1,
                         max_value=2000,
-                        value=(500, 1000),
+                        value=(1, 2000),
                     )
                     st.session_state["realization_id"] = col_event_id.selectbox(
                         "Select Realization ID",
