@@ -8,7 +8,7 @@ from utils.stac_data import (
     get_stac_img,
     get_stac_meta,
 )
-from utils.plotting import plot_ts, plot_hist, plot_flow_aep
+from utils.plotting import plot_ts, plot_hist, plot_flow_aep, plot_multi_event_ts
 from utils.mapping import get_map_pos, prep_fmap
 from db.utils import create_pg_connection, create_s3_connection
 from db.pull import (
@@ -287,6 +287,10 @@ def map_popover(
             st.markdown(f"#### {label}")
             if download_url:
                 st.markdown(f"⬇️ [Download Data]({download_url})")
+            if len(items) == 0:
+                st.write(
+                    "Select a feature from the map or model from the dropdown to generate selections"
+                )
             for idx, item in enumerate(items):
                 item_label = get_item_label(item)
                 item_id = get_item_id(item)
@@ -644,11 +648,15 @@ def model_results():
                         st.session_state["pilot"],
                         st.session_state["model_id"],
                     )
-                    st.session_state["calibration_event"] = col_event_id.selectbox(
-                        "Select from",
-                        calibration_events,
-                        index=None,
-                    )
+                    if len(calibration_events) > 0:
+                        st.session_state["calibration_event"] = col_event_id.selectbox(
+                            "Select from",
+                            calibration_events,
+                            index=None,
+                        )
+                    else:
+                        st.warning("No calibration events found for this model.")
+                        st.session_state["calibration_event"] = None
                     if st.session_state["calibration_event"] is None:
                         st.warning(
                             "Please select a calibration event to view time series data."
@@ -888,42 +896,79 @@ def model_results():
                         max_value=2000,
                         value=(500, 1000),
                     )
+                    st.session_state["realization_id"] = col_event_id.selectbox(
+                        "Select Realization ID",
+                        [
+                            1,
+                        ],
+                        index=None,
+                    )
                     block_start, block_end = st.session_state["block_range"]
-                    multi_event_peaks = query_s3_ensemble_peak_flow(
-                        st.session_state["s3_conn"],
-                        st.session_state["pilot"],
-                        realization_id=1,
-                        element_id=st.session_state["hms_element_id"],
-                        block_group_start=block_start,
-                        block_group_end=block_end,
-                    )
-                    multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
-                        ascending=False
-                    )
-                    multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
-                        len(multi_event_peaks)
-                    )
-                    multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
-                    multi_event_peaks["aep"] = multi_event_peaks["aep"].round(5)
-                    multi_event_peaks["return_period"] = multi_event_peaks[
-                        "return_period"
-                    ].round(5)
-                    multi_event_peaks["peak_flow"] = multi_event_peaks[
-                        "peak_flow"
-                    ].round(5)
-                    multi_event_peaks = pd.merge(
-                        multi_event_peaks,
-                        st.storms,
-                        left_on="event_id",
-                        right_on="event_id",
-                        how="left",
-                    )
-                    with info_col.expander(
-                        "Frequency Plots", expanded=False, icon="📈"
-                    ):
-                        plot_flow_aep(multi_event_peaks)
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                        st.dataframe(multi_event_peaks)
+                    if st.session_state["realization_id"] is not None:
+                        multi_event_peaks = query_s3_ensemble_peak_flow(
+                            st.session_state["s3_conn"],
+                            st.session_state["pilot"],
+                            realization_id=st.session_state["realization_id"],
+                            element_id=st.session_state["hms_element_id"],
+                            block_group_start=block_start,
+                            block_group_end=block_end,
+                        )
+                        multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
+                            ascending=False
+                        )
+                        multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
+                            len(multi_event_peaks)
+                        )
+                        multi_event_peaks["return_period"] = (
+                            1 / multi_event_peaks["aep"]
+                        )
+                        multi_event_peaks = pd.merge(
+                            multi_event_peaks,
+                            st.storms,
+                            left_on="event_id",
+                            right_on="event_id",
+                            how="left",
+                        )
+                        multi_event_peaks["storm_id"] = pd.to_datetime(
+                            multi_event_peaks["storm_id"]
+                        ).dt.strftime("%Y-%m-%d")
+                        with info_col.expander("Plots", expanded=False, icon="📈"):
+                            st.write(
+                                "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
+                            )
+                            selected_points = plot_flow_aep(multi_event_peaks)
+                            multi_stochastic_flows_df = None
+                            if selected_points:
+                                multi_stochastic_flows = []
+                                for point in selected_points:
+                                    stochastic_flow_ts = query_s3_stochastic_hms_flow(
+                                        st.session_state["s3_conn"],
+                                        st.session_state["pilot"],
+                                        st.session_state["hms_element_id"],
+                                        selected_points[point]["storm_id"],
+                                        selected_points[point]["event_id"],
+                                    )
+                                    stochastic_flow_ts["block_id"] = point
+                                    stochastic_flow_ts["storm_id"] = selected_points[
+                                        point
+                                    ]["storm_id"]
+                                    stochastic_flow_ts["event_id"] = selected_points[
+                                        point
+                                    ]["event_id"]
+                                    multi_stochastic_flows.append(stochastic_flow_ts)
+                                multi_stochastic_flows_df = pd.concat(
+                                    multi_stochastic_flows,
+                                    ignore_index=False,
+                                )
+                                plot_multi_event_ts(multi_stochastic_flows_df)
+                        with info_col.expander(
+                            "Data Tables", expanded=False, icon="🔢"
+                        ):
+                            st.dataframe(multi_event_peaks)
+                            if multi_stochastic_flows_df is not None:
+                                st.dataframe(
+                                    multi_stochastic_flows_df.drop(columns=["time"])
+                                )
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
@@ -1111,7 +1156,7 @@ def model_results():
     with col_bc_lines:
         map_popover(
             "🟥BC Lines (HEC-RAS)",
-            st.bc_lines.to_dict("records")
+            {}
             if st.session_state["bc_lines_filtered"] is None
             else st.session_state["bc_lines_filtered"].to_dict("records"),
             lambda bc_line: bc_line["id"],
@@ -1122,7 +1167,7 @@ def model_results():
     with col_ref_points:
         map_popover(
             "🟧 Reference Points (HEC-RAS)",
-            st.ref_points.to_dict("records")
+            {}
             if st.session_state["ref_points_filtered"] is None
             else st.session_state["ref_points_filtered"].to_dict("records"),
             lambda ref_point: ref_point["id"],
@@ -1133,7 +1178,7 @@ def model_results():
     with col_ref_lines:
         map_popover(
             "🟨 Reference Lines (HEC-RAS)",
-            st.ref_lines.to_dict("records")
+            {}
             if st.session_state["ref_lines_filtered"] is None
             else st.session_state["ref_lines_filtered"].to_dict("records"),
             lambda ref_line: ref_line["id"],
@@ -1153,7 +1198,7 @@ def model_results():
     with col_subbasins:
         map_popover(
             "🟦 Subbasins (HEC-HMS)",
-            st.subbasins.to_dict("records")
+            {}
             if st.session_state["subbasins_filtered"] is None
             else st.session_state["subbasins_filtered"].to_dict("records"),
             lambda subbasin: subbasin["hms_element"],
@@ -1164,7 +1209,7 @@ def model_results():
     with col_reaches:
         map_popover(
             "🟪 Reaches (HEC-HMS)",
-            st.reaches.to_dict("records")
+            {}
             if st.session_state["reaches_filtered"] is None
             else st.session_state["reaches_filtered"].to_dict("records"),
             lambda reach: reach["hms_element"],
@@ -1175,7 +1220,7 @@ def model_results():
     with col_junctions:
         map_popover(
             "🟫 Junctions (HEC-HMS)",
-            st.junctions.to_dict("records")
+            {}
             if st.session_state["junctions_filtered"] is None
             else st.session_state["junctions_filtered"].to_dict("records"),
             lambda junction: junction["hms_element"],
@@ -1186,7 +1231,7 @@ def model_results():
     with col_reservoirs:
         map_popover(
             "⬛ Reservoirs (HEC-HMS)",
-            st.reservoirs.to_dict("records")
+            {}
             if st.session_state["reservoirs_filtered"] is None
             else st.session_state["reservoirs_filtered"].to_dict("records"),
             lambda reservoir: reservoir["hms_element"],
@@ -1197,7 +1242,7 @@ def model_results():
     with col_gages:
         map_popover(
             "🟢 Gages (USGS)",
-            st.gages.to_dict("records")
+            {}
             if st.session_state["gages_filtered"] is None
             else st.session_state["gages_filtered"].to_dict("records"),
             lambda gage: gage["site_no"],
@@ -1209,7 +1254,7 @@ def model_results():
     with col_dams:
         map_popover(
             "🔴 Dams (NID)",
-            st.dams.to_dict("records")
+            {}
             if st.session_state["dams_filtered"] is None
             else st.session_state["dams_filtered"].to_dict("records"),
             lambda dam: dam["id"],
@@ -1221,7 +1266,7 @@ def model_results():
     with col_cogs:
         map_popover(
             "🌐 Raster Layers",
-            list(st.cog_layers.keys()),
+            {},
             lambda cog: cog,
             get_item_id=lambda cog: cog,
             callback=lambda cog: st.session_state.update(
