@@ -191,7 +191,7 @@ def plot_flow_aep(
             yaxis="y2",
             xaxis="x2",
             text=[
-                f"Return Period: {rp}<br>Peak Flow: {peak_flow}<br>AEP: {aep}<br>Block Group: {block}<br>Event ID: {event_id}<br>Storm ID: {storm_id}"
+                f"Return Period: {rp:,.1f}<br>Peak Flow: {peak_flow:,.1f}<br>AEP: {aep:,.2e}<br>Block Group: {block:,}<br>Event ID: {event_id:,}<br>Storm ID: {storm_id}"
                 for rp, peak_flow, aep, block, event_id, storm_id in zip(
                     df["return_period"],
                     df["peak_flow"],
@@ -231,4 +231,77 @@ def plot_flow_aep(
     )
     # Remove the legend
     fig.update_layout(showlegend=False)
+    # Return point selection(s)
+    plot_selection = st.plotly_chart(
+        fig, use_container_width=True, on_select="rerun", selection_mode="points"
+    )
+    if len(plot_selection["selection"]["points"]) > 0:
+        points_dict = {}
+        selected_points = pd.DataFrame(plot_selection["selection"]["points"])
+        for _, row in selected_points.iterrows():
+            block_group = row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
+            points_dict[block_group] = {}
+            points_dict[block_group]["return_period"] = float(row["x"])
+            points_dict[block_group]["peak_flow"] = float(row["y"])
+            points_dict[block_group]["aep"] = float(
+                row["text"].split("<br>")[2].split(": ")[1].replace(",", "")
+            )
+            points_dict[block_group]["event_id"] = (
+                row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
+            )
+            points_dict[block_group]["storm_id"] = (
+                row["text"]
+                .split("<br>")[5]
+                .split(": ")[1]
+                .replace("-", "")
+                .replace(",", "")
+            )
+        return points_dict
+    else:
+        return None
+
+
+def plot_multi_event_ts(df: pd.DataFrame):
+    """
+    Create a multi-trace plot for time series data with multiple events.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the multi-event time series data.
+        - "time": datetime
+        - "hms_flow": float
+        - "block_id": int
+
+    Returns
+    -------
+    fig : plotly.graph_objects.Figure
+    """
+    # Check if the DataFrame is empty
+    if df.empty:
+        st.warning("No data available for the selected variables in the dataset.")
+        return
+    # Create a figure
+    fig = go.Figure()
+    df["plot_index"] = df.index
+    # Add traces for each block_id
+    for block_id in df["block_id"].unique():
+        block_data = df[df["block_id"] == block_id]
+        fig.add_trace(
+            go.Scatter(
+                x=block_data["plot_index"],
+                y=block_data["hms_flow"],
+                mode="lines",
+                name=f"Block {block_id}",
+                line=dict(width=1),
+            )
+        )
+    # Update layout
+    fig.update_layout(
+        title="Multi-Event Time Series Hydrographs",
+        xaxis_title="Time",
+        yaxis_title="Discharge (cfs)",
+        legend=dict(x=0.75, y=1, traceorder="normal"),
+        hovermode="x unified",
+    )
     st.plotly_chart(fig, use_container_width=True)
