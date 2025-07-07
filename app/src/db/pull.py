@@ -620,6 +620,31 @@ def query_s3_ensemble_peak_flow(
 
 
 @st.cache_data
+def query_s3_ams_peaks_by_element(
+    _conn, pilot: str, element_id: str, realization_id: int
+) -> pd.DataFrame:
+    """
+    Query stochastic AMS peak flow data by element from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        element_id (str): The element ID to query (e.g., 'amon-g-carter_s010').
+        realization_id (int): The realization ID to query (e.g., 1).
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the stochastic AMS peak flow data.
+    """
+    s3_path = (
+        f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/ams_by_elements.pq"
+    )
+    query = f"""SELECT ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank,
+            element, peak_flow, event_id, block_group
+            FROM read_parquet('{s3_path}', hive_partitioning=true)
+            WHERE element='{element_id}';"""
+    return query_db(_conn, query)
+
+
+@st.cache_data
 def query_s3_hms_storms(_conn, pilot: str) -> pd.DataFrame:
     """
     Query the list of HMS storms from the S3 bucket.
