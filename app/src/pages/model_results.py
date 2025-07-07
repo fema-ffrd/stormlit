@@ -932,7 +932,7 @@ def model_results():
                         multi_event_peaks["storm_id"] = pd.to_datetime(
                             multi_event_peaks["storm_id"]
                         ).dt.strftime("%Y-%m-%d")
-                        with info_col.expander("Plots", expanded=False, icon="📈"):
+                        with info_col.expander("Plots", expanded=True, icon="📈"):
                             st.write(
                                 "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
                             )
