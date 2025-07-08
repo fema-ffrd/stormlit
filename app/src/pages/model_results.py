@@ -22,7 +22,7 @@ from db.pull import (
     query_s3_stochastic_hms_flow,
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
-    query_s3_ensemble_peak_flow,
+    query_s3_ams_peaks_by_element,
 )
 
 # standard imports
@@ -890,85 +890,61 @@ def model_results():
                         "Please select a HEC-HMS model object from the map or drop down list"
                     )
                 else:
-                    st.session_state["block_range"] = col_storm_id.slider(
-                        "Select Block Range",
-                        min_value=1,
-                        max_value=2000,
-                        value=(1, 2000),
+                    multi_event_peaks = query_s3_ams_peaks_by_element(
+                        st.session_state["s3_conn"],
+                        st.session_state["pilot"],
+                        st.session_state["hms_element_id"],
+                        realization_id=1,
                     )
-                    st.session_state["realization_id"] = col_event_id.selectbox(
-                        "Select Realization ID",
-                        [
-                            1,
-                        ],
-                        index=None,
+                    multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
+                        len(multi_event_peaks)
                     )
-                    block_start, block_end = st.session_state["block_range"]
-                    if st.session_state["realization_id"] is not None:
-                        multi_event_peaks = query_s3_ensemble_peak_flow(
-                            st.session_state["s3_conn"],
-                            st.session_state["pilot"],
-                            realization_id=st.session_state["realization_id"],
-                            element_id=st.session_state["hms_element_id"],
-                            block_group_start=block_start,
-                            block_group_end=block_end,
+                    multi_event_peaks["return_period"] = 1 / multi_event_peaks["aep"]
+                    multi_event_peaks = pd.merge(
+                        multi_event_peaks,
+                        st.storms,
+                        left_on="event_id",
+                        right_on="event_id",
+                        how="left",
+                    )
+                    multi_event_peaks["storm_id"] = pd.to_datetime(
+                        multi_event_peaks["storm_id"]
+                    ).dt.strftime("%Y-%m-%d")
+                    with info_col.expander("Plots", expanded=True, icon="📈"):
+                        st.write(
+                            "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
                         )
-                        multi_event_peaks["rank"] = multi_event_peaks["peak_flow"].rank(
-                            ascending=False
-                        )
-                        multi_event_peaks["aep"] = multi_event_peaks["rank"] / (
-                            len(multi_event_peaks)
-                        )
-                        multi_event_peaks["return_period"] = (
-                            1 / multi_event_peaks["aep"]
-                        )
-                        multi_event_peaks = pd.merge(
-                            multi_event_peaks,
-                            st.storms,
-                            left_on="event_id",
-                            right_on="event_id",
-                            how="left",
-                        )
-                        multi_event_peaks["storm_id"] = pd.to_datetime(
-                            multi_event_peaks["storm_id"]
-                        ).dt.strftime("%Y-%m-%d")
-                        with info_col.expander("Plots", expanded=True, icon="📈"):
-                            st.write(
-                                "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
+                        selected_points = plot_flow_aep(multi_event_peaks)
+                        multi_stochastic_flows_df = None
+                        if selected_points:
+                            multi_stochastic_flows = []
+                            for point in selected_points:
+                                stochastic_flow_ts = query_s3_stochastic_hms_flow(
+                                    st.session_state["s3_conn"],
+                                    st.session_state["pilot"],
+                                    st.session_state["hms_element_id"],
+                                    selected_points[point]["storm_id"],
+                                    selected_points[point]["event_id"],
+                                )
+                                stochastic_flow_ts["block_id"] = point
+                                stochastic_flow_ts["storm_id"] = selected_points[point][
+                                    "storm_id"
+                                ]
+                                stochastic_flow_ts["event_id"] = selected_points[point][
+                                    "event_id"
+                                ]
+                                multi_stochastic_flows.append(stochastic_flow_ts)
+                            multi_stochastic_flows_df = pd.concat(
+                                multi_stochastic_flows,
+                                ignore_index=False,
                             )
-                            selected_points = plot_flow_aep(multi_event_peaks)
-                            multi_stochastic_flows_df = None
-                            if selected_points:
-                                multi_stochastic_flows = []
-                                for point in selected_points:
-                                    stochastic_flow_ts = query_s3_stochastic_hms_flow(
-                                        st.session_state["s3_conn"],
-                                        st.session_state["pilot"],
-                                        st.session_state["hms_element_id"],
-                                        selected_points[point]["storm_id"],
-                                        selected_points[point]["event_id"],
-                                    )
-                                    stochastic_flow_ts["block_id"] = point
-                                    stochastic_flow_ts["storm_id"] = selected_points[
-                                        point
-                                    ]["storm_id"]
-                                    stochastic_flow_ts["event_id"] = selected_points[
-                                        point
-                                    ]["event_id"]
-                                    multi_stochastic_flows.append(stochastic_flow_ts)
-                                multi_stochastic_flows_df = pd.concat(
-                                    multi_stochastic_flows,
-                                    ignore_index=False,
-                                )
-                                plot_multi_event_ts(multi_stochastic_flows_df)
-                        with info_col.expander(
-                            "Data Tables", expanded=False, icon="🔢"
-                        ):
-                            st.dataframe(multi_event_peaks)
-                            if multi_stochastic_flows_df is not None:
-                                st.dataframe(
-                                    multi_stochastic_flows_df.drop(columns=["time"])
-                                )
+                            plot_multi_event_ts(multi_stochastic_flows_df)
+                    with info_col.expander("Data Tables", expanded=False, icon="🔢"):
+                        st.dataframe(multi_event_peaks)
+                        if multi_stochastic_flows_df is not None:
+                            st.dataframe(
+                                multi_stochastic_flows_df.drop(columns=["time"])
+                            )
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
