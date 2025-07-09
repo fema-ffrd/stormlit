@@ -5,7 +5,6 @@ import requests
 import json
 from PIL import Image
 from io import BytesIO
-
 from db.pull import (
     query_s3_ref_points,
     query_s3_ref_lines,
