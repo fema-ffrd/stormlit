@@ -9,6 +9,35 @@ from permetrics.regression import RegressionMetric
 # Functions ###################################################################
 
 
+def define_metrics():
+    st.write(
+        "R2: Coefficient of Determination. Strength of linear association between predicted and observed. However, it measures “precision” but no accuracy"
+    )
+    st.latex(
+        r"""R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}"""
+    )
+    st.write(
+        "NSE: Nash-Sutcliffe Efficiency. Model efficiency using squared residuals normalized by the variance of observations."
+    )
+    st.latex(
+        r"""NSE = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}"""
+    )
+    st.write(
+        "RSR: Root Mean Standard Deviation Ratio. The root mean squared error (RMSE) normalized by the standard deviation of observations."
+    )
+    st.latex(r"""RSR = \frac{RMSE}{\sigma_{obs}}""")
+    st.write(
+        "PBIAS: Percent Bias. Useful to identify systematic over or under predictions. Percentage units."
+    )
+    st.latex(
+        r"""PBIAS = 100\frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)}{\sum_{i=1}^{n}(y_i)}"""
+    )
+    st.write(
+        "PPE: Peak Percent Error. Evaluates the absolute percent error between the modeled and observed hydrographs peaks."
+    )
+    st.latex(r"""PPE = 100 \frac{|\hat{y}_{peak} - y_{peak}|}{y_{peak}}""")
+
+
 def pbias_score(obs_values: np.array, model_values: np.array):
     """
     Calculate the Percent Bias
