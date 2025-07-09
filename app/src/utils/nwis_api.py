@@ -2,14 +2,12 @@
 
 # Imports #####################################################################
 import io
-import ssl
 import urllib.request
 import pandas as pd
 import streamlit as st
 import geopandas as gpd
 from pygeohydro import NWIS
 from pygeohydro.exceptions import ZeroMatchedError
-
 
 # Functions ###################################################################
 
@@ -173,8 +171,7 @@ def query_nwis(
     try:
         # build url and make call only for USGS funded sites
         url = f"https://waterservices.usgs.gov/nwis/{data_type}/?format={output_format}&sites={site}&startDT={start_date}&endDT={end_date}&parameterCd={param_id}&siteType=ST&agencyCd=usgs&siteStatus=all"
-        ssl_context = ssl._create_unverified_context()
-        response = urllib.request.urlopen(url, context=ssl_context)
+        response = urllib.request.urlopen(url)
         # check that api call worked
         if response.status != 200:
             st.error(f"Error querying the NWIS server: Status Code {response.status}")
