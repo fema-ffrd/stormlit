@@ -78,6 +78,10 @@ def init_pilot(s3_conn, pilot: str):
             "Reservoirs": f"{st.pilot_base_url}/conformance/hydrology/trinity/assets/Reservoir.geojson",
         }
         st.cog_layers = {}
+        st.hms_meta_url = (
+            "stac-api.arc-apps.net/collections/conformance-models/items/trinity"
+        )
+        st.ras_meta_url = "stac-api.arc-apps.net/collections/calibration-models"
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
