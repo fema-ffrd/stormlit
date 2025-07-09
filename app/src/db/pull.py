@@ -7,13 +7,26 @@ import duckdb
 import s3fs
 from PIL import Image
 import logging
-from shapely.geometry import shape
 
 logger = logging.getLogger(__name__)
 
 
 class StormlitQueryException(Exception):
     pass
+
+
+def s3_path_exists(s3_path: str) -> bool:
+    """
+    Check if a given S3 path exists.
+
+    Parameters:
+        s3_path (str): The S3 path to check.
+
+    Returns:
+        bool: True if the S3 path exists, False otherwise.
+    """
+    fs = s3fs.S3FileSystem(anon=False)
+    return fs.exists(s3_path)
 
 
 def format_to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
@@ -177,25 +190,30 @@ def query_s3_calibration_event_list(_conn, pilot: str, model_id: str) -> list:
         list: A list of simulated event IDs associated with the gage.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/"
-    query = f"SELECT file FROM glob('{s3_path}**')"
-    try:
-        # Fetch as list of tuples, not DataFrame
-        result = _conn.execute(query).fetchall()
-        # Extract the next-level folder name after s3_path
-        event_names = set()
-        for row in result:
-            rel = row[0][len(s3_path) :].lstrip("/")
-            if "/" in rel:
-                folder = rel.split("/")[0]
-                if "event=" in folder:
-                    # Extract the event ID from the folder name
-                    event = folder.split("=")[-1]
-                    event_names.add(event)
-        return sorted(event_names)
-    except Exception as e:
-        msg = f"DuckDB S3 Error: {e}"
+    if s3_path_exists(s3_path):
+        query = f"SELECT file FROM glob('{s3_path}**')"
+        try:
+            # Fetch as list of tuples, not DataFrame
+            result = _conn.execute(query).fetchall()
+            # Extract the next-level folder name after s3_path
+            event_names = set()
+            for row in result:
+                rel = row[0][len(s3_path) :].lstrip("/")
+                if "/" in rel:
+                    folder = rel.split("/")[0]
+                    if "event=" in folder:
+                        # Extract the event ID from the folder name
+                        event = folder.split("=")[-1]
+                        event_names.add(event)
+            return sorted(event_names)
+        except Exception as e:
+            msg = f"DuckDB S3 Error: {e}"
+            logger.error(msg)
+            raise StormlitQueryException(msg) from e
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
-        raise StormlitQueryException(msg) from e
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -236,9 +254,14 @@ def query_s3_mod_wse(
         pd.DataFrame: A pandas DataFrame containing the modeled flow data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/wsel.pq"
-    query = f"""SELECT time, {ref_type}, water_surface as wse
-            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT time, {ref_type}, water_surface as wse
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -259,9 +282,14 @@ def query_s3_mod_flow(
         pd.DataFrame: A pandas DataFrame containing the modeled WSE data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/flow.pq"
-    query = f"""SELECT time, {ref_type}, flow as flow
-            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT time, {ref_type}, flow as flow
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -282,9 +310,14 @@ def query_s3_mod_vel(
         pd.DataFrame: A pandas DataFrame containing the modeled velocity data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/velocity.pq"
-    query = f"""SELECT time, {ref_type}, velocity as velocity
-            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT time, {ref_type}, velocity as velocity
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -305,9 +338,14 @@ def query_s3_mod_stage(
         pd.DataFrame: A pandas DataFrame containing the modeled stage data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/event={event_id}/{ref_type}={ref_id}/stage.pq"
-    query = f"""SELECT time, {ref_type}, stage as stage
-            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT time, {ref_type}, stage as stage
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -350,6 +388,7 @@ def query_s3_ref_points(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
         )
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/ref_points.pq"
+
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query, layer="Reference Point")
 
@@ -392,6 +431,7 @@ def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/*/data=geometry/model_geometry.pq"
     else:
         s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/data=geometry/model_geometry.pq"
+
     query = f"""SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"""
     return query_db(_conn, query, layer="Model")
 
@@ -409,79 +449,26 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
         Image: A PIL Image object containing the thumbnail image.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/calibration/model={model_id}/"
-    query = f"SELECT file FROM glob('{s3_path}*')"
-    try:
-        result = _conn.execute(query).fetchall()
-        for row in result:
-            file_path = row[0]
-            rel_path = file_path[len(s3_path) :]
-            if rel_path.startswith("thumbnail."):
-                fs = s3fs.S3FileSystem(anon=False)
-                with fs.open(file_path, "rb") as f:
-                    img_bytes = f.read()
-                    return Image.open(io.BytesIO(img_bytes)).copy()
-    except Exception as e:
-        msg = f"DuckDB S3 Error: {e}"
+    if s3_path_exists(s3_path):
+        query = f"SELECT file FROM glob('{s3_path}*')"
+        try:
+            result = _conn.execute(query).fetchall()
+            for row in result:
+                file_path = row[0]
+                rel_path = file_path[len(s3_path) :]
+                if rel_path.startswith("thumbnail."):
+                    fs = s3fs.S3FileSystem(anon=False)
+                    with fs.open(file_path, "rb") as f:
+                        img_bytes = f.read()
+                        return Image.open(io.BytesIO(img_bytes)).copy()
+        except Exception as e:
+            msg = f"DuckDB S3 Error: {e}"
+            logger.error(msg)
+            raise StormlitQueryException(msg) from e
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
-        raise StormlitQueryException(msg) from e
-
-
-@st.cache_data
-def query_s3_geojson(_conn, pilot: str, layer: str) -> gpd.GeoDataFrame:
-    """
-    Query a GeoJSON file from S3 and return it as a GeoDataFrame.
-
-    Parameters:
-        _conn (connection): A DuckDB connection object.
-        pilot (str): The pilot name for the S3 bucket.
-        layer (str): The feature layer to assign as a column in the GeoDataFrame.
-
-    Returns:
-        gpd.GeoDataFrame: A GeoDataFrame containing the features from the GeoJSON file.
-    """
-    s3_path = f"s3://{pilot}/stac/prod-support/conformance/hydrology/trinity/assets/{layer}.geojson"
-    query = f"SELECT * FROM read_json_auto('{s3_path}')"
-    df = query_db(_conn, query)
-    features = df.loc[0, "features"]
-    features_df = pd.json_normalize(features)
-    for idx, row in features_df.iterrows():
-        geom_type = row.get("geometry.type", None)
-        geom_coords = row.get("geometry.coordinates", None)
-        name = row.get("properties.name", None)
-        if geom_type and geom_coords:
-            if geom_type == "Point":
-                features_df.at[idx, "geometry"] = shape(
-                    {"type": geom_type, "coordinates": geom_coords}
-                )
-            elif geom_type in ["LineString", "Polygon"]:
-                features_df.at[idx, "geometry"] = shape(
-                    {"type": geom_type, "coordinates": geom_coords}
-                )
-            else:
-                features_df.at[idx, "geometry"] = None
-        else:
-            features_df.at[idx, "geometry"] = None
-        if name:
-            features_df.at[idx, "hms_element"] = name
-        else:
-            features_df.at[idx, "hms_element"] = None
-    features_df = features_df.dropna()
-    # Create a GeoDataFrame
-    gdf = gpd.GeoDataFrame(features_df, geometry="geometry")
-    gdf.set_crs(epsg=4326, inplace=True)
-    gdf["layer"] = layer
-    if "geometry.type" in gdf.columns:
-        # Drop the geometry.type column if it exists
-        gdf.drop(columns=["geometry.type"], inplace=True)
-    if "geometry.coordinates" in gdf.columns:
-        # Drop the geometry.coordinates column if it exists
-        gdf.drop(columns=["geometry.coordinates"], inplace=True)
-    if "properties.name" in gdf.columns:
-        # Rename the properties.name column to name
-        gdf.drop(columns=["properties.name"], inplace=True)
-    gdf["lat"] = gdf.geometry.centroid.y.astype(float)
-    gdf["lon"] = gdf.geometry.centroid.x.astype(float)
-    return gdf[["hms_element", "geometry", "layer", "lat", "lon"]].copy()
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -498,25 +485,30 @@ def query_s3_stochastic_storm_list(
         list: A list of simulated event IDs associated with the gage.
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/"
-    query = f"SELECT file FROM glob('{s3_path}**')"
-    try:
-        # Fetch as list of tuples, not DataFrame
-        result = _conn.execute(query).fetchall()
-        # Extract the next-level folder name after s3_path
-        storm_ids = set()
-        for row in result:
-            rel = row[0][len(s3_path) :].lstrip("/")
-            if "/" in rel:
-                folder = rel.split("/")[0]
-                if "storm_id=" in folder:
-                    # Extract the event ID from the folder name
-                    storm = folder.split("=")[-1]
-                    storm_ids.add(storm)
-        return sorted(storm_ids)
-    except Exception as e:
-        msg = f"DuckDB S3 Error: {e}"
+    if s3_path_exists(s3_path):
+        query = f"SELECT file FROM glob('{s3_path}**')"
+        try:
+            # Fetch as list of tuples, not DataFrame
+            result = _conn.execute(query).fetchall()
+            # Extract the next-level folder name after s3_path
+            storm_ids = set()
+            for row in result:
+                rel = row[0][len(s3_path) :].lstrip("/")
+                if "/" in rel:
+                    folder = rel.split("/")[0]
+                    if "storm_id=" in folder:
+                        # Extract the event ID from the folder name
+                        storm = folder.split("=")[-1]
+                        storm_ids.add(storm)
+            return sorted(storm_ids)
+        except Exception as e:
+            msg = f"DuckDB S3 Error: {e}"
+            logger.error(msg)
+            raise StormlitQueryException(msg) from e
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
-        raise StormlitQueryException(msg) from e
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -535,25 +527,30 @@ def query_s3_stochastic_event_list(
         list: A list of simulated event IDs associated with the element ID and storm ID.
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/"
-    query = f"SELECT file FROM glob('{s3_path}**')"
-    try:
-        # Fetch as list of tuples, not DataFrame
-        result = _conn.execute(query).fetchall()
-        # Extract the next-level folder name after s3_path
-        event_ids = set()
-        for row in result:
-            rel = row[0][len(s3_path) :].lstrip("/")
-            if "/" in rel:
-                folder = rel.split("/")[0]
-                if "event_id=" in folder:
-                    # Extract the event ID from the folder name
-                    event = folder.split("=")[-1]
-                    event_ids.add(event)
-        return sorted(event_ids)
-    except Exception as e:
-        msg = f"DuckDB S3 Error: {e}"
+    if s3_path_exists(s3_path):
+        query = f"SELECT file FROM glob('{s3_path}**')"
+        try:
+            # Fetch as list of tuples, not DataFrame
+            result = _conn.execute(query).fetchall()
+            # Extract the next-level folder name after s3_path
+            event_ids = set()
+            for row in result:
+                rel = row[0][len(s3_path) :].lstrip("/")
+                if "/" in rel:
+                    folder = rel.split("/")[0]
+                    if "event_id=" in folder:
+                        # Extract the event ID from the folder name
+                        event = folder.split("=")[-1]
+                        event_ids.add(event)
+            return sorted(event_ids)
+        except Exception as e:
+            msg = f"DuckDB S3 Error: {e}"
+            logger.error(msg)
+            raise StormlitQueryException(msg) from e
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
-        raise StormlitQueryException(msg) from e
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -573,9 +570,14 @@ def query_s3_stochastic_hms_flow(
         pd.DataFrame: A pandas DataFrame containing the stochastic HMS flow data.
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/event_id={event_id}/FLOW.pq"
-    query = f"""SELECT datetime, values as hms_flow
-            FROM read_parquet('{s3_path}', hive_partitioning=true);"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT datetime, values as hms_flow
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -637,11 +639,16 @@ def query_s3_ams_peaks_by_element(
     s3_path = (
         f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/ams_by_elements.pq"
     )
-    query = f"""SELECT ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank,
-            element, peak_flow, event_id, block_group
-            FROM read_parquet('{s3_path}', hive_partitioning=true)
-            WHERE element='{element_id}';"""
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""SELECT ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank,
+                element, peak_flow, event_id, block_group
+                FROM read_parquet('{s3_path}', hive_partitioning=true)
+                WHERE element='{element_id}';"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -656,8 +663,13 @@ def query_s3_hms_storms(_conn, pilot: str) -> pd.DataFrame:
         pd.DataFrame: A pandas DataFrame containing the HMS storm data.
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/storms.pq"
-    query = f"SELECT event_number as event_id, storm_id, storm_type FROM read_parquet('{s3_path}', hive_partitioning=true);"
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"SELECT event_number as event_id, storm_id, storm_type FROM read_parquet('{s3_path}', hive_partitioning=true);"
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
 
 
 @st.cache_data
@@ -673,14 +685,18 @@ def query_s3_gage_ams(_conn, pilot: str, gage_id: str) -> pd.DataFrame:
         pd.DataFrame: A pandas DataFrame containing the AMS gage data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
-    # query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"
-    query = f"""
-        SELECT
-            peak_va as peak_flow,
-            gage_ht,
-            site_no as gage_id,
-            datetime as peak_time,
-            ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank
-        FROM read_parquet('{s3_path}', hive_partitioning=true);
-    """
-    return query_db(_conn, query)
+    if s3_path_exists(s3_path):
+        query = f"""
+            SELECT
+                peak_va as peak_flow,
+                gage_ht,
+                site_no as gage_id,
+                datetime as peak_time,
+                ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank
+            FROM read_parquet('{s3_path}', hive_partitioning=true);
+        """
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
