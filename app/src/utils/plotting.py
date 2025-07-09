@@ -313,6 +313,7 @@ def plot_flow_aep(
                 )
                 points_dict[storm_id_fmt]["event_id"] = None
                 points_dict[storm_id_fmt]["storm_id"] = storm_id_fmt
+                points_dict[storm_id_fmt]["peak_time"] = storm_id
             else:
                 block_group = (
                     row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
