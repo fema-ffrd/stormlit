@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
 # Imports #####################################################################
+import io
+import requests
+import pandas as pd
+import streamlit as st
 import geopandas as gpd
 from pygeohydro import NWIS
 from pygeohydro.exceptions import ZeroMatchedError
@@ -37,9 +41,6 @@ def format_gages_df(df: gpd.GeoDataFrame):
         "alt_acy_va",
         "alt_datum_cd",
         "huc_cd",
-        "data_type_cd",
-        "begin_date",
-        "end_date",
     ]
 
     df = df[keep_cols].copy()
@@ -47,16 +48,14 @@ def format_gages_df(df: gpd.GeoDataFrame):
     df["site_no"] = df["site_no"].astype(str)
     df["latitutde"] = df["latitude"].astype(float)
     df["longitude"] = df["longitude"].astype(float)
-    # drop duplicate lat lons
-    df = df.drop_duplicates(subset=["latitude", "longitude"])
+    df = df.drop_duplicates(subset="site_no").reset_index(drop=True)
     return df
 
-
+@st.cache_data
 def select_usgs_gages(
-    gdf: gpd.GeoDataFrame,
-    parameter: str = None,
-    realtime: bool = True,
-    data_type: str = "dv",
+    site_code: list,
+    parameter: str,
+    data_type: str = "iv",
 ):
     """
     Using the pygeohydro NWIS wrapper for the usgs waterservice api,
@@ -64,12 +63,10 @@ def select_usgs_gages(
 
     Parameters
     ----------
-    gdf : gpd.GeoDataFrame
-        The geometry to filter the sites by
+    site_code : list
+        List of USGS unique site number identifiers
     parameter : str
-        One of Streamflow, Stage, or Precipitation
-    realtime : bool
-        True if only active sites are to be returned, False if all sites are to be returned
+        One of Streamflow or Stage
     data_type : str
         One of iv or dv, iv for instantaneous values, dv for daily
 
@@ -85,92 +82,139 @@ def select_usgs_gages(
         parameter_code = "00060"
     elif parameter == "Stage":
         parameter_code = "00065"
-    elif parameter == "Precipitation":
-        parameter_code = "00045"
     else:
-        raise ValueError(
-            "Invalid parameter. Must be one of 'Streamflow', 'Stage', or 'Precipitation'."
+        st.error(
+            "Invalid parameter. Must be one of 'Streamflow' or 'Stage'."
         )
-    if data_type == "Daily":
-        data_type = "dv"
-    elif data_type == "Instantaneous":
-        data_type = "iv"
-    else:
-        raise ValueError(
-            "Invalid data type. Must be one of 'Daily' or 'Instantaneous'."
-        )
-    if realtime == "Active":
-        site_status = "active"
-    else:
-        site_status = "all"
-
-    # Filter the sites based on the user input
-    bbox = list(
-        gdf["geometry"].bounds.values.reshape(
-            -1,
-        )
-    )
-    bbox_str = f"{bbox[0]:.7f},{bbox[1]:.7f},{bbox[2]:.7f},{bbox[3]:.7f}"
-    query = {
-        "bBox": bbox_str,
-        "outputDataTypeCd": data_type,
-        "hasDataTypeCd": data_type,
-        "parameterCd": parameter_code,
-        "siteStatus": site_status,
-    }
-    try:
-        # execute query
-        query_gdf = nwis.get_info(query)
-        query_gdf = format_gages_df(query_gdf)
-        # convert to geodataframe
-        query_gdf = gpd.GeoDataFrame(
-            query_gdf,
-            geometry=gpd.points_from_xy(query_gdf.longitude, query_gdf.latitude),
-            crs="EPSG:4326",
-        )
-
-        # Ensure the polygon GeoDataFrame (gdf) is in the same CRS
-        if gdf.crs != query_gdf.crs:
-            gdf = gdf.to_crs(query_gdf.crs)
-
-        # Filter to points that are within the exact polygon shape, not just the bounding box
-        query_gdf = query_gdf[query_gdf.within(gdf.unary_union)].reset_index(drop=True)
-
-        if len(query_gdf) == 0:
-            return "No sites found for the selected geometry."
+    # Filter by one or more site numbers
+    if isinstance(site_code, list):
+        gdf_list = []
+        for site in set(site_code):
+            query = {
+                "sites": site,
+                "outputDataTypeCd": data_type,
+                "hasDataTypeCd": data_type,
+                "parameterCd": parameter_code,
+                "siteStatus": "all"
+            }
+            try:
+                # execute query
+                site_gdf = nwis.get_info(query)
+                gdf_list.append(site_gdf)
+            except ZeroMatchedError as e:
+                st.warning(f"No metadata found for site {site}: {e}")
+                return pd.DataFrame()
+        if len(gdf_list) == 0:
+            st.error("All sites returned no matching data based on user selection.")
+            return pd.DataFrame()
         else:
+            query_gdf = pd.concat(gdf_list)
+            query_gdf = format_gages_df(query_gdf)
             return query_gdf
-    except ZeroMatchedError as e:
-        return f"No sites found for the selected geometry. Error: {e}"
-
-
-def get_nwis_streamflow(station_id: str, dates: list, freq: str):
-    """
-    Get the streamflow data from the NWIS API
-
-    Parameters
-    ----------
-    station_id : str
-        The USGS station id
-    dates : list
-        The start and end dates for the data
-    freq : str
-        The frequency of the data, either Daily or Instantaneous
-
-    Returns
-    -------
-    df : pd.DataFrame
-        The streamflow data
-    """
-    # instantiate NWIS class
-    nwis = NWIS()
-    if freq == "Daily":
-        freq = "dv"
-    elif freq == "Instantaneous":
-        freq = "iv"
     else:
-        raise ValueError(
-            "Invalid frequency. Must be one of 'Daily' or 'Instantaneous'."
+        st.error("Invalid input. Must provide a list of site codes.")
+
+
+def parse_usgs_value_field(df, value_parameter_code):
+    """
+    Use the value_parameter_code to parse which field holds the values of interest
+
+    Args:
+        df (pd.DataFrame): any pandas dataframe with usgs data
+        value_parameter_code (str): string sequence expected in end of column name holding values.
+            USGS txt files often append a TS_ID to parameter codes. ex: 124212_00060 has a
+            TS_ID of 124212 and usgs parameter code of 00060 (Discharge, cubic feet per second)
+    Returns:
+        value_field (str): pandas column name holding values associated with the parameter code
+    """
+
+    # Initialize the field variable
+    value_field = None
+
+    # find the value field
+    for col in df.columns.values:
+        if col.endswith(value_parameter_code):
+            value_field = col
+
+    return value_field
+
+
+@st.cache_data
+def query_nwis(
+    site: str,
+    parameter: str,
+    start_date: str,
+    end_date: str,
+    data_type: str,
+    reference_df: str,
+    output_format: str = "rdb",
+):
+    """
+    Retrieve instantaneous data for a usgs site, write to a file (optional, and return as a dataframe
+
+    Args
+        site (str): gage id of the USGS site, e.g. '12345678'
+        parameter (str): one of [Streamflow, Stage]
+        start_date (str): formatted to 'YYYY-MM-DD'
+        end_date (str): formatted to 'YYYY-MM-DD'
+        data_type (str): one of [iv, dv], iv for instantaneous values, dv for daily values
+        reference_df (pd.DataFrame): dataframe with a 'time' column to use as a
+        output_format (str): one of [rdb, waterML-2.0, json].
+    Return
+        df (pd.DataFrame): formatted dataframe of peak data
+    """
+    if parameter == "Streamflow":
+        param_id = "00060"
+    elif parameter == "Stage":
+        param_id = "00065"
+    else:
+        st.error(
+            "Invalid parameter. Must be one of 'Streamflow' or 'Stage'."
         )
-    df = nwis.get_streamflow([station_id], dates, mmd=False, freq=freq)
-    return df
+        return pd.DataFrame()
+    try:
+        # build url and make call only for USGS funded sites
+        url = f"https://waterservices.usgs.gov/nwis/{data_type}/?format={output_format}&sites={site}&startDT={start_date}&endDT={end_date}&parameterCd={param_id}&siteType=ST&agencyCd=usgs&siteStatus=all"
+        r = requests.get(url)
+        # check that api call worked
+        if r.status_code != 200:
+            st.error(f"Error querying the NWIS server: Status Code {r.status_code}")
+            return pd.DataFrame()
+        # decode results
+        if output_format == "rdb":
+            df = pd.read_table(
+                io.StringIO(r.content.decode("utf-8")),
+                comment="#",
+                skip_blank_lines=True,
+            )
+            df = df.iloc[1:].copy()
+        # determine the value field col id
+        value_field = parse_usgs_value_field(df, param_id)
+        if value_field is None:
+            st.warning(f"No instantaneous data available for {parameter} from the provided site and event window.")
+            return pd.DataFrame()
+        # replace strings with NaN
+        df[value_field] = pd.to_numeric(df[value_field], errors="coerce")
+        if set(df["site_no"].isnull()) == {True}:
+            st.warning("No valid data found for the provided site. All site_no values are null.")
+            return pd.DataFrame()
+        else:
+            if parameter == "Stage":
+                target_col = "obs_stage"
+                df = df.rename(columns={f"{value_field}": "obs_stage"})
+            else:
+                target_col = "obs_flow"
+                df = df.rename(columns={f"{value_field}": "obs_flow"})
+            df["time"] = df["datetime"].copy()
+            df["time"] = pd.to_datetime(df["time"], utc=True)
+            df["time"] = df["time"].dt.tz_convert(
+                reference_df["time"].dt.tz
+            )
+            df = df[["time", target_col]].copy()
+            gage_ts = df.merge(
+                reference_df, on="time", how="outer"
+            )
+            return gage_ts
+    except Exception as e:
+        st.error(f"Error processing the NWIS data: {e}")
+        return pd.DataFrame()
