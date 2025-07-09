@@ -98,8 +98,8 @@ def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
 
     Parameters
     ----------
-    subbasin: gpd.GeoDataFrame
-        The subbasin to extract the gage ID from.
+    subbasin_geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the subbasin.
 
     Returns
     -------
@@ -117,6 +117,34 @@ def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
         return filtered_gdf["site_no"].tolist()
     else:
         return None
+
+
+def identify_gage_from_pt_ln(_geom: gpd.GeoSeries):
+    """
+    Identify the gage ID from a point or line geometry.
+    Determine if there are any gage points located within the reach line.
+
+    Parameters
+    ----------
+    _geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the point or line.
+
+    Returns
+    -------
+    subbasin_id: str
+        The subbasin ID if a subbasin is found containing the point or line, otherwise None
+    """
+    # Combine all geometries into one (if multiple)
+    _geom = _geom.unary_union.centroid
+    # Get all subbasin geometries
+    subbasin_geoms = st.subbasins.geometry
+    # Find which subbasins contain the ln/pt geometry
+    mask = subbasin_geoms.contains(_geom)
+    filtered_gdf = st.subbasins[mask].copy()
+    if filtered_gdf.empty:
+        return None
+    else:
+        return identify_gage_from_subbasin(filtered_gdf.geometry)
 
 
 def identify_gage_from_ref_ln(ref_id: str):
@@ -589,6 +617,10 @@ def model_results():
         if feature_type == FeatureType.MODEL:
             st.session_state["model_id"] = feature_label
             st.markdown(f"### Model: `{feature_label}`")
+            ras_stac_viewer_url = f"{st.session_state['stac_browser_url']}/#/external/{st.ras_meta_url}/items/{feature_label}"
+            st.markdown(
+                f"🌐 [STAC Metadata for {feature_label}]({ras_stac_viewer_url})"
+            )
             model_thumbnail_img = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
                 st.session_state["pilot"],
@@ -665,6 +697,10 @@ def model_results():
         ]:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### {feature_type.value}: `{feature_label}`")
+            ras_stac_viewer_url = f"{st.session_state['stac_browser_url']}/#/external/{st.ras_meta_url}/items/{st.session_state['model_id']}"
+            st.markdown(
+                f"🌐 [STAC Metadata for {st.session_state['model_id']}]({ras_stac_viewer_url})"
+            )
             st.markdown("#### Select Event")
             col_event_type, col_event_id = info_col.columns(2)
             st.session_state["event_type"] = col_event_type.radio(
@@ -781,6 +817,8 @@ def model_results():
                         st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
                 # Reference Line
                 if feature_type == FeatureType.REFERENCE_LINE:
+                    gage_flow_ts = None
+                    gage_stage_ts = None
                     feature_gage_status, feature_gage_id = identify_gage_from_ref_ln(
                         feature_label
                     )
@@ -808,6 +846,7 @@ def model_results():
                         ref_line_wse_ts, on="time", how="outer"
                     )
                     if feature_gage_status:
+                        # Gage Comparisons against Modeled Flow and Stage
                         # Get the gage datum from the NWIS
                         gage_metadata = select_usgs_gages(
                             site_code=[feature_gage_id],
@@ -843,7 +882,7 @@ def model_results():
                             st.session_state["gage_event"],
                         )
                         if obs_flow_ts.empty:
-                            # try getting instantaneous values
+                            # try getting instantaneous values from the NWIS
                             gage_flow_ts = query_nwis(
                                 site=feature_gage_id,
                                 parameter="Streamflow",
@@ -857,54 +896,78 @@ def model_results():
                                 ref_line_flow_ts, on="time", how="outer"
                             )
                         info_col.markdown("### Observed vs Modeled Flow")
-                    with info_col.expander(
-                        "Time Series Plots",
-                        expanded=True,
-                        icon="📈",
-                    ):
-                        if not gage_flow_ts.empty:
-                            gage_flow_metrics = calc_metrics(gage_flow_ts, "flow")
-                            eval_flow_df = eval_metrics(gage_flow_metrics)
-                            st.markdown("#### Evaluation Metrics")
-                            st.dataframe(eval_flow_df, use_container_width=True)
-                        plot_ts(
-                            gage_flow_ts if feature_gage_status else pd.DataFrame(),
-                            ref_line_flow_ts,
-                            "obs_flow",
-                            "model_flow",
-                            dual_y_axis=False,
-                            title=feature_label,
-                        )
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                        if not gage_flow_ts.empty:
-                            st.markdown("#### Gage Flow Data")
-                            st.dataframe(gage_flow_ts)
-                        else:
+                        with info_col.expander(
+                            "Time Series Plots",
+                            expanded=True,
+                            icon="📈",
+                        ):
+                            if feature_gage_status:
+                                if not gage_flow_ts.empty:
+                                    gage_flow_metrics = calc_metrics(
+                                        gage_flow_ts, "flow"
+                                    )
+                                    eval_flow_df = eval_metrics(gage_flow_metrics)
+                                    st.markdown("#### Evaluation Metrics")
+                                    st.dataframe(eval_flow_df, use_container_width=True)
+                            plot_ts(
+                                gage_flow_ts,
+                                ref_line_flow_ts,
+                                "obs_flow",
+                                "model_flow",
+                                dual_y_axis=False,
+                                title=feature_label,
+                            )
+                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                            if not gage_flow_ts.empty:
+                                st.markdown("#### Gage Flow Data")
+                                st.dataframe(gage_flow_ts)
+                            else:
+                                st.markdown("#### Reference Line Flow Data")
+                                st.dataframe(ref_line_flow_ts)
+
+                        info_col.markdown("### Observed vs Modeled WSE")
+                        with info_col.expander(
+                            "Time Series Plots", expanded=True, icon="📈"
+                        ):
+                            if not gage_stage_ts.empty:
+                                gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
+                                eval_wse_df = eval_metrics(gage_wse_metrics)
+                                st.markdown("#### Evaluation Metrics")
+                                st.dataframe(eval_wse_df, use_container_width=True)
+                            plot_ts(
+                                gage_stage_ts,
+                                ref_line_wse_ts,
+                                "obs_wse",
+                                "model_wse",
+                                dual_y_axis=False,
+                                title=feature_label,
+                            )
+                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                            if not gage_stage_ts.empty:
+                                st.markdown("#### Gage WSE Data")
+                                st.dataframe(gage_stage_ts)
+                            else:
+                                st.markdown("#### Reference Line WSE Data")
+                                st.dataframe(ref_line_wse_ts)
+                    else:
+                        # No Gage Comparisons, only Modeled Flow and Stage
+                        info_col.markdown("### Modeled Flow & WSE")
+                        with info_col.expander(
+                            "Time Series Plots",
+                            expanded=True,
+                            icon="📈",
+                        ):
+                            plot_ts(
+                                ref_line_flow_ts,
+                                ref_line_wse_ts,
+                                "model_flow",
+                                "model_wse",
+                                dual_y_axis=True,
+                                title=feature_label,
+                            )
+                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
                             st.markdown("#### Reference Line Flow Data")
                             st.dataframe(ref_line_flow_ts)
-
-                    info_col.markdown("### Observed vs Modeled WSE")
-                    with info_col.expander(
-                        "Time Series Plots", expanded=True, icon="📈"
-                    ):
-                        if not gage_stage_ts.empty:
-                            gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
-                            eval_wse_df = eval_metrics(gage_wse_metrics)
-                            st.markdown("#### Evaluation Metrics")
-                            st.dataframe(eval_wse_df, use_container_width=True)
-                        plot_ts(
-                            gage_stage_ts if feature_gage_status else pd.DataFrame(),
-                            ref_line_wse_ts,
-                            "obs_wse",
-                            "model_wse",
-                            dual_y_axis=False,
-                            title=feature_label,
-                        )
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                        if not gage_stage_ts.empty:
-                            st.markdown("#### Gage WSE Data")
-                            st.dataframe(gage_stage_ts)
-                        else:
                             st.markdown("#### Reference Line WSE Data")
                             st.dataframe(ref_line_wse_ts)
         # HEC-HMS Model Objects
@@ -916,6 +979,12 @@ def model_results():
         ]:
             st.markdown(f"### Model: `{st.session_state['model_id']}`")
             st.markdown(f"#### {feature_type.value}: `{feature_label}`")
+            hms_stac_viewer_url = (
+                f"{st.session_state['stac_browser_url']}/#/external/{st.hms_meta_url}"
+            )
+            st.markdown(
+                f"🌐 [STAC Metadata for {feature_label}]({hms_stac_viewer_url})"
+            )
             st.markdown("#### Select Event")
             col_event_type, col_storm_id, col_event_id = info_col.columns(3)
             st.session_state["event_type"] = col_event_type.radio(
@@ -926,6 +995,24 @@ def model_results():
             if feature_type == FeatureType.SUBBASIN:
                 available_gage_ids = identify_gage_from_subbasin(
                     st.subbasins.loc[st.subbasins["hms_element"] == feature_label][
+                        "geometry"
+                    ]
+                )
+            elif feature_type == FeatureType.REACH:
+                available_gage_ids = identify_gage_from_pt_ln(
+                    st.reaches.loc[st.reaches["hms_element"] == feature_label][
+                        "geometry"
+                    ]
+                )
+            elif feature_type == FeatureType.JUNCTION:
+                available_gage_ids = identify_gage_from_pt_ln(
+                    st.junctions.loc[st.junctions["hms_element"] == feature_label][
+                        "geometry"
+                    ]
+                )
+            elif feature_type == FeatureType.RESERVOIR:
+                available_gage_ids = identify_gage_from_pt_ln(
+                    st.reservoirs.loc[st.reservoirs["hms_element"] == feature_label][
                         "geometry"
                     ]
                 )
@@ -1003,7 +1090,7 @@ def model_results():
                         )
                     else:
                         col_storm_id.warning(
-                            "No gages are located within this subbasin for comparison"
+                            "The selected HEC-HMS element is not associated with any gages."
                         )
                         gage_ams_df = None
                         st.session_state["multi_event_gage_id"] = None
@@ -1058,14 +1145,46 @@ def model_results():
                                         selected_points[point]["gage_id"],
                                         selected_points[point]["storm_id"],
                                     )
-                                    gage_flow_ts["block_id"] = point
-                                    gage_flow_ts["storm_id"] = selected_points[point][
-                                        "storm_id"
-                                    ]
-                                    gage_flow_ts["event_id"] = selected_points[point][
-                                        "event_id"
-                                    ]
-                                    multi_events_flows.append(gage_flow_ts)
+                                    if not gage_flow_ts.empty:
+                                        gage_flow_ts["block_id"] = point
+                                        gage_flow_ts["storm_id"] = selected_points[
+                                            point
+                                        ]["storm_id"]
+                                        gage_flow_ts["event_id"] = selected_points[
+                                            point
+                                        ]["event_id"]
+                                        multi_events_flows.append(gage_flow_ts)
+                                    else:
+                                        peak_time = selected_points[point]["peak_time"]
+                                        peak_time_dt = pd.to_datetime(
+                                            peak_time,
+                                            format="%Y-%m-%d",
+                                            errors="coerce",
+                                        )
+                                        start_date = (
+                                            peak_time_dt - pd.Timedelta(days=1)
+                                        ).strftime("%Y-%m-%d")
+                                        end_date = (
+                                            peak_time_dt + pd.Timedelta(days=1)
+                                        ).strftime("%Y-%m-%d")
+                                        # try getting instantaneous values from the NWIS
+                                        gage_flow_ts = query_nwis(
+                                            site=selected_points[point]["gage_id"],
+                                            parameter="Streamflow",
+                                            start_date=start_date,
+                                            end_date=end_date,
+                                            data_type="iv",
+                                            reference_df=pd.DataFrame(),
+                                        )
+                                        if not gage_flow_ts.empty:
+                                            gage_flow_ts["block_id"] = point
+                                            gage_flow_ts["storm_id"] = selected_points[
+                                                point
+                                            ]["storm_id"]
+                                            gage_flow_ts["event_id"] = selected_points[
+                                                point
+                                            ]["event_id"]
+                                            multi_events_flows.append(gage_flow_ts)
                                 else:
                                     stochastic_flow_ts = query_s3_stochastic_hms_flow(
                                         st.session_state["s3_conn"],
@@ -1082,11 +1201,13 @@ def model_results():
                                         point
                                     ]["event_id"]
                                     multi_events_flows.append(stochastic_flow_ts)
-                            multi_events_flows_df = pd.concat(
-                                multi_events_flows,
-                                ignore_index=False,
-                            )
-                            plot_multi_event_ts(multi_events_flows_df)
+                            if len(multi_events_flows) > 0:
+                                multi_events_flows_df = pd.concat(
+                                    multi_events_flows,
+                                    ignore_index=False,
+                                )
+                                plot_multi_event_ts(multi_events_flows_df)
+
                     with info_col.expander("Data Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Multi Event AMS Data")
                         st.dataframe(multi_event_ams_df)
