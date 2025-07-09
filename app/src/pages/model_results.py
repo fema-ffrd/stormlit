@@ -866,7 +866,7 @@ def model_results():
                             gage_flow_metrics = calc_metrics(gage_flow_ts, "flow")
                             eval_flow_df = eval_metrics(gage_flow_metrics)
                             st.markdown("#### Evaluation Metrics")
-                            st.dataframe(eval_flow_df)
+                            st.dataframe(eval_flow_df, use_container_width=True)
                         plot_ts(
                             gage_flow_ts if feature_gage_status else pd.DataFrame(),
                             ref_line_flow_ts,
@@ -876,7 +876,7 @@ def model_results():
                             title=feature_label,
                         )
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                        if feature_gage_status:
+                        if not gage_flow_ts.empty:
                             st.markdown("#### Gage Flow Data")
                             st.dataframe(gage_flow_ts)
                         else:
@@ -891,7 +891,7 @@ def model_results():
                             gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
                             eval_wse_df = eval_metrics(gage_wse_metrics)
                             st.markdown("#### Evaluation Metrics")
-                            st.dataframe(eval_wse_df)
+                            st.dataframe(eval_wse_df, use_container_width=True)
                         plot_ts(
                             gage_stage_ts if feature_gage_status else pd.DataFrame(),
                             ref_line_wse_ts,
@@ -901,7 +901,7 @@ def model_results():
                             title=feature_label,
                         )
                     with info_col.expander("Data Table", expanded=False, icon="🔢"):
-                        if feature_gage_status:
+                        if not gage_stage_ts.empty:
                             st.markdown("#### Gage WSE Data")
                             st.dataframe(gage_stage_ts)
                         else:
@@ -929,6 +929,8 @@ def model_results():
                         "geometry"
                     ]
                 )
+            else:
+                available_gage_ids = None
 
             if st.session_state["event_type"] == "Stochastic Events":
                 if st.session_state["hms_element_id"] is None:
