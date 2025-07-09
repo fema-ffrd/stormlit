@@ -38,6 +38,12 @@ def plot_ts(
         st.warning("No data available for the selected variables in either dataset.")
         return
 
+    if "time" in df1.columns and var1 in df1.columns:
+        df1 = df1[["time", var1]].dropna()
+
+    if "time" in df2.columns and var2 in df2.columns:
+        df2 = df2[["time", var2]].dropna()
+
     fig = go.Figure()
 
     if not dual_y_axis:
