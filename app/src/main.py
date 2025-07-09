@@ -33,6 +33,7 @@ def home_page():
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
+        "Stac-Fast API": "https://radiantearth.github.io/stac-browser/#/search/external/stac-api.arc-apps.net/"
     }
 
     st.sidebar.markdown("# Database ☁️")
@@ -52,7 +53,9 @@ def home_page():
     software_link_dict = {
         "FEMA-FFRD": "https://github.com/fema-ffrd",
         "Stormlit": "https://github.com/fema-ffrd/rashdf",
+        "RasQC": "https://github.com/fema-ffrd/rasqc",
         "Rashdf": "https://www.rdkit.org",
+        "HydroStab": "https://github.com/fema-ffrd/hydrostab",
         "Stormhub": "https://github.com/fema-ffrd/stormhub",
         "Auto-Report": "https://github.com/fema-ffrd/ffrd-auto-reports",
         "Hecstac": "https://www.hecstacl.com",
