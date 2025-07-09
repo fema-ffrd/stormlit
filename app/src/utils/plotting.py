@@ -151,17 +151,26 @@ def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):
 
 
 def plot_flow_aep(
-    df: pd.DataFrame,
+    multi_event_ams_df: pd.DataFrame,
+    gage_ams_df: Optional[pd.DataFrame] = None,
 ):
     """Function for plotting Discharge Frequency Plot.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        DataFrame containing the AEP, Return Period, and Peak Flow data.
+    multi_event_ams_df : pd.DataFrame
+        DataFrame containing the multi event AEP, Return Period, and Peak Flow data.
+        - "aep": float
+        - "return_period": float
+        - "peak_flow": float
+    gage_ams_df : Optional[pd.DataFrame]
+        DataFrame containing the gage AEP, Return Period, and Peak Flow data.
+        - "aep": float
+        - "return_period": float
+        - "peak_flow": float
     """
     # Check if the DataFrames are empty
-    if df.empty:
+    if multi_event_ams_df.empty:
         st.warning("No data available for the selected variables in the dataset.")
         return
 
@@ -170,10 +179,10 @@ def plot_flow_aep(
     # Add trace for AEP vs Peak Flow
     fig.add_trace(
         go.Scattergl(
-            x=df["aep"],
-            y=df["peak_flow"],
+            x=multi_event_ams_df["aep"],
+            y=multi_event_ams_df["peak_flow"],
             mode="markers",
-            name="Discharge (cfs)",
+            name="Modeled",
             marker=dict(color="white"),
             yaxis="y1",
             xaxis="x1",
@@ -183,26 +192,64 @@ def plot_flow_aep(
     # Add trace for Return Period vs Peak Flow
     fig.add_trace(
         go.Scattergl(
-            x=df["return_period"],
-            y=df["peak_flow"],
+            x=multi_event_ams_df["return_period"],
+            y=multi_event_ams_df["peak_flow"],
             mode="markers",
-            name="Discharge (cfs)",
+            name="Modeled",
             marker=dict(color="red"),
             yaxis="y2",
             xaxis="x2",
             text=[
                 f"Return Period: {rp:,.1f}<br>Peak Flow: {peak_flow:,.1f}<br>AEP: {aep:,.2e}<br>Block Group: {block:,}<br>Event ID: {event_id:,}<br>Storm ID: {storm_id}"
                 for rp, peak_flow, aep, block, event_id, storm_id in zip(
-                    df["return_period"],
-                    df["peak_flow"],
-                    df["aep"],
-                    df["block_group"],
-                    df["event_id"],
-                    df["storm_id"],
+                    multi_event_ams_df["return_period"],
+                    multi_event_ams_df["peak_flow"],
+                    multi_event_ams_df["aep"],
+                    multi_event_ams_df["block_group"],
+                    multi_event_ams_df["event_id"],
+                    multi_event_ams_df["storm_id"],
                 )
             ],
         )
     )
+    # Add trace for Gage AEP vs Peak Flow if provided
+    if gage_ams_df is not None and not gage_ams_df.empty:
+        fig.add_trace(
+            go.Scattergl(
+                x=gage_ams_df["aep"],
+                y=gage_ams_df["peak_flow"],
+                mode="markers",
+                name="Observed",
+                marker=dict(color="white"),
+                yaxis="y1",
+                xaxis="x1",
+                hoverinfo="skip",
+            )
+        )
+        # Add trace for Gage Return Period vs Peak Flow
+        fig.add_trace(
+            go.Scattergl(
+                x=gage_ams_df["return_period"],
+                y=gage_ams_df["peak_flow"],
+                mode="markers",
+                name="Observed",
+                marker=dict(color="blue"),
+                yaxis="y2",
+                xaxis="x2",
+                text=[
+                    f"Gage ID: {gage_id}<br>Return Period: {rp:,.1f}<br>Peak Flow: {peak_flow:,.1f}<br>AEP: {aep:,.2e}<br>Storm ID: {peak_time}"
+                    for gage_id, rp, peak_flow, aep, peak_time in zip(
+                        gage_ams_df["gage_id"],
+                        gage_ams_df["return_period"],
+                        gage_ams_df["peak_flow"],
+                        gage_ams_df["aep"],
+                        gage_ams_df["peak_time"],
+                        
+                    )
+                ],
+            )
+        )
+
     # Update layout for dual y-axes
     fig.update_layout(
         xaxis=dict(
@@ -239,23 +286,42 @@ def plot_flow_aep(
         points_dict = {}
         selected_points = pd.DataFrame(plot_selection["selection"]["points"])
         for _, row in selected_points.iterrows():
-            block_group = row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
-            points_dict[block_group] = {}
-            points_dict[block_group]["return_period"] = float(row["x"])
-            points_dict[block_group]["peak_flow"] = float(row["y"])
-            points_dict[block_group]["aep"] = float(
-                row["text"].split("<br>")[2].split(": ")[1].replace(",", "")
-            )
-            points_dict[block_group]["event_id"] = (
-                row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
-            )
-            points_dict[block_group]["storm_id"] = (
-                row["text"]
-                .split("<br>")[5]
-                .split(": ")[1]
-                .replace("-", "")
-                .replace(",", "")
-            )
+            if "Gage ID" in row["text"].split("<br>")[0]:
+                storm_id = row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
+                storm_id_dt = pd.to_datetime(storm_id, format="%Y-%m-%d", errors="coerce")
+                if pd.notnull(storm_id_dt):
+                    month_str = storm_id_dt.strftime("%b").lower()  # e.g., 'oct'
+                    year_str = storm_id_dt.strftime("%Y")          # e.g., '2015'
+                    storm_id_fmt = f"{month_str}{year_str}"        # e.g., 'oct2015'
+                else:
+                    storm_id_fmt = storm_id
+                points_dict[storm_id_fmt] = {}
+                points_dict[storm_id_fmt]["gage_id"] = row["text"].split("<br>")[0].split(": ")[1]
+                points_dict[storm_id_fmt]["return_period"] = float(row["x"])
+                points_dict[storm_id_fmt]["peak_flow"] = float(row["y"])
+                points_dict[storm_id_fmt]["aep"] = float(
+                    row["text"].split("<br>")[1].split(": ")[1].replace(",", "")
+                )
+                points_dict[storm_id_fmt]["event_id"] = None
+                points_dict[storm_id_fmt]["storm_id"] = storm_id_fmt
+            else:
+                block_group = row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
+                points_dict[block_group] = {}
+                points_dict[block_group]["return_period"] = float(row["x"])
+                points_dict[block_group]["peak_flow"] = float(row["y"])
+                points_dict[block_group]["aep"] = float(
+                    row["text"].split("<br>")[2].split(": ")[1].replace(",", "")
+                )
+                points_dict[block_group]["event_id"] = (
+                    row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
+                )
+                points_dict[block_group]["storm_id"] = (
+                    row["text"]
+                    .split("<br>")[5]
+                    .split(": ")[1]
+                    .replace("-", "")
+                    .replace(",", "")
+                )
         return points_dict
     else:
         return None
@@ -284,18 +350,33 @@ def plot_multi_event_ts(df: pd.DataFrame):
     # Create a figure
     fig = go.Figure()
     df["plot_index"] = df.index
-    # Add traces for each block_id
+    # Add traces for each hydrograph
     for block_id in df["block_id"].unique():
         block_data = df[df["block_id"] == block_id]
-        fig.add_trace(
-            go.Scatter(
-                x=block_data["plot_index"],
-                y=block_data["hms_flow"],
-                mode="lines",
-                name=f"Block {block_id}",
-                line=dict(width=1),
+        if "hms_flow" in block_data.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=block_data["plot_index"],
+                    y=block_data["hms_flow"],
+                    mode="lines",
+                    name=f"Block {block_id}",
+                    line=dict(width=1),
+                )
             )
-        )
+        elif "obs_flow" in block_data.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=block_data["plot_index"],
+                    y=block_data["obs_flow"],
+                    mode="lines",
+                    name=f"Observed {block_id}",
+                    line=dict(width=1),
+                )
+            )
+        else:
+            st.warning(f"No data available for the selected variables in the dataset. {block_id}.")
+            continue
+
     # Update layout
     fig.update_layout(
         title="Multi-Event Time Series Hydrographs",
