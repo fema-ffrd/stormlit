@@ -212,7 +212,7 @@ def query_s3_obs_flow(_conn, pilot: str, gage_id: str, event_id: str) -> pd.Data
         pd.DataFrame: A pandas DataFrame containing the observed gage flow data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/pq-test/*/*/data.pq"
-    query = f"""SELECT datetime, flow as 'flow'
+    query = f"""SELECT datetime, flow as 'obs_flow'
             FROM read_parquet('{s3_path}', hive_partitioning=true)
             WHERE gage='{gage_id}' and event='{event_id}';"""
     return query_db(_conn, query)
@@ -657,4 +657,32 @@ def query_s3_hms_storms(_conn, pilot: str) -> pd.DataFrame:
     """
     s3_path = f"s3://{pilot}/cloud-hms-db/storms.pq"
     query = f"SELECT event_number as event_id, storm_id, storm_type FROM read_parquet('{s3_path}', hive_partitioning=true);"
+    return query_db(_conn, query)
+
+
+@st.cache_data
+def query_s3_gage_ams(
+    _conn, pilot: str, gage_id: str
+) -> pd.DataFrame:
+    """
+    Query AMS gage data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        gage_id (str): The ID of the gage to query.
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the AMS gage data.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
+    #query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"
+    query = f"""
+        SELECT
+            peak_va as peak_flow,
+            gage_ht,
+            site_no as gage_id,
+            datetime as peak_time,
+            ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank
+        FROM read_parquet('{s3_path}', hive_partitioning=true);
+    """
     return query_db(_conn, query)
