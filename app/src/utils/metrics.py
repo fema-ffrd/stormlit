@@ -55,8 +55,14 @@ def calc_metrics(df: pd.DataFrame, target: str):
     """
     if target not in ["flow", "wse"]:
         raise ValueError("Target must be either 'flow' or 'wse'.")
-    if f"obs_{target}" not in df.columns or f"model_{target}" not in df.columns or "time" not in df.columns:
-        raise ValueError(f"Dataframe must contain 'obs_{target}', 'model_{target}' and 'time' columns. Current columns: {df.columns.tolist()}")
+    if (
+        f"obs_{target}" not in df.columns
+        or f"model_{target}" not in df.columns
+        or "time" not in df.columns
+    ):
+        raise ValueError(
+            f"Dataframe must contain 'obs_{target}', 'model_{target}' and 'time' columns. Current columns: {df.columns.tolist()}"
+        )
     if df.empty:
         return pd.DataFrame()
     # set the beginning based on the model target
@@ -67,7 +73,9 @@ def calc_metrics(df: pd.DataFrame, target: str):
     # drop any potential NaN values after interpolation
     df = df.dropna(subset=[f"obs_{target}", f"model_{target}"])
     if df.empty:
-        st.warning(f"No data available for {target} after processing. Please check input data.")
+        st.warning(
+            f"No data available for {target} after processing. Please check input data."
+        )
         return pd.DataFrame()
     # create a regression metric object
     evaluator = RegressionMetric(
@@ -87,7 +95,10 @@ def calc_metrics(df: pd.DataFrame, target: str):
     # calculate the pbias
     pbias_val = pbias_score(df[f"obs_{target}"].values, df[f"model_{target}"].values)
     # calculate the peak percent error
-    pf_obs, pf_mod = np.max(np.max(df[f"model_{target}"].values)), np.max(df[f"obs_{target}"].values)
+    pf_obs, pf_mod = (
+        np.max(np.max(df[f"model_{target}"].values)),
+        np.max(df[f"obs_{target}"].values),
+    )
     ppe_val = (abs(pf_mod - pf_obs) / pf_obs) * 100
     # compile the statistics into a dataframe
     stats_df = pd.DataFrame(
@@ -122,10 +133,10 @@ def eval_metrics(x):
 
     # Color map for evaluation
     color_map = {
-        "Very Good": "background-color: #4CAF50; color: white;",      # green
-        "Good": "background-color: #8BC34A; color: black;",           # light green
-        "Satisfactory": "background-color: #FFEB3B; color: black;",   # yellow
-        "Unsatisfactory": "background-color: #F44336; color: white;", # red
+        "Very Good": "background-color: #4CAF50; color: white;",  # green
+        "Good": "background-color: #8BC34A; color: black;",  # light green
+        "Satisfactory": "background-color: #FFEB3B; color: black;",  # yellow
+        "Unsatisfactory": "background-color: #F44336; color: white;",  # red
     }
 
     # Define evaluation functions for each metric

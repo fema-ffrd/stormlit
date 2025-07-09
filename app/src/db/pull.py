@@ -661,9 +661,7 @@ def query_s3_hms_storms(_conn, pilot: str) -> pd.DataFrame:
 
 
 @st.cache_data
-def query_s3_gage_ams(
-    _conn, pilot: str, gage_id: str
-) -> pd.DataFrame:
+def query_s3_gage_ams(_conn, pilot: str, gage_id: str) -> pd.DataFrame:
     """
     Query AMS gage data from the S3 bucket.
 
@@ -675,7 +673,7 @@ def query_s3_gage_ams(
         pd.DataFrame: A pandas DataFrame containing the AMS gage data.
     """
     s3_path = f"s3://{pilot}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
-    #query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"
+    # query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"
     query = f"""
         SELECT
             peak_va as peak_flow,

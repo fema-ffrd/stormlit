@@ -244,7 +244,6 @@ def plot_flow_aep(
                         gage_ams_df["peak_flow"],
                         gage_ams_df["aep"],
                         gage_ams_df["peak_time"],
-                        
                     )
                 ],
             )
@@ -288,15 +287,19 @@ def plot_flow_aep(
         for _, row in selected_points.iterrows():
             if "Gage ID" in row["text"].split("<br>")[0]:
                 storm_id = row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
-                storm_id_dt = pd.to_datetime(storm_id, format="%Y-%m-%d", errors="coerce")
+                storm_id_dt = pd.to_datetime(
+                    storm_id, format="%Y-%m-%d", errors="coerce"
+                )
                 if pd.notnull(storm_id_dt):
                     month_str = storm_id_dt.strftime("%b").lower()  # e.g., 'oct'
-                    year_str = storm_id_dt.strftime("%Y")          # e.g., '2015'
-                    storm_id_fmt = f"{month_str}{year_str}"        # e.g., 'oct2015'
+                    year_str = storm_id_dt.strftime("%Y")  # e.g., '2015'
+                    storm_id_fmt = f"{month_str}{year_str}"  # e.g., 'oct2015'
                 else:
                     storm_id_fmt = storm_id
                 points_dict[storm_id_fmt] = {}
-                points_dict[storm_id_fmt]["gage_id"] = row["text"].split("<br>")[0].split(": ")[1]
+                points_dict[storm_id_fmt]["gage_id"] = (
+                    row["text"].split("<br>")[0].split(": ")[1]
+                )
                 points_dict[storm_id_fmt]["return_period"] = float(row["x"])
                 points_dict[storm_id_fmt]["peak_flow"] = float(row["y"])
                 points_dict[storm_id_fmt]["aep"] = float(
@@ -305,7 +308,9 @@ def plot_flow_aep(
                 points_dict[storm_id_fmt]["event_id"] = None
                 points_dict[storm_id_fmt]["storm_id"] = storm_id_fmt
             else:
-                block_group = row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
+                block_group = (
+                    row["text"].split("<br>")[3].split(": ")[1].replace(",", "")
+                )
                 points_dict[block_group] = {}
                 points_dict[block_group]["return_period"] = float(row["x"])
                 points_dict[block_group]["peak_flow"] = float(row["y"])
@@ -374,7 +379,9 @@ def plot_multi_event_ts(df: pd.DataFrame):
                 )
             )
         else:
-            st.warning(f"No data available for the selected variables in the dataset. {block_id}.")
+            st.warning(
+                f"No data available for the selected variables in the dataset. {block_id}."
+            )
             continue
 
     # Update layout

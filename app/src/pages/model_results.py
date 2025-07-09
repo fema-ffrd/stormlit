@@ -30,7 +30,7 @@ from db.pull import (
     query_s3_stochastic_storm_list,
     query_s3_stochastic_event_list,
     query_s3_ams_peaks_by_element,
-    query_s3_gage_ams
+    query_s3_gage_ams,
 )
 
 # standard imports
@@ -90,6 +90,7 @@ def reset_selections():
         }
     )
 
+
 def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
     """
     Identify the gage ID from a subbasin geometry.
@@ -116,6 +117,7 @@ def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
         return filtered_gdf["site_no"].tolist()
     else:
         return None
+
 
 def identify_gage_from_ref_ln(ref_id: str):
     """
@@ -779,7 +781,9 @@ def model_results():
                         st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
                 # Reference Line
                 if feature_type == FeatureType.REFERENCE_LINE:
-                    feature_gage_status, feature_gage_id = identify_gage_from_ref_ln(feature_label)
+                    feature_gage_status, feature_gage_id = identify_gage_from_ref_ln(
+                        feature_label
+                    )
                     ref_line_flow_ts = query_s3_mod_flow(
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
@@ -828,7 +832,9 @@ def model_results():
                         if gage_stage_ts.empty:
                             gage_stage_ts = pd.DataFrame(columns=["time", "obs_wse"])
                         else:
-                            gage_stage_ts["obs_wse"] = gage_stage_ts["obs_stage"] + gage_datum
+                            gage_stage_ts["obs_wse"] = (
+                                gage_stage_ts["obs_stage"] + gage_datum
+                            )
                         # Get the Flow Data
                         obs_flow_ts = query_s3_obs_flow(
                             st.session_state["s3_conn"],
@@ -844,8 +850,8 @@ def model_results():
                                 start_date=start_date,
                                 end_date=end_date,
                                 data_type="iv",
-                                reference_df=ref_line_flow_ts
-                                )                  
+                                reference_df=ref_line_flow_ts,
+                            )
                         else:
                             gage_flow_ts = obs_flow_ts.merge(
                                 ref_line_flow_ts, on="time", how="outer"
@@ -857,10 +863,7 @@ def model_results():
                         icon="📈",
                     ):
                         if not gage_flow_ts.empty:
-                            gage_flow_metrics = calc_metrics(
-                                gage_flow_ts,
-                                "flow"
-                            )
+                            gage_flow_metrics = calc_metrics(gage_flow_ts, "flow")
                             eval_flow_df = eval_metrics(gage_flow_metrics)
                             st.markdown("#### Evaluation Metrics")
                             st.dataframe(eval_flow_df)
@@ -885,10 +888,7 @@ def model_results():
                         "Time Series Plots", expanded=True, icon="📈"
                     ):
                         if not gage_stage_ts.empty:
-                            gage_wse_metrics = calc_metrics(
-                                gage_stage_ts,
-                                "wse"
-                            )
+                            gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
                             eval_wse_df = eval_metrics(gage_wse_metrics)
                             st.markdown("#### Evaluation Metrics")
                             st.dataframe(eval_wse_df)
@@ -925,9 +925,9 @@ def model_results():
             )
             if feature_type == FeatureType.SUBBASIN:
                 available_gage_ids = identify_gage_from_subbasin(
-                    st.subbasins.loc[
-                        st.subbasins["hms_element"] == feature_label
-                    ]["geometry"]
+                    st.subbasins.loc[st.subbasins["hms_element"] == feature_label][
+                        "geometry"
+                    ]
                 )
 
             if st.session_state["event_type"] == "Stochastic Events":
@@ -992,13 +992,17 @@ def model_results():
                     )
                 else:
                     if available_gage_ids is not None:
-                        st.session_state["multi_event_gage_id"] = col_storm_id.selectbox(
-                            "Select Gage ID",
-                            available_gage_ids,
-                            index=0,
+                        st.session_state["multi_event_gage_id"] = (
+                            col_storm_id.selectbox(
+                                "Select Gage ID",
+                                available_gage_ids,
+                                index=0,
+                            )
                         )
                     else:
-                        col_storm_id.warning("No gages are located within this subbasin for comparison")
+                        col_storm_id.warning(
+                            "No gages are located within this subbasin for comparison"
+                        )
                         gage_ams_df = None
                         st.session_state["multi_event_gage_id"] = None
 
@@ -1029,9 +1033,7 @@ def model_results():
                             st.session_state["pilot"],
                             st.session_state["multi_event_gage_id"],
                         )
-                        gage_ams_df["aep"] = gage_ams_df["rank"] / (
-                            len(gage_ams_df)
-                        )
+                        gage_ams_df["aep"] = gage_ams_df["rank"] / (len(gage_ams_df))
                         gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
                         gage_ams_df["peak_time"] = pd.to_datetime(
                             gage_ams_df["peak_time"]
@@ -1071,12 +1073,12 @@ def model_results():
                                         selected_points[point]["event_id"],
                                     )
                                     stochastic_flow_ts["block_id"] = point
-                                    stochastic_flow_ts["storm_id"] = selected_points[point][
-                                        "storm_id"
-                                    ]
-                                    stochastic_flow_ts["event_id"] = selected_points[point][
-                                        "event_id"
-                                    ]
+                                    stochastic_flow_ts["storm_id"] = selected_points[
+                                        point
+                                    ]["storm_id"]
+                                    stochastic_flow_ts["event_id"] = selected_points[
+                                        point
+                                    ]["event_id"]
                                     multi_events_flows.append(stochastic_flow_ts)
                             multi_events_flows_df = pd.concat(
                                 multi_events_flows,

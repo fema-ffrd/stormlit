@@ -51,6 +51,7 @@ def format_gages_df(df: gpd.GeoDataFrame):
     df = df.drop_duplicates(subset="site_no").reset_index(drop=True)
     return df
 
+
 @st.cache_data
 def select_usgs_gages(
     site_code: list,
@@ -83,9 +84,7 @@ def select_usgs_gages(
     elif parameter == "Stage":
         parameter_code = "00065"
     else:
-        st.error(
-            "Invalid parameter. Must be one of 'Streamflow' or 'Stage'."
-        )
+        st.error("Invalid parameter. Must be one of 'Streamflow' or 'Stage'.")
     # Filter by one or more site numbers
     if isinstance(site_code, list):
         gdf_list = []
@@ -95,7 +94,7 @@ def select_usgs_gages(
                 "outputDataTypeCd": data_type,
                 "hasDataTypeCd": data_type,
                 "parameterCd": parameter_code,
-                "siteStatus": "all"
+                "siteStatus": "all",
             }
             try:
                 # execute query
@@ -168,9 +167,7 @@ def query_nwis(
     elif parameter == "Stage":
         param_id = "00065"
     else:
-        st.error(
-            "Invalid parameter. Must be one of 'Streamflow' or 'Stage'."
-        )
+        st.error("Invalid parameter. Must be one of 'Streamflow' or 'Stage'.")
         return pd.DataFrame()
     try:
         # build url and make call only for USGS funded sites
@@ -191,12 +188,16 @@ def query_nwis(
         # determine the value field col id
         value_field = parse_usgs_value_field(df, param_id)
         if value_field is None:
-            st.warning(f"No instantaneous data available for {parameter} from the provided site and event window.")
+            st.warning(
+                f"No instantaneous data available for {parameter} from the provided site and event window."
+            )
             return pd.DataFrame()
         # replace strings with NaN
         df[value_field] = pd.to_numeric(df[value_field], errors="coerce")
         if set(df["site_no"].isnull()) == {True}:
-            st.warning("No valid data found for the provided site. All site_no values are null.")
+            st.warning(
+                "No valid data found for the provided site. All site_no values are null."
+            )
             return pd.DataFrame()
         else:
             if parameter == "Stage":
@@ -207,13 +208,9 @@ def query_nwis(
                 df = df.rename(columns={f"{value_field}": "obs_flow"})
             df["time"] = df["datetime"].copy()
             df["time"] = pd.to_datetime(df["time"], utc=True)
-            df["time"] = df["time"].dt.tz_convert(
-                reference_df["time"].dt.tz
-            )
+            df["time"] = df["time"].dt.tz_convert(reference_df["time"].dt.tz)
             df = df[["time", target_col]].copy()
-            gage_ts = df.merge(
-                reference_df, on="time", how="outer"
-            )
+            gage_ts = df.merge(reference_df, on="time", how="outer")
             return gage_ts
     except Exception as e:
         st.error(f"Error processing the NWIS data: {e}")

@@ -33,7 +33,7 @@ def home_page():
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
-        "Stac-Fast API": "https://radiantearth.github.io/stac-browser/#/search/external/stac-api.arc-apps.net/"
+        "Stac-Fast API": "https://radiantearth.github.io/stac-browser/#/search/external/stac-api.arc-apps.net/",
     }
 
     st.sidebar.markdown("# Database ☁️")
