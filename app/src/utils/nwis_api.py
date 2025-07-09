@@ -102,6 +102,9 @@ def select_usgs_gages(
             except ZeroMatchedError as e:
                 st.warning(f"No metadata found for site {site}: {e}")
                 return pd.DataFrame()
+            except Exception as e:
+                st.error(f"Service error for site {site}: {e}")
+                return pd.DataFrame()
         if len(gdf_list) == 0:
             st.error("All sites returned no matching data based on user selection.")
             return pd.DataFrame()
@@ -144,7 +147,7 @@ def query_nwis(
     start_date: str,
     end_date: str,
     data_type: str,
-    reference_df: str,
+    reference_df: pd.DataFrame,
     output_format: str = "rdb",
 ):
     """
@@ -171,7 +174,7 @@ def query_nwis(
     try:
         # build url and make call only for USGS funded sites
         url = f"https://waterservices.usgs.gov/nwis/{data_type}/?format={output_format}&sites={site}&startDT={start_date}&endDT={end_date}&parameterCd={param_id}&siteType=ST&agencyCd=usgs&siteStatus=all"
-        response = urllib.request.urlopen(url)
+        response = urllib.request.urlopen(url, timeout=20)
         # check that api call worked
         if response.status != 200:
             st.error(f"Error querying the NWIS server: Status Code {response.status}")
@@ -208,10 +211,13 @@ def query_nwis(
                 df = df.rename(columns={f"{value_field}": "obs_flow"})
             df["time"] = df["datetime"].copy()
             df["time"] = pd.to_datetime(df["time"], utc=True)
-            df["time"] = df["time"].dt.tz_convert(reference_df["time"].dt.tz)
-            df = df[["time", target_col]].copy()
-            gage_ts = df.merge(reference_df, on="time", how="outer")
-            return gage_ts
+            if not reference_df.empty:
+                df["time"] = df["time"].dt.tz_convert(reference_df["time"].dt.tz)
+                df = df[["time", target_col]].copy()
+                gage_ts = df.merge(reference_df, on="time", how="outer")
+                return gage_ts
+            else:
+                return df
     except Exception as e:
         st.error(f"Error processing the NWIS data: {e}")
         return pd.DataFrame()
