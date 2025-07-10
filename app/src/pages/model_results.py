@@ -702,7 +702,10 @@ def model_results():
                 f"🌐 [STAC Metadata for {st.session_state['model_id']}]({ras_stac_viewer_url})"
             )
             st.markdown("#### Select Event")
-            col_event_type, col_event_id, = info_col.columns(2)
+            (
+                col_event_type,
+                col_event_id,
+            ) = info_col.columns(2)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
                 ["Calibration Events", "Stochastic Events", "Multi Events"],
@@ -767,9 +770,7 @@ def model_results():
                         ref_pt_vel_ts, on="time", how="outer"
                     )
                     info_col.markdown("### Modeled WSE & Velocity")
-                    with info_col.expander(
-                        "Plots", expanded=False, icon="📈"
-                    ):
+                    with info_col.expander("Plots", expanded=False, icon="📈"):
                         plot_ts(
                             ref_pt_wse_ts,
                             ref_pt_vel_ts,
@@ -802,9 +803,7 @@ def model_results():
                         bc_line_stage_ts, on="time", how="outer"
                     )
                     info_col.markdown("### Modeled Stage & Flow")
-                    with info_col.expander(
-                        "Plots", expanded=True, icon="📈"
-                    ):
+                    with info_col.expander("Plots", expanded=True, icon="📈"):
                         plot_ts(
                             bc_line_flow_ts,
                             bc_line_stage_ts,
@@ -936,19 +935,20 @@ def model_results():
                                 f"{gage_datum:.2f} ft",
                                 delta=None,
                             )
-                            st.session_state["gage_datum"] = col_gage_datum2.number_input(
-                                "Manual Override",
-                                value=gage_datum,
-                                step=0.01,
-                                format="%.2f",
-                                help="The gage datum is the elevation of the gage above sea level.",
+                            st.session_state["gage_datum"] = (
+                                col_gage_datum2.number_input(
+                                    "Manual Override",
+                                    value=gage_datum,
+                                    step=0.01,
+                                    format="%.2f",
+                                    help="The gage datum is the elevation of the gage above sea level.",
+                                )
                             )
                             gage_stage_ts["obs_wse"] = (
-                                gage_stage_ts["obs_stage"] + st.session_state["gage_datum"]
+                                gage_stage_ts["obs_stage"]
+                                + st.session_state["gage_datum"]
                             )
-                        with info_col.expander(
-                            "Plots", expanded=False, icon="📈"
-                        ):
+                        with info_col.expander("Plots", expanded=False, icon="📈"):
                             plot_ts(
                                 gage_stage_ts,
                                 ref_line_wse_ts,
@@ -1090,9 +1090,7 @@ def model_results():
                         st.session_state["stochastic_event"],
                     )
                     info_col.markdown("### Modeled Flow")
-                    with info_col.expander(
-                        "Plots", expanded=False, icon="📈"
-                    ):
+                    with info_col.expander("Plots", expanded=False, icon="📈"):
                         plot_ts(
                             stochastic_flow_ts,
                             pd.DataFrame(),
