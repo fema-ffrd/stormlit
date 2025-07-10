@@ -20,6 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Cache
+cache/
+
 # Environments
 .env
 .venv

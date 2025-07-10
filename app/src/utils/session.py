@@ -45,6 +45,8 @@ def init_session_state():
     st.session_state["stochastic_storm"] = None
     st.session_state["block_range"] = (1, 2000)
     st.session_state["realization_id"] = None
+    st.session_state["multi_event_gage_id"] = None
+    st.session_state["gage_datum"] = None
 
     # model qc session
     st.session_state["model_qc_file_path"] = None
@@ -56,6 +58,7 @@ def init_session_state():
     st.ref_lines = None
     st.ref_points = None
     st.gages = None
+    st.gage_metadata = None
     st.models = None
     st.bc_lines = None
     st.subbasins = None
@@ -78,4 +81,7 @@ def init_session_state():
     st.map_output = None
     st.pilot_layers = None
     st.pilot_base_url = None
+    st.cog_layers = None
     st.sel_map_obj = None
+    st.hms_meta_url = None
+    st.ras_meta_url = None
