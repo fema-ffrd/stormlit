@@ -702,7 +702,7 @@ def model_results():
                 f"🌐 [STAC Metadata for {st.session_state['model_id']}]({ras_stac_viewer_url})"
             )
             st.markdown("#### Select Event")
-            col_event_type, col_event_id = info_col.columns(2)
+            col_event_type, col_event_id, = info_col.columns(2)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
                 ["Calibration Events", "Stochastic Events", "Multi Events"],
@@ -768,7 +768,7 @@ def model_results():
                     )
                     info_col.markdown("### Modeled WSE & Velocity")
                     with info_col.expander(
-                        "Time Series Plots", expanded=True, icon="📈"
+                        "Plots", expanded=False, icon="📈"
                     ):
                         plot_ts(
                             ref_pt_wse_ts,
@@ -778,7 +778,7 @@ def model_results():
                             title=feature_label,
                             dual_y_axis=True,
                         )
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                    with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(ref_pt_ts.drop(columns=["id_x", "id_y"]))
                 # Boundary Condition Line
                 elif feature_type == FeatureType.BC_LINE:
@@ -803,7 +803,7 @@ def model_results():
                     )
                     info_col.markdown("### Modeled Stage & Flow")
                     with info_col.expander(
-                        "Time Series Plots", expanded=True, icon="📈"
+                        "Plots", expanded=True, icon="📈"
                     ):
                         plot_ts(
                             bc_line_flow_ts,
@@ -813,7 +813,7 @@ def model_results():
                             title=feature_label,
                             dual_y_axis=True,
                         )
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                    with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
                 # Reference Line
                 if feature_type == FeatureType.REFERENCE_LINE:
@@ -870,10 +870,7 @@ def model_results():
                         )
                         if gage_stage_ts.empty:
                             gage_stage_ts = pd.DataFrame(columns=["time", "obs_wse"])
-                        else:
-                            gage_stage_ts["obs_wse"] = (
-                                gage_stage_ts["obs_stage"] + gage_datum
-                            )
+
                         # Get the Flow Data
                         obs_flow_ts = query_s3_obs_flow(
                             st.session_state["s3_conn"],
@@ -897,8 +894,8 @@ def model_results():
                             )
                         info_col.markdown("### Observed vs Modeled Flow")
                         with info_col.expander(
-                            "Time Series Plots",
-                            expanded=True,
+                            "Plots",
+                            expanded=False,
                             icon="📈",
                         ):
                             plot_ts(
@@ -909,16 +906,21 @@ def model_results():
                                 dual_y_axis=False,
                                 title=feature_label,
                             )
-                            if feature_gage_status:
+                        if feature_gage_status:
+                            with info_col.expander(
+                                "Metrics",
+                                expanded=False,
+                                icon="📊",
+                            ):
                                 if not gage_flow_ts.empty:
                                     gage_flow_metrics = calc_metrics(
                                         gage_flow_ts, "flow"
                                     )
                                     eval_flow_df = eval_metrics(gage_flow_metrics)
-                                    st.markdown("#### Evaluation Metrics")
+                                    st.markdown("#### Calibration Metrics")
                                     st.dataframe(eval_flow_df, use_container_width=True)
                                     define_metrics()
-                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                        with info_col.expander("Tables", expanded=False, icon="🔢"):
                             if not gage_flow_ts.empty:
                                 st.markdown("#### Gage Flow Data")
                                 st.dataframe(gage_flow_ts)
@@ -927,8 +929,25 @@ def model_results():
                                 st.dataframe(ref_line_flow_ts)
 
                         info_col.markdown("### Observed vs Modeled WSE")
+                        if feature_gage_status and not gage_stage_ts.empty:
+                            col_gage_datum1, col_gage_datum2 = st.columns(2)
+                            col_gage_datum1.metric(
+                                "USGS Gage Datum",
+                                f"{gage_datum:.2f} ft",
+                                delta=None,
+                            )
+                            st.session_state["gage_datum"] = col_gage_datum2.number_input(
+                                "Manual Override",
+                                value=gage_datum,
+                                step=0.01,
+                                format="%.2f",
+                                help="The gage datum is the elevation of the gage above sea level.",
+                            )
+                            gage_stage_ts["obs_wse"] = (
+                                gage_stage_ts["obs_stage"] + st.session_state["gage_datum"]
+                            )
                         with info_col.expander(
-                            "Time Series Plots", expanded=True, icon="📈"
+                            "Plots", expanded=False, icon="📈"
                         ):
                             plot_ts(
                                 gage_stage_ts,
@@ -938,13 +957,21 @@ def model_results():
                                 dual_y_axis=False,
                                 title=feature_label,
                             )
-                            if not gage_stage_ts.empty:
-                                gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
-                                eval_wse_df = eval_metrics(gage_wse_metrics)
-                                st.markdown("#### Evaluation Metrics")
-                                st.dataframe(eval_wse_df, use_container_width=True)
-                                define_metrics()
-                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                        if feature_gage_status:
+                            with info_col.expander(
+                                "Metrics",
+                                expanded=False,
+                                icon="📊",
+                            ):
+                                if not gage_stage_ts.empty:
+                                    gage_wse_metrics = calc_metrics(
+                                        gage_stage_ts, "wse"
+                                    )
+                                    eval_wse_df = eval_metrics(gage_wse_metrics)
+                                    st.markdown("#### Calibration Metrics")
+                                    st.dataframe(eval_wse_df, use_container_width=True)
+                                    define_metrics()
+                        with info_col.expander("Tables", expanded=False, icon="🔢"):
                             if not gage_stage_ts.empty:
                                 st.markdown("#### Gage WSE Data")
                                 st.dataframe(gage_stage_ts)
@@ -955,8 +982,8 @@ def model_results():
                         # No Gage Comparisons, only Modeled Flow and Stage
                         info_col.markdown("### Modeled Flow & WSE")
                         with info_col.expander(
-                            "Time Series Plots",
-                            expanded=True,
+                            "Plots",
+                            expanded=False,
                             icon="📈",
                         ):
                             plot_ts(
@@ -967,7 +994,7 @@ def model_results():
                                 dual_y_axis=True,
                                 title=feature_label,
                             )
-                        with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                        with info_col.expander("Tables", expanded=False, icon="🔢"):
                             st.markdown("#### Reference Line Flow Data")
                             st.dataframe(ref_line_flow_ts)
                             st.markdown("#### Reference Line WSE Data")
@@ -1064,7 +1091,7 @@ def model_results():
                     )
                     info_col.markdown("### Modeled Flow")
                     with info_col.expander(
-                        "Time Series Plots", expanded=True, icon="📈"
+                        "Plots", expanded=False, icon="📈"
                     ):
                         plot_ts(
                             stochastic_flow_ts,
@@ -1074,7 +1101,7 @@ def model_results():
                             title=feature_label,
                             dual_y_axis=False,
                         )
-                    with info_col.expander("Data Table", expanded=False, icon="🔢"):
+                    with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(stochastic_flow_ts)
             elif st.session_state["event_type"] == "Multi Events":
                 if st.session_state["hms_element_id"] is None:
@@ -1210,7 +1237,7 @@ def model_results():
                                 )
                                 plot_multi_event_ts(multi_events_flows_df)
 
-                    with info_col.expander("Data Tables", expanded=False, icon="🔢"):
+                    with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Multi Event AMS Data")
                         st.dataframe(multi_event_ams_df)
                         if gage_ams_df is not None:
