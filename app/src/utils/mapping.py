@@ -152,7 +152,7 @@ def style_bc_lines(feature):
 
 
 def style_ref_lines(feature):
-    return {"color": "yellow", "weight": 4}
+    return {"color": "brown", "weight": 4}
 
 
 def style_models(feature):
@@ -171,52 +171,41 @@ def style_reservoirs(feature):
     return {"fillColor": "#0a0703", "weight": 4}
 
 
-def get_map_pos(map_layer: str, layer_field: str):
+def get_map_pos(map_layer: str):
     """
     Get the map position based on the selected layer and field.
 
     Parameters
     ----------
     map_layer: str
-        The selected map layer
-    layer_field: str
-        The selected layer field
+        The selected map layer. One of "HMS" or "RAS".
     Returns
     -------
     tuple
         A tuple containing the latitude, longitude, and zoom level
     """
-    if map_layer == "Models":
-        c_df = st.models
-        c_lat, c_lon = (
-            c_df[c_df["NAME"] == layer_field]["lat"].mean(),
-            c_df[c_df["NAME"] == layer_field]["lon"].mean(),
-        )
-        c_zoom = 10
-    elif map_layer == "Gages":
-        c_df = st.gages
-        c_lat, c_lon = (
-            c_df[c_df["site_no"] == layer_field]["lat"].mean(),
-            c_df[c_df["site_no"] == layer_field]["lon"].mean(),
-        )
-        c_zoom = 14
-    elif map_layer == "Dams":
-        c_df = st.dams
-        c_lat, c_lon = (
-            c_df[c_df["id"] == layer_field]["lat"].mean(),
-            c_df[c_df["id"] == layer_field]["lon"].mean(),
-        )
-        c_zoom = 14
-    else:
-        c_df = st.models
+    if map_layer == "HMS":
+        c_df = st.subbasins
+        if "lat" not in c_df.columns or "lon" not in c_df.columns:
+            c_df["lat"] = c_df.geometry.centroid.y
+            c_df["lon"] = c_df.geometry.centroid.x
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
         c_zoom = 8
+    elif map_layer == "RAS":
+        c_df = st.models
+        if "lat" not in c_df.columns or "lon" not in c_df.columns:
+            c_df["lat"] = c_df.geometry.centroid.y
+            c_df["lon"] = c_df.geometry.centroid.x
+        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+        c_zoom = 8
+    else:
+        raise ValueError(f"Invalid map layer {map_layer}. Choose 'HMS' or 'RAS'.")
     return c_lat, c_lon, c_zoom
 
 
 @st.cache_data
 def prep_fmap(
-    c_lat: float, c_lon: float, zoom: int, cog_layer: str = None
+    c_lat: float, c_lon: float, zoom: int, map_type: str, cog_layer: str = None
 ) -> folium.Map:
     """
     Prep a folium map object given a geojson with a specificed basemap
@@ -229,6 +218,8 @@ def prep_fmap(
         The longitude to center the map on
     zoom: int
         The initial zoom level for the map
+    map_type: str
+        The type of map to create, either "HMS", "RAS", or "All
     cog_layer: str, optional
         The name of the COG layer to add to the map. If None, no COG layer is added.
 
@@ -259,37 +250,43 @@ def prep_fmap(
         show=False,
     ).add_to(m)
 
-    # Add the layers to the map
-    if st.models is not None:
-        add_polygons(m, st.models, "Models", ["model"], style_models)
-    if st.subbasins is not None:
-        add_polygons(
-            m,
-            st.subbasins,
-            "Subbasins",
-            ["hms_element", "layer"],
-            style_function=style_subbasins,
+    # RAS Elements
+    if map_type == "RAS" or map_type == "All":
+        # Add the layers to the map
+        if st.models is not None:
+            add_polygons(m, st.models, "Models", ["model"], style_models)
+        if st.bc_lines is not None:
+            add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
+        if st.ref_points is not None:
+            add_squares(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
+        if st.ref_lines is not None:
+            add_polygons(
+                m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
+            )
+    # HMS Elements
+    if map_type == "HMS" or map_type == "All":
+        if st.subbasins is not None:
+            add_polygons(
+                m,
+                st.subbasins,
+                "Subbasins",
+                ["hms_element", "layer"],
+                style_function=style_subbasins,
         )
-    if st.bc_lines is not None:
-        add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
-    if st.ref_points is not None:
-        add_squares(m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b")
-    if st.ref_lines is not None:
-        add_polygons(
-            m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
-        )
-    if st.reaches is not None:
-        add_polygons(
-            m,
-            st.reaches,
-            "Reaches",
-            ["hms_element", "layer"],
-            style_function=style_reaches,
-        )
-    if st.junctions is not None:
-        add_squares(m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c")
-    if st.reservoirs is not None:
-        add_squares(m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703")
+        if st.reaches is not None:
+            add_polygons(
+                m,
+                st.reaches,
+                "Reaches",
+                ["hms_element", "layer"],
+                style_function=style_reaches,
+            )
+        if st.junctions is not None:
+            add_squares(m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c")
+        if st.reservoirs is not None:
+            add_squares(m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703")
+        
+    # Additional Elements
     if st.dams is not None:
         add_circles(m, st.dams, "Dams", ["id"], "#e21426")
     if st.gages is not None:
