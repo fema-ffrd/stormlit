@@ -555,7 +555,7 @@ def query_s3_stochastic_event_list(
 
 @st.cache_data
 def query_s3_stochastic_hms_flow(
-    _conn, pilot: str, element_id: str, storm_id: str, event_id: str
+    _conn, pilot: str, element_id: str, storm_id: str, event_id: str, flow_type: str
 ) -> pd.DataFrame:
     """
     Query stochastic HMS flow timeseries data from the S3 bucket.
@@ -566,10 +566,11 @@ def query_s3_stochastic_hms_flow(
         element_id (str): The element ID to query (e.g., 'amon-g-carter_s010').
         storm_id (str): The storm ID to query (e.g., '19790222').
         event_id (str): The event ID to query (e.g., '13094').
+        flow_type (str): The type of flow data to query (e.g., 'FLOW', 'FLOW-BASE').
     Returns:
         pd.DataFrame: A pandas DataFrame containing the stochastic HMS flow data.
     """
-    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/event_id={event_id}/FLOW.pq"
+    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/event_id={event_id}/{flow_type}.pq"
     if s3_path_exists(s3_path):
         query = f"""SELECT datetime, values as hms_flow
                 FROM read_parquet('{s3_path}', hive_partitioning=true);"""
@@ -577,7 +578,8 @@ def query_s3_stochastic_hms_flow(
     else:
         msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
-        raise StormlitQueryException(msg)
+        st.warning(msg)
+        return pd.DataFrame()
 
 
 @st.cache_data
