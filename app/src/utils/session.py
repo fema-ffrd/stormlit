@@ -16,7 +16,8 @@ def init_session_state():
 
     # single event session
     st.session_state["pilot"] = None
-    st.session_state["init_pilot"] = False
+    st.session_state["init_hms_pilot"] = False
+    st.session_state["init_ras_pilot"] = False
     st.session_state["cog_layer"] = None
     st.session_state["cog_stats"] = None
     st.session_state["cog_hist"] = None
@@ -47,6 +48,10 @@ def init_session_state():
     st.session_state["realization_id"] = None
     st.session_state["multi_event_gage_id"] = None
     st.session_state["gage_datum"] = None
+    st.session_state["subbasin_id"] = None
+    st.session_state["hms_element_id"] = None
+    st.session_state["storm_layer"] = None
+    st.session_state["current_map_feature"] = None
 
     # model qc session
     st.session_state["model_qc_file_path"] = None
@@ -65,6 +70,7 @@ def init_session_state():
     st.reaches = None
     st.junctions = None
     st.reservoirs = None
+    st.hms_storms = None
 
     st.session_state["dams_filtered"] = None
     st.session_state["ref_points_filtered"] = None
