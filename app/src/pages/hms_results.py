@@ -452,7 +452,9 @@ def hms_results():
     # Map
     with map_col:
         with st.spinner("Loading map..."):
-            st.fmap = prep_fmap(c_lat, c_lon, zoom, "HMS", st.session_state["cog_layer"])
+            st.fmap = prep_fmap(
+                c_lat, c_lon, zoom, "HMS", st.session_state["cog_layer"]
+            )
             # Fit the map to the bounding box of a selected polygon or line feature
             bbox = st.session_state.get("single_event_focus_bounding_box")
             if bbox and feature_type in [
@@ -847,23 +849,27 @@ def hms_results():
                                     ]["event_id"]
                                     multi_events_flows.append(stochastic_flow_ts)
                                     # Get the Stochastic Baseflows
-                                    stochastic_baseflow_ts = query_s3_stochastic_hms_flow(
-                                        st.session_state["s3_conn"],
-                                        st.session_state["pilot"],
-                                        st.session_state["hms_element_id"],
-                                        selected_points[point]["storm_id"],
-                                        selected_points[point]["event_id"],
-                                        flow_type="FLOW-BASE",
+                                    stochastic_baseflow_ts = (
+                                        query_s3_stochastic_hms_flow(
+                                            st.session_state["s3_conn"],
+                                            st.session_state["pilot"],
+                                            st.session_state["hms_element_id"],
+                                            selected_points[point]["storm_id"],
+                                            selected_points[point]["event_id"],
+                                            flow_type="FLOW-BASE",
+                                        )
                                     )
                                     stochastic_baseflow_ts["block_id"] = point
-                                    stochastic_baseflow_ts["storm_id"] = selected_points[
-                                        point
-                                    ]["storm_id"]
-                                    stochastic_baseflow_ts["event_id"] = selected_points[
-                                        point
-                                    ]["event_id"]
+                                    stochastic_baseflow_ts["storm_id"] = (
+                                        selected_points[point]["storm_id"]
+                                    )
+                                    stochastic_baseflow_ts["event_id"] = (
+                                        selected_points[point]["event_id"]
+                                    )
                                     multi_events_flows.append(stochastic_flow_ts)
-                                    multi_events_baseflows.append(stochastic_baseflow_ts)
+                                    multi_events_baseflows.append(
+                                        stochastic_baseflow_ts
+                                    )
                             if len(multi_events_flows) > 0:
                                 multi_events_flows_df = pd.concat(
                                     multi_events_flows,
@@ -874,7 +880,9 @@ def hms_results():
                                     multi_events_baseflows,
                                     ignore_index=False,
                                 )
-                                plot_multi_event_ts(multi_events_flows_df, multi_events_baseflows_df)
+                                plot_multi_event_ts(
+                                    multi_events_flows_df, multi_events_baseflows_df
+                                )
 
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Multi Event AMS Data")
@@ -992,7 +1000,9 @@ def hms_results():
             # Gages
             st.session_state["gages_filtered"] = gpd.sjoin(
                 st.gages,
-                st.subbasins[st.subbasins["hms_element"] == st.session_state["subbasin_id"]],
+                st.subbasins[
+                    st.subbasins["hms_element"] == st.session_state["subbasin_id"]
+                ],
                 how="inner",
                 predicate="intersects",
             )
@@ -1022,7 +1032,9 @@ def hms_results():
             # Dams
             st.session_state["dams_filtered"] = gpd.sjoin(
                 st.dams,
-                st.subbasins[st.subbasins["hms_element"] == st.session_state["subbasin_id"]],
+                st.subbasins[
+                    st.subbasins["hms_element"] == st.session_state["subbasin_id"]
+                ],
                 how="inner",
                 predicate="intersects",
             )
@@ -1145,7 +1157,8 @@ def hms_results():
         - 🟢 {num_gages} Gages 
         - 🔴 {num_dams} Dams 
         - 🌧️ 0 Storms
-        """    )
+        """
+    )
 
     # Session state
     with st.expander("Session State"):

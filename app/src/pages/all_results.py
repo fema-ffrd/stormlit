@@ -525,7 +525,9 @@ def all_results():
     # Map
     with map_col:
         with st.spinner("Loading map..."):
-            st.fmap = prep_fmap(c_lat, c_lon, zoom, "All", st.session_state["cog_layer"])
+            st.fmap = prep_fmap(
+                c_lat, c_lon, zoom, "All", st.session_state["cog_layer"]
+            )
             # Fit the map to the bounding box of a selected polygon or line feature
             bbox = st.session_state.get("single_event_focus_bounding_box")
             if bbox and feature_type in [
@@ -789,7 +791,6 @@ def all_results():
                             plot_title=feature_label,
                             y_axis01_title="Velocity (ft/s)",
                             y_axis02_title="WSE (ft)",
-                            
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(ref_pt_ts.drop(columns=["id_x", "id_y"]))
@@ -825,7 +826,6 @@ def all_results():
                             plot_title=feature_label,
                             y_axis01_title="WSE (ft)",
                             y_axis02_title="Flow (cfs)",
-                            
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))

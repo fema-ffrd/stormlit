@@ -112,7 +112,9 @@ def plot_ts(
             )
         # Update layout for dual y-axes
         fig.update_layout(
-            title=plot_title if plot_title else f"Time Series Plot of {var1} and {var2}",
+            title=plot_title
+            if plot_title
+            else f"Time Series Plot of {var1} and {var2}",
             xaxis_title="Time",
             yaxis=dict(
                 title=var1 if y_axis01_title is None else y_axis02_title,
@@ -206,7 +208,7 @@ def plot_flow_aep(
             yaxis="y1",
             xaxis="x1",
             hoverinfo="skip",
-            showlegend=False
+            showlegend=False,
         )
     )
     # Add trace for Return Period vs Peak Flow
@@ -244,7 +246,7 @@ def plot_flow_aep(
                 yaxis="y1",
                 xaxis="x1",
                 hoverinfo="skip",
-                showlegend=False
+                showlegend=False,
             )
         )
         # Add trace for Gage Return Period vs Peak Flow
