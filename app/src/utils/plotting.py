@@ -11,7 +11,9 @@ def plot_ts(
     var1: str,
     var2: str,
     dual_y_axis: bool,
-    title: Optional[str] = None,
+    plot_title: Optional[str] = None,
+    y_axis01_title: Optional[str] = None,
+    y_axis02_title: Optional[str] = None,
 ):
     """Function for plotting time series data from two DataFrames with dual y-axes.
     Each DataFrame should have:
@@ -30,8 +32,12 @@ def plot_ts(
         The second variable to plot.
     dual_y_axis : bool
         Whether to plot the second variable on a secondary y-axis.
-    title : Optional[str]
+    plot_title : Optional[str]
         The title of the plot. If None, a default title will be used.
+    y_axis01_title : Optional[str]
+        The title for the primary y-axis.
+    y_axis02_title : Optional[str]
+        The title for the secondary y-axis (if dual_y_axis is True).
     """
     # Check if the DataFrames are empty
     if df1.empty and df2.empty:
@@ -72,6 +78,12 @@ def plot_ts(
                     yaxis="y1",
                 )
             )
+        # Update layout for single y-axis
+        fig.update_layout(
+            xaxis_title="Time",
+            yaxis_title=y_axis01_title,
+            showlegend=True,
+        )
     else:
         # Add traces for the first DataFrame
         if not df1.empty:
@@ -100,15 +112,16 @@ def plot_ts(
             )
         # Update layout for dual y-axes
         fig.update_layout(
-            title=title if title else f"Time Series Plot of {var1} and {var2}",
+            title=plot_title if plot_title else f"Time Series Plot of {var1} and {var2}",
             xaxis_title="Time",
             yaxis=dict(
-                title=var1,
+                title=var1 if y_axis01_title is None else y_axis02_title,
                 showgrid=False,
+                side="left",
                 zeroline=True,
             ),
             yaxis2=dict(
-                title=var2,
+                title=var2 if y_axis02_title is None else y_axis01_title,
                 overlaying="y",
                 side="right",
                 showgrid=False,
@@ -188,11 +201,12 @@ def plot_flow_aep(
             x=multi_event_ams_df["aep"],
             y=multi_event_ams_df["peak_flow"],
             mode="markers",
-            name="Modeled",
+            name=None,
             marker=dict(color="white"),
             yaxis="y1",
             xaxis="x1",
             hoverinfo="skip",
+            showlegend=False
         )
     )
     # Add trace for Return Period vs Peak Flow
@@ -225,11 +239,12 @@ def plot_flow_aep(
                 x=gage_ams_df["aep"],
                 y=gage_ams_df["peak_flow"],
                 mode="markers",
-                name="Observed",
+                name=None,
                 marker=dict(color="white"),
                 yaxis="y1",
                 xaxis="x1",
                 hoverinfo="skip",
+                showlegend=False
             )
         )
         # Add trace for Gage Return Period vs Peak Flow
@@ -281,8 +296,22 @@ def plot_flow_aep(
         ),
         title="Block Maximum Discharge Frequency Plot",
     )
-    # Remove the legend
-    fig.update_layout(showlegend=False)
+    # place the legend at the bottom center horizontally
+    fig.update_layout(
+        legend=dict(
+            x=0.5,
+            y=-0.4,
+            xanchor="center",
+            yanchor="bottom",
+            orientation="h",
+            traceorder="normal",
+        )
+    )
+
+    # Add crosshair spikes
+    fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+    fig.update_yaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+
     # Return point selection(s)
     plot_selection = st.plotly_chart(
         fig, use_container_width=True, on_select="rerun", selection_mode="points"
@@ -339,14 +368,19 @@ def plot_flow_aep(
         return None
 
 
-def plot_multi_event_ts(df: pd.DataFrame):
+def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
     """
     Create a multi-trace plot for time series data with multiple events.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        DataFrame containing the multi-event time series data.
+    df1 : pd.DataFrame
+        DataFrame containing the multi-event time series data for flows.
+        - "time": datetime
+        - "hms_flow": float
+        - "block_id": int
+    df2 : pd.DataFrame
+        DataFrame containing the multi-event time series data for baseflows.
         - "time": datetime
         - "hms_flow": float
         - "block_id": int
@@ -356,15 +390,17 @@ def plot_multi_event_ts(df: pd.DataFrame):
     fig : plotly.graph_objects.Figure
     """
     # Check if the DataFrame is empty
-    if df.empty:
+    if df1.empty:
         st.warning("No data available for the selected variables in the dataset.")
         return
     # Create a figure
     fig = go.Figure()
-    df["plot_index"] = df.index
+    df1["plot_index"] = df1.index
+    df2["plot_index"] = df2.index
+
     # Add traces for each hydrograph
-    for block_id in df["block_id"].unique():
-        block_data = df[df["block_id"] == block_id]
+    for block_id in df1["block_id"].unique():
+        block_data = df1[df1["block_id"] == block_id]
         if "hms_flow" in block_data.columns:
             fig.add_trace(
                 go.Scatter(
@@ -391,12 +427,34 @@ def plot_multi_event_ts(df: pd.DataFrame):
             )
             continue
 
+    # Add traces for baseflows if available
+    for block_id in df2["block_id"].unique():
+        block_data = df2[df2["block_id"] == block_id]
+        if "hms_flow" in block_data.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=block_data["plot_index"],
+                    y=block_data["hms_flow"],
+                    mode="lines",
+                    name=f"Baseflow Block {block_id}",
+                    line=dict(width=1, dash="dash"),
+                )
+            )
+        else:
+            st.warning(
+                f"No data available for the selected variables in the dataset. {block_id}."
+            )
+            continue
+
     # Update layout
     fig.update_layout(
         title="Multi-Event Time Series Hydrographs",
-        xaxis_title="Time",
+        xaxis_title="Time (hours)",
         yaxis_title="Discharge (cfs)",
         legend=dict(x=0.75, y=1, traceorder="normal"),
-        hovermode="x unified",
     )
+    # Add crosshair spikes
+    fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+    fig.update_yaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+    # Set hovermode to unified
     st.plotly_chart(fig, use_container_width=True)
