@@ -1153,7 +1153,7 @@ def all_results():
                     multi_event_ams_df["return_period"] = 1 / multi_event_ams_df["aep"]
                     multi_event_ams_df = pd.merge(
                         multi_event_ams_df,
-                        st.storms,
+                        st.hms_storms,
                         left_on="event_id",
                         right_on="event_id",
                         how="left",
@@ -1181,8 +1181,10 @@ def all_results():
                         )
                         selected_points = plot_flow_aep(multi_event_ams_df, gage_ams_df)
                         multi_events_flows_df = None
+                        multi_events_baseflows_df = None
                         if selected_points:
                             multi_events_flows = []
+                            multi_events_baseflows = []
                             for point in selected_points:
                                 if "gage_id" in selected_points[point]:
                                     gage_flow_ts = query_s3_obs_flow(
@@ -1232,12 +1234,14 @@ def all_results():
                                             ]["event_id"]
                                             multi_events_flows.append(gage_flow_ts)
                                 else:
+                                    # Get the Stochastic Hydrographs
                                     stochastic_flow_ts = query_s3_stochastic_hms_flow(
                                         st.session_state["s3_conn"],
                                         st.session_state["pilot"],
                                         st.session_state["hms_element_id"],
                                         selected_points[point]["storm_id"],
                                         selected_points[point]["event_id"],
+                                        flow_type="FLOW",
                                     )
                                     stochastic_flow_ts["block_id"] = point
                                     stochastic_flow_ts["storm_id"] = selected_points[
@@ -1247,12 +1251,41 @@ def all_results():
                                         point
                                     ]["event_id"]
                                     multi_events_flows.append(stochastic_flow_ts)
+                                    # Get the Stochastic Baseflows
+                                    stochastic_baseflow_ts = (
+                                        query_s3_stochastic_hms_flow(
+                                            st.session_state["s3_conn"],
+                                            st.session_state["pilot"],
+                                            st.session_state["hms_element_id"],
+                                            selected_points[point]["storm_id"],
+                                            selected_points[point]["event_id"],
+                                            flow_type="FLOW-BASE",
+                                        )
+                                    )
+                                    stochastic_baseflow_ts["block_id"] = point
+                                    stochastic_baseflow_ts["storm_id"] = (
+                                        selected_points[point]["storm_id"]
+                                    )
+                                    stochastic_baseflow_ts["event_id"] = (
+                                        selected_points[point]["event_id"]
+                                    )
+                                    multi_events_flows.append(stochastic_flow_ts)
+                                    multi_events_baseflows.append(
+                                        stochastic_baseflow_ts
+                                    )
                             if len(multi_events_flows) > 0:
                                 multi_events_flows_df = pd.concat(
                                     multi_events_flows,
                                     ignore_index=False,
                                 )
-                                plot_multi_event_ts(multi_events_flows_df)
+                            if len(multi_events_baseflows) > 0:
+                                multi_events_baseflows_df = pd.concat(
+                                    multi_events_baseflows,
+                                    ignore_index=False,
+                                )
+                                plot_multi_event_ts(
+                                    multi_events_flows_df, multi_events_baseflows_df
+                                )
 
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Multi Event AMS Data")
@@ -1260,6 +1293,9 @@ def all_results():
                         if gage_ams_df is not None:
                             st.markdown("#### Gage AMS Data")
                             st.dataframe(gage_ams_df)
+                        if multi_events_flows_df is not None:
+                            st.markdown("#### Multi Event Hydrographs")
+                            st.dataframe(multi_events_flows_df)
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
