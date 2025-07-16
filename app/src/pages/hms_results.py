@@ -288,7 +288,7 @@ def map_popover(
                 st.markdown(f"⬇️ [Download Data]({download_url})")
             if len(items) == 0:
                 st.write(
-                    "Select a feature from the map or model from the dropdown to generate selections"
+                    "Select a feature from the map or subbasin from the dropdown to generate selections"
                 )
             for idx, item in enumerate(items):
                 item_label = get_item_label(item)
