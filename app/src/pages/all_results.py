@@ -1283,6 +1283,17 @@ def all_results():
                                     multi_events_baseflows,
                                     ignore_index=False,
                                 )
+                            if (
+                                multi_events_flows_df is not None
+                                and multi_events_baseflows_df is None
+                            ):
+                                plot_multi_event_ts(
+                                    multi_events_flows_df, pd.DataFrame()
+                                )
+                            elif (
+                                multi_events_flows_df is not None
+                                and multi_events_baseflows_df is not None
+                            ):
                                 plot_multi_event_ts(
                                     multi_events_flows_df, multi_events_baseflows_df
                                 )
@@ -1296,6 +1307,9 @@ def all_results():
                         if multi_events_flows_df is not None:
                             st.markdown("#### Multi Event Hydrographs")
                             st.dataframe(multi_events_flows_df)
+                        if multi_events_baseflows_df is not None:
+                            st.markdown("#### Multi Event Baseflows")
+                            st.dataframe(multi_events_baseflows_df)
             else:
                 st.write("Coming soon...")
                 st.session_state["stochastic_event"] = None
