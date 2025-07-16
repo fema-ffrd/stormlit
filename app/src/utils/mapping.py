@@ -53,6 +53,8 @@ def add_polygons(
         style_function=style_function,
         highlight_function=highlight_function,
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
+        popup=folium.GeoJsonPopup(fields=tooltip_fields),
+        popup_keep_highlighted=True,
         show=show_layer,
     ).add_to(fmap)
 
@@ -99,6 +101,7 @@ def add_squares(
         marker=folium.Marker(icon=div_icon),
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
         popup=folium.GeoJsonPopup(fields=tooltip_fields),
+        popup_keep_highlighted=True,
         highlight_function=highlight_function,
         zoom_on_click=True,
     ).add_to(fmap)
@@ -142,6 +145,7 @@ def add_circles(
         ),
         tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
         popup=folium.GeoJsonPopup(fields=tooltip_fields),
+        popup_keep_highlighted=True,
         highlight_function=highlight_function,
         zoom_on_click=True,
     ).add_to(fmap)
