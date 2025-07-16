@@ -28,8 +28,10 @@ def home_page():
 
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
-    st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
-    st.sidebar.page_link("pages/model_results.py", label="Model Results 🌧️")
+    st.sidebar.page_link("pages/model_qc.py", label="Model QC")
+    st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
+    st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
+    st.sidebar.page_link("pages/all_results.py", label="All Results")
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
@@ -103,7 +105,9 @@ def home_page():
 
         - **Home Page:** We are here!
         - **Model QC:** Run automated quality control checks for model compliance with standard operating procedures.
-        - **Model Results:** Visualize the spatial modeling components for calibration and stochastic single and multi event simulations.
+        - **HMS Results:** Visualize the HEC-HMS spatial modeling components for calibration and stochastic single and multi event simulations.
+        - **RAS Results:** Visualize the HEC-RAS spatial modeling components for calibration and stochastic single and multi event simulations.
+        - **All Results:** View all results from the HEC-HMS and HEC-RAS models in one place.
         
         """
     )

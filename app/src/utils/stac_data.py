@@ -55,9 +55,9 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str, hms: bool = False) -> gpd.GeoDat
     return gdf
 
 
-def init_pilot(s3_conn, pilot: str):
+def init_hms_pilot(s3_conn, pilot: str):
     """
-    Initialize the map data for the selected pilot study
+    Initialize the map data for the selected HMS pilot study
 
     Parameters
     ----------
@@ -68,7 +68,6 @@ def init_pilot(s3_conn, pilot: str):
     """
     if pilot == "trinity-pilot":
         st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/prod-support"
-        ## TODO: Need to add local data to a STAC catalog
         st.pilot_layers = {
             "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
             "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
@@ -81,6 +80,42 @@ def init_pilot(s3_conn, pilot: str):
         st.hms_meta_url = (
             "stac-api.arc-apps.net/collections/conformance-models/items/trinity"
         )
+    else:
+        raise ValueError(f"Error: invalid pilot study {pilot}")
+
+    df_dams = gpd.read_file(st.pilot_layers["Dams"])
+    st.dams = prep_gdf(df_dams, "Dam")
+    df_gages = gpd.read_file(st.pilot_layers["Gages"]).drop_duplicates()
+    st.gages = prep_gdf(df_gages, "Gage")
+    st.hms_storms = query_s3_hms_storms(s3_conn, pilot)
+    df_subbasins = gpd.read_file(st.pilot_layers["Subbasins"])
+    st.subbasins = prep_gdf(df_subbasins, "Subbasin", hms=True)
+    df_reaches = gpd.read_file(st.pilot_layers["Reaches"])
+    st.reaches = prep_gdf(df_reaches, "Reach", hms=True)
+    df_junctions = gpd.read_file(st.pilot_layers["Junctions"])
+    st.junctions = prep_gdf(df_junctions, "Junction", hms=True)
+    df_reservoirs = gpd.read_file(st.pilot_layers["Reservoirs"])
+    st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
+
+
+def init_ras_pilot(s3_conn, pilot: str):
+    """
+    Initialize the map data for the selected RAS pilot study
+
+    Parameters
+    ----------
+    s3_conn: duckdb.DuckDBPyConnection
+        The connection to the S3 account
+    pilot: str
+        The name of the pilot study to initialize data for
+    """
+    if pilot == "trinity-pilot":
+        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/prod-support"
+        st.pilot_layers = {
+            "Dams": f"{st.pilot_base_url}/dams/non-usace/non-usace-dams.geojson",
+            "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
+        }
+        st.cog_layers = {}
         st.ras_meta_url = "stac-api.arc-apps.net/collections/calibration-models"
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
@@ -93,15 +128,6 @@ def init_pilot(s3_conn, pilot: str):
     st.ref_lines = query_s3_ref_lines(s3_conn, pilot, "all")
     st.ref_points = query_s3_ref_points(s3_conn, pilot, "all")
     st.bc_lines = query_s3_bc_lines(s3_conn, pilot, "all")
-    st.storms = query_s3_hms_storms(s3_conn, pilot)
-    df_subbasins = gpd.read_file(st.pilot_layers["Subbasins"])
-    st.subbasins = prep_gdf(df_subbasins, "Subbasin", hms=True)
-    df_reaches = gpd.read_file(st.pilot_layers["Reaches"])
-    st.reaches = prep_gdf(df_reaches, "Reach", hms=True)
-    df_junctions = gpd.read_file(st.pilot_layers["Junctions"])
-    st.junctions = prep_gdf(df_junctions, "Junction", hms=True)
-    df_reservoirs = gpd.read_file(st.pilot_layers["Reservoirs"])
-    st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
 
 
 def define_gage_data(gage_id: str):

@@ -133,7 +133,9 @@ def model_qc():
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
     st.sidebar.page_link("pages/model_qc.py", label="Model QC 📋")
-    st.sidebar.page_link("pages/model_results.py", label="Model Results 🌧️")
+    st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
+    st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
+    st.sidebar.page_link("pages/all_results.py", label="All Results")
 
     st.sidebar.markdown("## Toolbar")
 
