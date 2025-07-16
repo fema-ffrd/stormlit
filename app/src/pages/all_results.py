@@ -1654,6 +1654,8 @@ def all_results():
 
     # Create a map legend
     st.sidebar.markdown("## Map Legend")
+    if st.session_state["model_id"] is not None:
+        st.sidebar.markdown("#### Filtered to RAS Model")
     st.sidebar.markdown(
         f"""
         - 🟥 {num_bc_lines} BC Lines
@@ -1669,12 +1671,6 @@ def all_results():
         - 🌧️ 0 Storms
         """
     )
-
-    # Session state
-    with st.expander("Session State"):
-        st.write(st.session_state)
-        len_session_state = len(st.session_state)
-        st.write(f"Session State Length: {len_session_state}")
 
 
 if __name__ == "__main__":

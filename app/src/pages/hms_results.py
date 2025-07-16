@@ -1170,6 +1170,8 @@ def hms_results():
 
     # Create a map legend
     st.sidebar.markdown("## Map Legend")
+    if st.session_state["subbasin_id"] is not None:
+        st.sidebar.markdown("#### Filtered to HMS Subbasin")
     st.sidebar.markdown(
         f"""
         - 🟦 {num_subbasins} Subbasins 
@@ -1181,12 +1183,6 @@ def hms_results():
         - 🌧️ 0 Storms
         """
     )
-
-    # Session state
-    with st.expander("Session State"):
-        st.write(st.session_state)
-        len_session_state = len(st.session_state)
-        st.write(f"Session State Length: {len_session_state}")
 
 
 if __name__ == "__main__":
