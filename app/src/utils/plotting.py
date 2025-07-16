@@ -392,61 +392,64 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
     fig : plotly.graph_objects.Figure
     """
     # Check if the DataFrame is empty
-    if df1.empty:
+    if df1.empty and df2.empty:
         st.warning("No data available for the selected variables in the dataset.")
         return
+
     # Create a figure
     fig = go.Figure()
     df1["plot_index"] = df1.index
     df2["plot_index"] = df2.index
 
-    # Add traces for each hydrograph
-    for block_id in df1["block_id"].unique():
-        block_data = df1[df1["block_id"] == block_id]
-        if "hms_flow" in block_data.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=block_data["plot_index"],
-                    y=block_data["hms_flow"],
-                    mode="lines",
-                    name=f"Block {block_id}",
-                    line=dict(width=1),
+    if not df1.empty:
+        # Add traces for each hydrograph
+        for block_id in df1["block_id"].unique():
+            block_data = df1[df1["block_id"] == block_id]
+            if "hms_flow" in block_data.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=block_data["plot_index"],
+                        y=block_data["hms_flow"],
+                        mode="lines",
+                        name=f"Block {block_id}",
+                        line=dict(width=1),
+                    )
                 )
-            )
-        elif "obs_flow" in block_data.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=block_data["plot_index"],
-                    y=block_data["obs_flow"],
-                    mode="lines",
-                    name=f"Observed {block_id}",
-                    line=dict(width=1),
+            elif "obs_flow" in block_data.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=block_data["plot_index"],
+                        y=block_data["obs_flow"],
+                        mode="lines",
+                        name=f"Observed {block_id}",
+                        line=dict(width=1),
+                    )
                 )
-            )
-        else:
-            st.warning(
-                f"No data available for the selected variables in the dataset. {block_id}."
-            )
-            continue
+            else:
+                st.warning(
+                    f"No data available for the selected variables in the dataset. {block_id}."
+                )
+                continue
 
-    # Add traces for baseflows if available
-    for block_id in df2["block_id"].unique():
-        block_data = df2[df2["block_id"] == block_id]
-        if "hms_flow" in block_data.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=block_data["plot_index"],
-                    y=block_data["hms_flow"],
-                    mode="lines",
-                    name=f"Baseflow Block {block_id}",
-                    line=dict(width=1, dash="dash"),
+    if not df2.empty:
+        # Add traces for baseflows if available
+        for block_id in df2["block_id"].unique():
+            block_data = df2[df2["block_id"] == block_id]
+            if "hms_flow" in block_data.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=block_data["plot_index"],
+                        y=block_data["hms_flow"],
+                        mode="lines",
+                        name=f"Baseflow Block {block_id}",
+                        line=dict(width=1, dash="dash"),
+                    )
                 )
-            )
-        else:
-            st.warning(
-                f"No data available for the selected variables in the dataset. {block_id}."
-            )
-            continue
+            else:
+                st.warning(
+                    f"No data available for the selected variables in the dataset. {block_id}."
+                )
+                continue
 
     # Update layout
     fig.update_layout(
