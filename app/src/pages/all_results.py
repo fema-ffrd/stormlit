@@ -1107,19 +1107,42 @@ def all_results():
                         st.session_state["hms_element_id"],
                         st.session_state["stochastic_storm"],
                         st.session_state["stochastic_event"],
+                        flow_type="FLOW",
                     )
+                    stochastic_flow_ts.rename(
+                        columns={"hms_flow": "Hydrograph"}, inplace=True
+                    )
+                    if feature_type == FeatureType.SUBBASIN:
+                        stochastic_baseflow_ts = query_s3_stochastic_hms_flow(
+                            st.session_state["s3_conn"],
+                            st.session_state["pilot"],
+                            st.session_state["hms_element_id"],
+                            st.session_state["stochastic_storm"],
+                            st.session_state["stochastic_event"],
+                            flow_type="FLOW-BASE",
+                        )
+                        stochastic_baseflow_ts.rename(
+                            columns={"hms_flow": "Baseflow"}, inplace=True
+                        )
+                    else:
+                        stochastic_baseflow_ts = pd.DataFrame()
+                        st.markdown("Baseflow is not available for this HMS element. ")
                     info_col.markdown("### Modeled Flow")
                     with info_col.expander("Plots", expanded=False, icon="📈"):
                         plot_ts(
                             stochastic_flow_ts,
-                            pd.DataFrame(),
-                            "hms_flow",
-                            "flow",
-                            title=feature_label,
+                            stochastic_baseflow_ts,
+                            "Hydrograph",
+                            "Baseflow",
                             dual_y_axis=False,
+                            plot_title=feature_label,
+                            y_axis01_title="Discharge (cfs)",
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
+                        st.markdown("#### Modeled Hydrograph")
                         st.dataframe(stochastic_flow_ts)
+                        st.markdown("#### Modeled Baseflow")
+                        st.dataframe(stochastic_baseflow_ts)
             elif st.session_state["event_type"] == "Multi Events":
                 if st.session_state["hms_element_id"] is None:
                     st.warning(
@@ -1251,28 +1274,32 @@ def all_results():
                                         point
                                     ]["event_id"]
                                     multi_events_flows.append(stochastic_flow_ts)
-                                    # Get the Stochastic Baseflows
-                                    stochastic_baseflow_ts = (
-                                        query_s3_stochastic_hms_flow(
-                                            st.session_state["s3_conn"],
-                                            st.session_state["pilot"],
-                                            st.session_state["hms_element_id"],
-                                            selected_points[point]["storm_id"],
-                                            selected_points[point]["event_id"],
-                                            flow_type="FLOW-BASE",
+                                    if feature_type == FeatureType.SUBBASIN:
+                                        # Get the Stochastic Baseflows
+                                        stochastic_baseflow_ts = (
+                                            query_s3_stochastic_hms_flow(
+                                                st.session_state["s3_conn"],
+                                                st.session_state["pilot"],
+                                                st.session_state["hms_element_id"],
+                                                selected_points[point]["storm_id"],
+                                                selected_points[point]["event_id"],
+                                                flow_type="FLOW-BASE",
+                                            )
                                         )
-                                    )
-                                    stochastic_baseflow_ts["block_id"] = point
-                                    stochastic_baseflow_ts["storm_id"] = (
-                                        selected_points[point]["storm_id"]
-                                    )
-                                    stochastic_baseflow_ts["event_id"] = (
-                                        selected_points[point]["event_id"]
-                                    )
-                                    multi_events_flows.append(stochastic_flow_ts)
-                                    multi_events_baseflows.append(
-                                        stochastic_baseflow_ts
-                                    )
+                                        stochastic_baseflow_ts["block_id"] = point
+                                        stochastic_baseflow_ts["storm_id"] = (
+                                            selected_points[point]["storm_id"]
+                                        )
+                                        stochastic_baseflow_ts["event_id"] = (
+                                            selected_points[point]["event_id"]
+                                        )
+                                        multi_events_baseflows.append(
+                                            stochastic_baseflow_ts
+                                        )
+                                    else:
+                                        st.warning(
+                                            "Baseflow is not available for this HMS element."
+                                        )
                             if len(multi_events_flows) > 0:
                                 multi_events_flows_df = pd.concat(
                                     multi_events_flows,
