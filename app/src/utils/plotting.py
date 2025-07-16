@@ -131,6 +131,13 @@ def plot_ts(
             ),
             legend=dict(x=0.75, y=1, traceorder="normal"),
         )
+    # Add crosshair spikes
+    fig.update_xaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
+    fig.update_yaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
 
     st.plotly_chart(fig)
 
@@ -311,8 +318,12 @@ def plot_flow_aep(
     )
 
     # Add crosshair spikes
-    fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor")
-    fig.update_yaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+    fig.update_xaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
+    fig.update_yaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
 
     # Return point selection(s)
     plot_selection = st.plotly_chart(
@@ -459,7 +470,11 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
         legend=dict(x=0.75, y=1, traceorder="normal"),
     )
     # Add crosshair spikes
-    fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor")
-    fig.update_yaxes(showspikes=True, spikemode="across", spikesnap="cursor")
+    fig.update_xaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
+    fig.update_yaxes(
+        showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
+    )
     # Set hovermode to unified
     st.plotly_chart(fig, use_container_width=True)
