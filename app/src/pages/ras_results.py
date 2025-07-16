@@ -1138,7 +1138,7 @@ def ras_results():
     # Create a map legend
     st.sidebar.markdown("## Map Legend")
     if st.session_state["model_id"] is not None:
-        st.sidebar.markdown("#### Filtered to RAS Model")
+        st.sidebar.markdown(f"#### Filtered to `{st.session_state['model_id']}`")
     st.sidebar.markdown(
         f"""
         - 🟥 {num_bc_lines} BC Lines

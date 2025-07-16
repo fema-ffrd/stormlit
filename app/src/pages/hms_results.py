@@ -212,6 +212,7 @@ def focus_feature(
 
     if "hms_element" in item:
         st.session_state["hms_element_id"] = item["hms_element"]
+        st.session_state["subbasin_id"] = identify_subbasin(geom)
 
     st.session_state.update(
         {
@@ -1171,7 +1172,7 @@ def hms_results():
     # Create a map legend
     st.sidebar.markdown("## Map Legend")
     if st.session_state["subbasin_id"] is not None:
-        st.sidebar.markdown("#### Filtered to HMS Subbasin")
+        st.sidebar.markdown(f"#### Filtered to `{st.session_state['subbasin_id']}`")
     st.sidebar.markdown(
         f"""
         - 🟦 {num_subbasins} Subbasins 
