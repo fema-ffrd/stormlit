@@ -1,5 +1,4 @@
 # module imports
-from components.layout import render_footer
 from configs.settings import LOG_LEVEL
 from utils.session import init_session_state
 
