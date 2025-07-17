@@ -82,9 +82,9 @@ def process_qc_results(
     count_errors = 0
     count_warnings = 0
     count_successes = 0
-    all = 0
+    _all = 0
     for item in qc_results:
-        all += 1
+        _all += 1
         if item.result.value == "error":
             count_errors += 1
             create_tile(errors_exp, item, color="#B53737")
@@ -187,14 +187,6 @@ def model_qc():
         col2.dataframe(summary_df)
     else:
         st.write("No QC results available.")
-
-    # Session state
-    with st.expander("Session State"):
-        st.write(st.session_state)
-
-    # Footer
-    render_footer()
-
 
 if __name__ == "__main__":
     model_qc()
