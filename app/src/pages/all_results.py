@@ -1649,6 +1649,10 @@ def all_results():
         """
     )
 
+    if os.getenv("SHOW_SESSION_STATE") == "True":
+        with st.expander("Session State", expanded=False):
+            st.json(st.session_state)
+
 
 if __name__ == "__main__":
     all_results()
