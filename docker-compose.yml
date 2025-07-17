@@ -15,6 +15,7 @@ services:
       - PGSTAC_ADMIN_PASSWORD=password
       - PGSTAC_INGEST_PASSWORD=password
       - PGSTAC_READ_PASSWORD=password
+      - SHOW_SESSION_STATE=False
     ports:
       - "8501:8501"
     volumes:
