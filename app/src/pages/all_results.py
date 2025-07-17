@@ -931,7 +931,7 @@ def all_results():
                             st.session_state["gage_datum"] = (
                                 col_gage_datum2.number_input(
                                     "Manual Override",
-                                    value=gage_datum,
+                                    value=float(gage_datum),
                                     step=0.01,
                                     format="%.2f",
                                     help="The gage datum is the elevation of the gage above sea level.",
