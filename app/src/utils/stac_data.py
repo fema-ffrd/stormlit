@@ -18,6 +18,43 @@ srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
 assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
 
 
+def reset_selections():
+    """
+    Reset the session state.
+    This is useful when switching between different features or events.
+    """
+    st.session_state.update(
+        {
+            "single_event_focus_feature_label": None,
+            "single_event_focus_feature_id": None,
+            "single_event_focus_lat": None,
+            "single_event_focus_lon": None,
+            "single_event_focus_bounding_box": None,
+            "single_event_focus_feature_type": None,
+            "single_event_focus_map_click": False,
+            "model_id": None,
+            "subbasin_id": None,
+            "calibration_event": None,
+            "gage_event": None,
+            "ready_to_plot_ts": False,
+            "cog_layer": None,
+            "cog_hist": None,
+            "cog_stats": None,
+            "dams_filtered": None,
+            "ref_points_filtered": None,
+            "ref_lines_filtered": None,
+            "gages_filtered": None,
+            "bc_lines_filtered": None,
+            "subbasins_filtered": None,
+            "reaches_filtered": None,
+            "junctions_filtered": None,
+            "reservoirs_filtered": None,
+            "stochastic_event": None,
+            "stochastic_storm": None,
+        }
+    )
+
+
 def prep_gdf(gdf: gpd.GeoDataFrame, layer: str, hms: bool = False) -> gpd.GeoDataFrame:
     """
     Prepares a GeoDataFrame for plotting on a folium map.
