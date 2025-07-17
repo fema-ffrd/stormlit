@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Imports #####################################################################
+# module imports
+from utils.constants import (
+    CALIB_VERY_GOOD,
+    CALIB_GOOD,
+    CALIB_SATISFACTORY,
+    CALIB_UNSATISFACTORY,
+)
+
+# standard library imports
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -162,62 +170,62 @@ def eval_metrics(x):
 
     # Color map for evaluation
     color_map = {
-        "Very Good": "background-color: #4CAF50; color: white;",  # green
-        "Good": "background-color: #8BC34A; color: black;",  # light green
-        "Satisfactory": "background-color: #FFEB3B; color: black;",  # yellow
-        "Unsatisfactory": "background-color: #F44336; color: white;",  # red
+        CALIB_VERY_GOOD: "background-color: #4CAF50; color: white;",  # green
+        CALIB_GOOD: "background-color: #8BC34A; color: black;",  # light green
+        CALIB_SATISFACTORY: "background-color: #FFEB3B; color: black;",  # yellow
+        CALIB_UNSATISFACTORY: "background-color: #F44336; color: white;",  # red
     }
 
     # Define evaluation functions for each metric
     def eval_r2(val):
         if val > 0.65 and val <= 1.0:
-            return "Very Good"
+            return CALIB_VERY_GOOD
         elif val > 0.55 and val <= 0.65:
-            return "Good"
+            return CALIB_GOOD
         elif val > 0.4 and val <= 0.55:
-            return "Satisfactory"
+            return CALIB_SATISFACTORY
         else:
-            return "Unsatisfactory"
+            return CALIB_UNSATISFACTORY
 
     def eval_nse(val):
         if val > 0.65 and val <= 1.0:
-            return "Very Good"
+            return CALIB_VERY_GOOD
         elif val > 0.55 and val <= 0.65:
-            return "Good"
+            return CALIB_GOOD
         elif val > 0.4 and val <= 0.55:
-            return "Satisfactory"
+            return CALIB_SATISFACTORY
         else:
-            return "Unsatisfactory"
+            return CALIB_UNSATISFACTORY
 
     def eval_rsr(val):
         if val > 0 and val <= 0.6:
-            return "Very Good"
+            return CALIB_VERY_GOOD
         elif val > 0.6 and val <= 0.7:
-            return "Good"
+            return CALIB_GOOD
         elif val > 0.7 and val <= 0.8:
-            return "Satisfactory"
+            return CALIB_SATISFACTORY
         else:
-            return "Unsatisfactory"
+            return CALIB_UNSATISFACTORY
 
     def eval_pbias(val):
         if val <= 15:
-            return "Very Good"
+            return CALIB_VERY_GOOD
         elif val >= 15 and val < 20:
-            return "Good"
+            return CALIB_GOOD
         elif val >= 20 and val < 30:
-            return "Satisfactory"
+            return CALIB_SATISFACTORY
         else:
-            return "Unsatisfactory"
+            return CALIB_UNSATISFACTORY
 
     def eval_ppe(val):
         if val <= 5:
-            return "Very Good"
+            return CALIB_VERY_GOOD
         elif val >= 5 and val < 10:
-            return "Good"
+            return CALIB_GOOD
         elif val >= 10 and val < 15:
-            return "Satisfactory"
+            return CALIB_SATISFACTORY
         else:
-            return "Unsatisfactory"
+            return CALIB_UNSATISFACTORY
 
     # Style function for each column
     def style_r2(col):

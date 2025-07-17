@@ -11,11 +11,18 @@ from utils.plotting import (
     plot_multi_event_ts,
 )
 from utils.stac_data import (
+    reset_selections,
     init_hms_pilot,
     define_gage_data,
     define_dam_data,
     get_stac_img,
     get_stac_meta,
+)
+from utils.constants import (
+    FLOW_LABEL,
+    CALIB_EVENTS,
+    STOCHASTIC_EVENTS,
+    MULTI_EVENTS,
 )
 from db.pull import (
     query_s3_obs_flow,
@@ -46,43 +53,6 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-
-def reset_selections():
-    """
-    Reset the session state for single event selections.
-    This is useful when switching between different features or events.
-    """
-    st.session_state.update(
-        {
-            "single_event_focus_feature_label": None,
-            "single_event_focus_feature_id": None,
-            "single_event_focus_lat": None,
-            "single_event_focus_lon": None,
-            "single_event_focus_bounding_box": None,
-            "single_event_focus_feature_type": None,
-            "single_event_focus_map_click": False,
-            "model_id": None,
-            "subbasin_id": None,
-            "calibration_event": None,
-            "gage_event": None,
-            "ready_to_plot_ts": False,
-            "cog_layer": None,
-            "cog_hist": None,
-            "cog_stats": None,
-            "dams_filtered": None,
-            "ref_points_filtered": None,
-            "ref_lines_filtered": None,
-            "gages_filtered": None,
-            "bc_lines_filtered": None,
-            "subbasins_filtered": None,
-            "reaches_filtered": None,
-            "junctions_filtered": None,
-            "reservoirs_filtered": None,
-            "stochastic_event": None,
-            "stochastic_storm": None,
-        }
-    )
 
 
 def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
@@ -212,6 +182,7 @@ def focus_feature(
 
     if "hms_element" in item:
         st.session_state["hms_element_id"] = item["hms_element"]
+        st.session_state["subbasin_id"] = identify_subbasin(geom)
 
     st.session_state.update(
         {
@@ -287,7 +258,7 @@ def map_popover(
                 st.markdown(f"⬇️ [Download Data]({download_url})")
             if len(items) == 0:
                 st.write(
-                    "Select a feature from the map or model from the dropdown to generate selections"
+                    "Select a feature from the map or subbasin from the dropdown to generate selections"
                 )
             for idx, item in enumerate(items):
                 item_label = get_item_label(item)
@@ -615,7 +586,7 @@ def hms_results():
             col_event_type, col_storm_id, col_event_id = info_col.columns(3)
             st.session_state["event_type"] = col_event_type.radio(
                 "Select from",
-                ["Calibration Events", "Stochastic Events", "Multi Events"],
+                [CALIB_EVENTS, STOCHASTIC_EVENTS, MULTI_EVENTS],
                 index=0,
             )
             if feature_type == FeatureType.SUBBASIN:
@@ -645,7 +616,7 @@ def hms_results():
             else:
                 available_gage_ids = None
 
-            if st.session_state["event_type"] == "Stochastic Events":
+            if st.session_state["event_type"] == STOCHASTIC_EVENTS:
                 if st.session_state["hms_element_id"] is None:
                     st.warning(
                         "Please select a HEC-HMS model object from the map or drop down list"
@@ -714,14 +685,14 @@ def hms_results():
                             "Baseflow",
                             dual_y_axis=False,
                             plot_title=feature_label,
-                            y_axis01_title="Discharge (cfs)",
+                            y_axis01_title=FLOW_LABEL,
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Modeled Hydrograph")
                         st.dataframe(stochastic_flow_ts)
                         st.markdown("#### Modeled Baseflow")
                         st.dataframe(stochastic_baseflow_ts)
-            elif st.session_state["event_type"] == "Multi Events":
+            elif st.session_state["event_type"] == MULTI_EVENTS:
                 if st.session_state["hms_element_id"] is None:
                     st.warning(
                         "Please select a HEC-HMS model object from the map or drop down list"
@@ -1170,6 +1141,8 @@ def hms_results():
 
     # Create a map legend
     st.sidebar.markdown("## Map Legend")
+    if st.session_state["subbasin_id"] is not None:
+        st.sidebar.markdown(f"#### Filtered to `{st.session_state['subbasin_id']}`")
     st.sidebar.markdown(
         f"""
         - 🟦 {num_subbasins} Subbasins 
@@ -1182,11 +1155,9 @@ def hms_results():
         """
     )
 
-    # Session state
-    with st.expander("Session State"):
-        st.write(st.session_state)
-        len_session_state = len(st.session_state)
-        st.write(f"Session State Length: {len_session_state}")
+    if os.getenv("SHOW_SESSION_STATE") == "True":
+        with st.expander("Session State", expanded=False):
+            st.json(st.session_state)
 
 
 if __name__ == "__main__":

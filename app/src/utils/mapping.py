@@ -371,8 +371,6 @@ def prep_fmap(
 
         except Exception as e:
             st.session_state["cog_error"] = str(e)
-    else:
-        pass
 
     # Add the layer control to the map
     folium.LayerControl().add_to(m)

@@ -4,6 +4,10 @@ from plotly import express as px
 import plotly.graph_objects as go
 from typing import Optional
 
+from utils.constants import (
+    FLOW_LABEL,
+)
+
 
 def plot_ts(
     df1: pd.DataFrame,
@@ -294,11 +298,11 @@ def plot_flow_aep(
             type="log",
         ),
         yaxis1=dict(
-            title="Discharge (cfs)",
+            title=FLOW_LABEL,
             type="log",
         ),
         yaxis2=dict(
-            title="Discharge (cfs)",
+            title=FLOW_LABEL,
             type="log",
             overlaying="y1",
             side="left",
@@ -440,7 +444,6 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
                 st.warning(
                     f"No data available for the selected variables in the dataset. {block_id}."
                 )
-                continue
 
     if not df2.empty:
         # Add traces for baseflows if available
@@ -460,13 +463,12 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
                 st.warning(
                     f"No data available for the selected variables in the dataset. {block_id}."
                 )
-                continue
 
     # Update layout
     fig.update_layout(
         title="Multi-Event Time Series Hydrographs",
         xaxis_title="Time (hours)",
-        yaxis_title="Discharge (cfs)",
+        yaxis_title=FLOW_LABEL,
         legend=dict(x=0.75, y=1, traceorder="normal"),
     )
     # Add crosshair spikes

@@ -10,7 +10,6 @@ import streamlit as st
 from dotenv import load_dotenv
 import streamlit.components.v1 as components
 
-# global variables
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, "."))  # go up one level to src
 load_dotenv()
