@@ -159,13 +159,13 @@ def exp_backoff(url: str, max_retries: int = 5):
         response (urllib.response): The response object if successful, None otherwise.
 
     """
-    for i in range(max_retries):
+    for i in range(1, max_retries + 1):
         wait_time = 2**i
         try:
-            response = urllib.request.urlopen(url, timeout=10)
+            response = urllib.request.urlopen(url, timeout=5)
             return response
         except (urllib.error.URLError, socket.timeout) as e:
-            if i < max_retries - 1:
+            if i < max_retries:
                 time.sleep(wait_time)
             else:
                 st.error(f"Failed NWIS query after {max_retries} attempts: {e}")
