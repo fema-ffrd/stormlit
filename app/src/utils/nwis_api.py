@@ -143,10 +143,6 @@ def parse_usgs_value_field(df, value_parameter_code):
     return value_field
 
 
-class StormlitQueryException(Exception):
-    pass
-
-
 def exp_backoff(url: str, max_retries: int = 5):
     """
     Implement exponential backoff for an API call.
