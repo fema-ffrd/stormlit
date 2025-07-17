@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 # Imports #####################################################################
+import urllib.error
+import socket
+import time
 import io
 import urllib.request
 import pandas as pd
@@ -140,6 +143,31 @@ def parse_usgs_value_field(df, value_parameter_code):
     return value_field
 
 
+def exp_backoff(url: str, max_retries: int = 5):
+    """
+    Implement exponential backoff for an API call.
+    This function retries the request up to 5 times, doubling the wait time after each failure.
+
+    Args:
+        url (str): The URL to query.
+        max_retries (int): Maximum number of retries before giving up.
+    Returns:
+        response (urllib.response): The response object if successful, None otherwise.
+
+    """
+    for i in range(1, max_retries + 1):
+        wait_time = 2**i
+        try:
+            response = urllib.request.urlopen(url, timeout=5)
+            return response
+        except (urllib.error.URLError, socket.timeout) as e:
+            if i < max_retries:
+                time.sleep(wait_time)
+            else:
+                st.error(f"Failed NWIS query after {max_retries} attempts: {e}")
+                return None
+
+
 @st.cache_data
 def query_nwis(
     site: str,
@@ -174,10 +202,11 @@ def query_nwis(
     try:
         # build url and make call only for USGS funded sites
         url = f"https://waterservices.usgs.gov/nwis/{data_type}/?format={output_format}&sites={site}&startDT={start_date}&endDT={end_date}&parameterCd={param_id}&siteType=ST&agencyCd=usgs&siteStatus=all"
-        response = urllib.request.urlopen(url, timeout=20)
+        response = exp_backoff(url, max_retries=5)
+        if response is None:
+            return pd.DataFrame()
         # check that api call worked
         if response.status != 200:
-            st.error(f"Error querying the NWIS server: Status Code {response.status}")
             return pd.DataFrame()
         # decode results
         r = response.read()

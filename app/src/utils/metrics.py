@@ -136,7 +136,10 @@ def calc_metrics(df: pd.DataFrame, target: str):
         np.max(np.max(df[f"model_{target}"].values)),
         np.max(df[f"obs_{target}"].values),
     )
-    ppe_val = (abs(pf_mod - pf_obs) / pf_obs) * 100
+    if pf_obs == 0:
+        ppe_val = np.nan
+    else:
+        ppe_val = (abs(pf_mod - pf_obs) / (pf_obs)) * 100
     # compile the statistics into a dataframe
     stats_df = pd.DataFrame(
         {
@@ -218,6 +221,8 @@ def eval_metrics(x):
             return CALIB_UNSATISFACTORY
 
     def eval_ppe(val):
+        if np.isnan(val):
+            return CALIB_UNSATISFACTORY
         if val <= 5:
             return CALIB_VERY_GOOD
         elif val >= 5 and val < 10:
