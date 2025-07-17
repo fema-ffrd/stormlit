@@ -444,7 +444,6 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
                 st.warning(
                     f"No data available for the selected variables in the dataset. {block_id}."
                 )
-                continue
 
     if not df2.empty:
         # Add traces for baseflows if available
@@ -464,7 +463,6 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
                 st.warning(
                     f"No data available for the selected variables in the dataset. {block_id}."
                 )
-                continue
 
     # Update layout
     fig.update_layout(
