@@ -10,12 +10,14 @@ from utils.plotting import (
     plot_hist,
 )
 from utils.stac_data import (
+    reset_selections,
     init_ras_pilot,
     define_gage_data,
     define_dam_data,
     get_stac_img,
     get_stac_meta,
 )
+from utils.constants import FLOW_LABEL, WSE_LABEL, VELOCITY_LABEL
 from db.pull import (
     query_s3_mod_flow,
     query_s3_mod_wse,
@@ -46,42 +48,6 @@ assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level t
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-
-def reset_selections():
-    """
-    Reset the session state for single event selections.
-    This is useful when switching between different features or events.
-    """
-    st.session_state.update(
-        {
-            "single_event_focus_feature_label": None,
-            "single_event_focus_feature_id": None,
-            "single_event_focus_lat": None,
-            "single_event_focus_lon": None,
-            "single_event_focus_bounding_box": None,
-            "single_event_focus_feature_type": None,
-            "single_event_focus_map_click": False,
-            "model_id": None,
-            "calibration_event": None,
-            "gage_event": None,
-            "ready_to_plot_ts": False,
-            "cog_layer": None,
-            "cog_hist": None,
-            "cog_stats": None,
-            "dams_filtered": None,
-            "ref_points_filtered": None,
-            "ref_lines_filtered": None,
-            "gages_filtered": None,
-            "bc_lines_filtered": None,
-            "subbasins_filtered": None,
-            "reaches_filtered": None,
-            "junctions_filtered": None,
-            "reservoirs_filtered": None,
-            "stochastic_event": None,
-            "stochastic_storm": None,
-        }
-    )
 
 
 def identify_gage_from_ref_ln(ref_id: str):
@@ -688,7 +654,7 @@ def ras_results():
                         st.session_state["model_id"],
                     )
                     ref_pt_ts = ref_pt_wse_ts.merge(
-                        ref_pt_vel_ts, on="time", how="outer"
+                        ref_pt_vel_ts, on="time", how="outer", validate="one_to_one"
                     )
                     info_col.markdown("### Modeled WSE & Velocity")
                     with info_col.expander("Plots", expanded=False, icon="📈"):
@@ -699,8 +665,8 @@ def ras_results():
                             "velocity",
                             dual_y_axis=True,
                             plot_title=feature_label,
-                            y_axis01_title="Velocity (ft/s)",
-                            y_axis02_title="WSE (ft)",
+                            y_axis01_title=VELOCITY_LABEL,
+                            y_axis02_title=WSE_LABEL,
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(ref_pt_ts.drop(columns=["id_x", "id_y"]))
@@ -723,7 +689,7 @@ def ras_results():
                         st.session_state["model_id"],
                     )
                     bc_line_ts = bc_line_flow_ts.merge(
-                        bc_line_stage_ts, on="time", how="outer"
+                        bc_line_stage_ts, on="time", how="outer", validate="one_to_one"
                     )
                     info_col.markdown("### Modeled Flow & WSE")
                     with info_col.expander("Plots", expanded=True, icon="📈"):
@@ -734,8 +700,8 @@ def ras_results():
                             "stage",
                             dual_y_axis=True,
                             plot_title=feature_label,
-                            y_axis01_title="WSE (ft)",
-                            y_axis02_title="Flow (cfs)",
+                            y_axis01_title=WSE_LABEL,
+                            y_axis02_title=FLOW_LABEL,
                         )
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         st.dataframe(bc_line_ts.drop(columns=["id_x", "id_y"]))
@@ -767,7 +733,7 @@ def ras_results():
                     )
                     ref_line_wse_ts.rename(columns={"wse": "model_wse"}, inplace=True)
                     ref_line_ts = ref_line_flow_ts.merge(
-                        ref_line_wse_ts, on="time", how="outer"
+                        ref_line_wse_ts, on="time", how="outer", validate="one_to_one"
                     )
                     if feature_gage_status:
                         # Gage Comparisons against Modeled Flow and Stage
@@ -814,7 +780,10 @@ def ras_results():
                             )
                         else:
                             gage_flow_ts = obs_flow_ts.merge(
-                                ref_line_flow_ts, on="time", how="outer"
+                                ref_line_flow_ts,
+                                on="time",
+                                how="outer",
+                                validate="one_to_one",
                             )
                         info_col.markdown("### Observed vs Modeled Flow")
                         with info_col.expander(
@@ -829,7 +798,7 @@ def ras_results():
                                 "model_flow",
                                 dual_y_axis=False,
                                 plot_title=feature_label,
-                                y_axis01_title="Discharge (cfs)",
+                                y_axis01_title=FLOW_LABEL,
                             )
                         if feature_gage_status:
                             with info_col.expander(
@@ -882,7 +851,7 @@ def ras_results():
                                 "model_wse",
                                 dual_y_axis=False,
                                 plot_title=feature_label,
-                                y_axis01_title="WSE (ft)",
+                                y_axis01_title=WSE_LABEL,
                             )
                         if feature_gage_status:
                             with info_col.expander(
@@ -920,8 +889,8 @@ def ras_results():
                                 "model_wse",
                                 dual_y_axis=True,
                                 plot_title=feature_label,
-                                y_axis01_title="WSE (ft)",
-                                y_axis02_title="Discharge (cfs)",
+                                y_axis01_title=WSE_LABEL,
+                                y_axis02_title=FLOW_LABEL,
                             )
                         with info_col.expander("Tables", expanded=False, icon="🔢"):
                             st.markdown("#### Reference Line Flow Data")
