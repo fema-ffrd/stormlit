@@ -188,5 +188,6 @@ def model_qc():
     else:
         st.write("No QC results available.")
 
+
 if __name__ == "__main__":
     model_qc()
