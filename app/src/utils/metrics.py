@@ -136,7 +136,7 @@ def calc_metrics(df: pd.DataFrame, target: str):
         np.max(np.max(df[f"model_{target}"].values)),
         np.max(df[f"obs_{target}"].values),
     )
-    ppe_val = (abs(pf_mod - pf_obs) / pf_obs) * 100
+    ppe_val = (abs(pf_mod - pf_obs) / (pf_obs + 1e-6)) * 100
     # compile the statistics into a dataframe
     stats_df = pd.DataFrame(
         {
