@@ -677,7 +677,6 @@ def hms_results():
                     if hms_gage is not None:
                         # Unpack gage information
                         hms_gage_id = hms_gage["USGS ID"].values[0]
-                        hms_gage_name = hms_gage["Name"].values[0]
                         hms_rating_curve_url = hms_gage["Rating Curve URL"].values[0]
                         hms_usgs_data_url = hms_gage["URL"].values[0]
                         with gage_tab:
