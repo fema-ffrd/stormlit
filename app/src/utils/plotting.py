@@ -185,6 +185,7 @@ def plot_hist(df: pd.DataFrame, x_col: str, y_col: str, nbins: int):
 def plot_flow_aep(
     multi_event_ams_df: pd.DataFrame,
     gage_ams_df: Optional[pd.DataFrame] = None,
+    gage_ams_confidence_df: Optional[pd.DataFrame] = None,
 ):
     """Function for plotting Discharge Frequency Plot.
 
@@ -200,6 +201,20 @@ def plot_flow_aep(
         - "aep": float
         - "return_period": float
         - "peak_flow": float
+    gage_ams_confidence_df : Optional[pd.DataFrame]
+        DataFrame containing the gage AMS confidence limits.
+        - "site_no": str
+        - "variable": str
+        - "duration": str
+        - "AEP": float
+        - "computed": float
+        - "upper": float
+        - "lower": float
+    Returns
+    -------
+    points_dict : dict
+        A dictionary containing the selected points from the plot.
+        The keys are the block group or gage ID, and the values are dictionaries
     """
     # Check if the DataFrames are empty
     if multi_event_ams_df.empty:
@@ -245,8 +260,65 @@ def plot_flow_aep(
             ],
         )
     )
+    # Add confidence limits for gage AMS if provided
+    if gage_ams_confidence_df is not None and not gage_ams_confidence_df.empty:
+        for label in ["upper", "lower", "computed"]:
+            if label == "computed":
+                plot_name = label
+                plot_mode = "markers"
+                plot_legend = True
+                plot_color = "blue"
+                line_style = None
+            else:
+                plot_name = None
+                plot_mode = "lines"
+                plot_legend = False
+                plot_color = "gray"
+                line_style = dict(color="black", width=1, dash="dash")
+            if label == "upper":
+                plot_name = "Confidence Limits"
+                plot_legend = True
+            fig.add_trace(
+                go.Scattergl(
+                    x=gage_ams_confidence_df["AEP"],
+                    y=gage_ams_confidence_df[label],
+                    mode=plot_mode,
+                    name=None,
+                    marker=dict(color="white"),
+                    yaxis="y1",
+                    xaxis="x1",
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+            fig.add_trace(
+                go.Scattergl(
+                    x=gage_ams_confidence_df["return_period"],
+                    y=gage_ams_confidence_df[label],
+                    mode=plot_mode,
+                    name=plot_name,
+                    marker=dict(color=plot_color),
+                    line=line_style,
+                    yaxis="y2",
+                    xaxis="x2",
+                    showlegend=plot_legend,
+                    text=[
+                        f"Gage ID: {site_no}<br>Variable: {variable}<br>Duration: {duration}<br>Return Period: {return_period:,.1f}<br>AEP: {aep:,.2e}<br>Computed: {computed:,.1f}<br>Upper: {upper:,.1f}<br>Lower: {lower:,.1f}"
+                        for site_no, variable, duration, return_period, aep, computed, upper, lower in zip(
+                            gage_ams_confidence_df["site_no"],
+                            gage_ams_confidence_df["variable"],
+                            gage_ams_confidence_df["duration"],
+                            gage_ams_confidence_df["return_period"],
+                            gage_ams_confidence_df["AEP"],
+                            gage_ams_confidence_df["computed"],
+                            gage_ams_confidence_df["upper"],
+                            gage_ams_confidence_df["lower"],
+                        )
+                    ],
+                )
+            )
     # Add trace for Gage AEP vs Peak Flow if provided
-    if gage_ams_df is not None and not gage_ams_df.empty:
+    elif gage_ams_df is not None and not gage_ams_df.empty:
         fig.add_trace(
             go.Scattergl(
                 x=gage_ams_df["aep"],
@@ -268,8 +340,8 @@ def plot_flow_aep(
                 mode="markers",
                 name="Observed",
                 marker=dict(color="blue"),
-                yaxis="y2",
-                xaxis="x2",
+                yaxis="y1",
+                xaxis="x1",
                 text=[
                     f"Gage ID: {gage_id}<br>Return Period: {rp:,.1f}<br>Peak Flow: {peak_flow:,.1f}<br>AEP: {aep:,.2e}<br>Storm ID: {peak_time}"
                     for gage_id, rp, peak_flow, aep, peak_time in zip(
@@ -337,6 +409,9 @@ def plot_flow_aep(
         points_dict = {}
         selected_points = pd.DataFrame(plot_selection["selection"]["points"])
         for _, row in selected_points.iterrows():
+            if "Lower" in row["text"].split("<br>")[-1]:
+                # skip over the confidence limits
+                continue
             if "Gage ID" in row["text"].split("<br>")[0]:
                 storm_id = row["text"].split("<br>")[4].split(": ")[1].replace(",", "")
                 storm_id_dt = pd.to_datetime(
