@@ -135,6 +135,7 @@ def model_qc():
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
     st.sidebar.page_link("pages/all_results.py", label="All Results")
+    st.sidebar.page_link("pages/hms_summary.py", label="HMS Summary")
 
     st.sidebar.markdown("## Toolbar")
 
