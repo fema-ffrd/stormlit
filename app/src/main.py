@@ -31,6 +31,7 @@ def home_page():
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
     st.sidebar.page_link("pages/all_results.py", label="All Results")
+    st.sidebar.page_link("pages/hms_summary.py", label="HMS Summary")
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
@@ -107,6 +108,7 @@ def home_page():
         - **HMS Results:** Visualize the HEC-HMS spatial modeling components for calibration and stochastic single and multi event simulations.
         - **RAS Results:** Visualize the HEC-RAS spatial modeling components for calibration and stochastic single and multi event simulations.
         - **All Results:** View all results from the HEC-HMS and HEC-RAS models in one place.
+        - **HMS Summary:** View a summary of the HEC-HMS model results, including statistics and bulk downloads of layers.
         
         """
     )
