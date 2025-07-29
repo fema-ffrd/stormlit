@@ -701,4 +701,53 @@ def query_s3_gage_ams(_conn, pilot: str, gage_id: str) -> pd.DataFrame:
     else:
         msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
+        return pd.DataFrame()
+
+
+@st.cache_data
+def query_s3_hms_gages_lookup(
+    _conn, pilot: str,
+) -> gpd.GeoDataFrame:
+    """
+    Query HMS gages lookup geodataframe from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the HMS gage lookup data.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/gages/hms_gages_lookup.parquet"
+    if s3_path_exists(s3_path):
+        query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true);"
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
+
+@st.cache_data
+def query_s3_ams_confidence_limits(
+    _conn, pilot: str, gage_id: str, realization_id: int, duration: str, variable: str
+) -> pd.DataFrame:
+    """
+    Query confidence limits data from the S3 bucket for a given gage ID.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        gage_id (str): The gage ID to query.
+        realization_id (int): The realization ID to query (e.g., 1).
+        duration (str): The duration of the confidence limits (e.g., '1Hour', '24Hour', '72Hour').
+        variable (str): The variable to query (e.g., 'Flow', 'Elev').
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the confidence limits data.
+    """
+    s3_path = f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/confidence_limits.parquet"
+    if s3_path_exists(s3_path):
+        query = f"SELECT * FROM read_parquet('{s3_path}', hive_partitioning=true) WHERE duration='{duration}' and site_no='{gage_id}' and variable='{variable}';"
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
         raise StormlitQueryException(msg)
