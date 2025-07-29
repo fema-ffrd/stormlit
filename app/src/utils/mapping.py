@@ -45,7 +45,8 @@ def add_polygons(
     None
 
     """
-    gdf["geometry"] = gdf["geometry"].simplify(tolerance=0.001)
+    gdf["geometry"] = gdf["geometry"].simplify(tolerance=0.0005, preserve_topology=True)
+    # smooth the polygons to reduce complexity
     folium.GeoJson(
         gdf,
         name=layer_name,
@@ -269,6 +270,8 @@ def prep_fmap(
             add_polygons(
                 m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
             )
+        if st.gages is not None:
+            add_circles(m, st.gages, "Gages", ["site_no"], "#32cd32")
     # HMS Elements
     if map_type == "HMS" or map_type == "All":
         if st.subbasins is not None:
@@ -295,12 +298,23 @@ def prep_fmap(
             add_squares(
                 m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703"
             )
+        if st.hms_gages is not None:
+            add_circles(
+                m, st.hms_gages, "Gages", [
+                    "USGS ID",
+                "Name",
+                "Gage Rank",
+                "Regulated?",
+                "Start of Regulation",
+                "hms_element",
+                "Notes"
+                ],
+                "#32cd32"
+            )
 
     # Additional Elements
     if st.dams is not None:
         add_circles(m, st.dams, "Dams", ["id"], "#e21426")
-    if st.gages is not None:
-        add_circles(m, st.gages, "Gages", ["site_no"], "#32cd32")
 
     # Add COG layer if selected
     if cog_layer is not None:
