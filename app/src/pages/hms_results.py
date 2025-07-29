@@ -31,6 +31,7 @@ from db.pull import (
     query_s3_stochastic_event_list,
     query_s3_ams_peaks_by_element,
     query_s3_gage_ams,
+    query_s3_ams_confidence_limits
 )
 
 # standard imports
@@ -358,6 +359,7 @@ def hms_results():
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
     st.sidebar.page_link("pages/all_results.py", label="All Results")
+    st.sidebar.page_link("pages/hms_summary.py", label="HMS Summary")
 
     st.sidebar.markdown("## Getting Started")
     with st.sidebar:
@@ -489,10 +491,10 @@ def hms_results():
                 st.session_state["subbasin_id"] = identify_subbasin(geom)
                 st.session_state["hms_element_id"] = feature_label
             elif feature_type == FeatureType.GAGE:
-                feature_id = properties["site_no"]
+                feature_id = properties["USGS ID"]
                 feature_label = feature_id
                 st.session_state["subbasin_id"] = identify_subbasin(geom)
-                st.session_state["hms_element_id"] = None
+                st.session_state["hms_element_id"] = properties.get("hms_element", None)
             elif feature_type == FeatureType.DAM:
                 feature_id = properties["id"]
                 feature_label = feature_id
@@ -533,45 +535,24 @@ def hms_results():
                         st.markdown(f"📄 [{asset_name}]({asset_url})")
                     elif "spreadsheet" in roles:
                         st.markdown(f"📊 [{asset_name}]({asset_url})")
-        # USGS Gages
-        elif feature_type == FeatureType.GAGE:
-            info_col.markdown(f"### Subbasin: `{st.session_state['subbasin_id']}`")
-            info_col.markdown(f"#### Gage: `{feature_label}`")
-            gage_data = define_gage_data(feature_id)
-            gage_meta_url = gage_data["Metadata"]
-            gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
-            if gage_meta_status_ok:
-                gage_stac_viewer_url = (
-                    f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
-                )
-                gage_props = gage_meta.get("properties", {})
-                st.markdown(f"""
-                            * **Station Name:** {gage_props.get("station_nm")}
-                            * **Site No:** `{gage_props.get("site_no")}`
-                            * **HUC:** `{gage_props.get("huc_cd")}`
-                            * **Drainage Area:** {gage_props.get("drain_area_va")}
-                            """)
-                st.markdown(
-                    f"🌐 [STAC Metadata for Gage {feature_id}]({gage_stac_viewer_url})"
-                )
-            st.markdown("#### Gage Analytics 📊")
-            for plot_type, plot_url in gage_data.items():
-                if plot_type != "Metadata":
-                    with st.expander(plot_type, expanded=False):
-                        # st.markdown(f"##### {plot_type}")
-                        plot_status_ok, plot_img = get_stac_img(plot_url)
-                        if plot_status_ok:
-                            st.image(plot_img, use_container_width=True)
-                        else:
-                            st.error(f"Error retrieving {plot_type} image.")
-        # HEC-HMS Model Objects
+        # USGS Gage and HEC-HMS Model Objects
         elif feature_type in [
+            FeatureType.GAGE,
             FeatureType.SUBBASIN,
             FeatureType.REACH,
             FeatureType.JUNCTION,
             FeatureType.RESERVOIR,
         ]:
-            st.session_state["hms_element_id"] = feature_label
+            # Organize columns
+            col_event_type, col_storm_id, col_event_id = info_col.columns(3)
+
+            if feature_type == FeatureType.GAGE:
+                feature_label = feature_id
+                hms_element = properties.get("hms_element", None)
+                st.session_state["hms_element_id"] = hms_element
+            else:
+                st.session_state["hms_element_id"] = feature_label
+
             st.markdown(f"### Subbasin: `{st.session_state['subbasin_id']}`")
             if feature_type != FeatureType.SUBBASIN:
                 st.markdown(f"#### {feature_type.value}: `{feature_label}`")
@@ -589,32 +570,23 @@ def hms_results():
                 [CALIB_EVENTS, STOCHASTIC_EVENTS, MULTI_EVENTS],
                 index=0,
             )
-            if feature_type == FeatureType.SUBBASIN:
-                available_gage_ids = identify_gage_from_subbasin(
-                    st.subbasins.loc[st.subbasins["hms_element"] == feature_label][
-                        "geometry"
-                    ]
-                )
-            elif feature_type == FeatureType.REACH:
-                available_gage_ids = identify_gage_from_pt_ln(
-                    st.reaches.loc[st.reaches["hms_element"] == feature_label][
-                        "geometry"
-                    ]
-                )
-            elif feature_type == FeatureType.JUNCTION:
-                available_gage_ids = identify_gage_from_pt_ln(
-                    st.junctions.loc[st.junctions["hms_element"] == feature_label][
-                        "geometry"
-                    ]
-                )
-            elif feature_type == FeatureType.RESERVOIR:
-                available_gage_ids = identify_gage_from_pt_ln(
-                    st.reservoirs.loc[st.reservoirs["hms_element"] == feature_label][
-                        "geometry"
-                    ]
-                )
+            if feature_type in [
+                FeatureType.SUBBASIN,
+                FeatureType.REACH,
+                FeatureType.JUNCTION,
+                FeatureType.RESERVOIR,
+            ]:
+                hms_gage = st.hms_gages.loc[st.hms_gages["hms_element"] == feature_label]
+                if hms_gage.empty:
+                    hms_gage = None
+            elif feature_type == FeatureType.GAGE:
+                hms_gage = st.hms_gages.loc[
+                    st.hms_gages["USGS ID"] == feature_label
+                ].copy()
+                if hms_gage.empty:
+                    hms_gage = None
             else:
-                available_gage_ids = None
+                hms_gage = None
 
             if st.session_state["event_type"] == STOCHASTIC_EVENTS:
                 if st.session_state["hms_element_id"] is None:
@@ -698,21 +670,57 @@ def hms_results():
                         "Please select a HEC-HMS model object from the map or drop down list"
                     )
                 else:
-                    if available_gage_ids is not None:
-                        st.session_state["multi_event_gage_id"] = (
-                            col_storm_id.selectbox(
-                                "Select Gage ID",
-                                available_gage_ids,
-                                index=0,
+                    st.markdown("### View Analytics 📊")
+                    hms_tab, gage_tab = info_col.tabs(["HEC-HMS", "USGS Gage"])
+                    if hms_gage is not None:
+                        # Unpack gage information
+                        hms_gage_id = hms_gage["USGS ID"].values[0]
+                        hms_gage_name = hms_gage["Name"].values[0]
+                        hms_rating_curve_url = hms_gage["Rating Curve URL"].values[0]
+                        hms_usgs_data_url = hms_gage["URL"].values[0]
+                        with gage_tab:
+                            st.markdown(
+                                f"🌐 [Rating Curve]({hms_rating_curve_url})"
                             )
-                        )
+                            st.markdown(f"🌐 [USGS Gage Data]({hms_usgs_data_url})")
+                            gage_data = define_gage_data(hms_gage_id)
+                            gage_meta_url = gage_data["Metadata"]
+                            gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
+                            if gage_meta_status_ok:
+                                gage_stac_viewer_url = (
+                                    f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
+                                )
+                                gage_props = gage_meta.get("properties", {})
+                                st.markdown(
+                                    f"🌐 [STAC Metadata for Gage {hms_gage_id}]({gage_stac_viewer_url})"
+                                )
+                                st.markdown(f"""
+                                            * **Station Name:** {gage_props.get("station_nm")}
+                                            * **Site No:** `{gage_props.get("site_no")}`
+                                            * **HUC:** `{gage_props.get("huc_cd")}`
+                                            * **Drainage Area:** {gage_props.get("drain_area_va")}
+                                            """)
+                                for plot_type, plot_url in gage_data.items():
+                                    if plot_type != "Metadata":
+                                        with st.expander(plot_type, expanded=False):
+                                            plot_status_ok, plot_img = get_stac_img(plot_url)
+                                            if plot_status_ok:
+                                                st.image(plot_img, use_container_width=True)
+                                            else:
+                                                st.error(f"Error retrieving {plot_type} image.")
+                            else:
+                                gage_tab.warning(
+                                    "No additional gage data is currently available for this location."
+                                )
+                                gage_ams_df = None
+                                hms_gage_id = None
                     else:
-                        col_storm_id.warning(
-                            "The selected HEC-HMS element is not associated with any gages."
+                        gage_tab.warning(
+                            "No gage data currently available at this location."
                         )
                         gage_ams_df = None
-                        st.session_state["multi_event_gage_id"] = None
-
+                        hms_gage_id = None
+                    # Get the simulated AMS peaks from HEC-HMS for the selected element
                     multi_event_ams_df = query_s3_ams_peaks_by_element(
                         st.session_state["s3_conn"],
                         st.session_state["pilot"],
@@ -733,25 +741,49 @@ def hms_results():
                     multi_event_ams_df["storm_id"] = pd.to_datetime(
                         multi_event_ams_df["storm_id"]
                     ).dt.strftime("%Y-%m-%d")
-
-                    if st.session_state["multi_event_gage_id"] is not None:
+                    # Get the Gage AMS Confidence Limits
+                    if hms_gage_id is not None:
+                        gage_ams_confidence_df = query_s3_ams_confidence_limits(
+                            st.session_state["s3_conn"],
+                            st.session_state["pilot"],
+                            hms_gage_id,
+                            realization_id=1,
+                            duration="72Hour",
+                            variable="Flow"
+                        )
+                        if not gage_ams_confidence_df.empty:
+                            # remove duplicates
+                            gage_ams_confidence_df = gage_ams_confidence_df.drop_duplicates(
+                                subset=["AEP"]
+                            )
+                            gage_ams_confidence_df["return_period"] = 1 / gage_ams_confidence_df["AEP"]
+                    else:
+                        gage_ams_confidence_df = None
+                    if hms_gage_id is not None:
+                        print(f"Querying AMS data for gage {hms_gage_id}")
                         gage_ams_df = query_s3_gage_ams(
                             st.session_state["s3_conn"],
                             st.session_state["pilot"],
-                            st.session_state["multi_event_gage_id"],
+                            hms_gage_id,
                         )
-                        gage_ams_df["aep"] = gage_ams_df["rank"] / (len(gage_ams_df))
-                        gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
-                        gage_ams_df["peak_time"] = pd.to_datetime(
-                            gage_ams_df["peak_time"]
-                        ).dt.strftime("%Y-%m-%d")
+                        if not gage_ams_df.empty:
+                            gage_ams_df["aep"] = gage_ams_df["rank"] / (len(gage_ams_df))
+                            gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
+                            gage_ams_df["peak_time"] = pd.to_datetime(
+                                gage_ams_df["peak_time"]
+                            ).dt.strftime("%Y-%m-%d")
+                        else:
+                            st.warning(
+                                "No AMS data found for the selected gage."
+                            )
+                            gage_ams_df = None
                     else:
                         gage_ams_df = None
-                    with info_col.expander("Plots", expanded=True, icon="📈"):
+                    with hms_tab.expander("Plots", expanded=True, icon="📈"):
                         st.write(
                             "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
                         )
-                        selected_points = plot_flow_aep(multi_event_ams_df, gage_ams_df)
+                        selected_points = plot_flow_aep(multi_event_ams_df, gage_ams_df, gage_ams_confidence_df)
                         multi_events_flows_df = None
                         multi_events_baseflows_df = None
                         if selected_points:
@@ -873,10 +905,12 @@ def hms_results():
                                 plot_multi_event_ts(
                                     multi_events_flows_df, multi_events_baseflows_df
                                 )
-
-                    with info_col.expander("Tables", expanded=False, icon="🔢"):
+                    with hms_tab.expander("Tables", expanded=False, icon="🔢"):
                         st.markdown("#### Multi Event AMS Data")
                         st.dataframe(multi_event_ams_df)
+                        if gage_ams_confidence_df is not None:
+                            st.markdown("#### Gage AMS Confidence Limits")
+                            st.dataframe(gage_ams_confidence_df)
                         if gage_ams_df is not None:
                             st.markdown("#### Gage AMS Data")
                             st.dataframe(gage_ams_df)
