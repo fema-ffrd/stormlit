@@ -5,10 +5,7 @@ from db.utils import create_pg_connection, create_s3_connection
 # standard imports
 import os
 import streamlit as st
-import pandas as pd
-import geopandas as gpd
 from dotenv import load_dotenv
-from urllib.parse import urljoin
 import logging
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
