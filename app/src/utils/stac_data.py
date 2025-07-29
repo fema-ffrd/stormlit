@@ -11,6 +11,7 @@ from db.pull import (
     query_s3_bc_lines,
     query_s3_model_bndry,
     query_s3_hms_storms,
+    query_s3_hms_gages_lookup
 )
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
@@ -83,11 +84,15 @@ def prep_gdf(gdf: gpd.GeoDataFrame, layer: str, hms: bool = False) -> gpd.GeoDat
     centroids = gdf.geometry.centroid
     gdf["lat"] = centroids.y.astype(float)
     gdf["lon"] = centroids.x.astype(float)
+    gdf = gdf[(gdf["lon"] != 0) | (gdf["lat"] != 0)]
+    # If the layer is an HMS layer, rename the
     gdf["layer"] = layer
     gdf["crs"] = crs_str
     gdf["bbox"] = bbox_str
     if hms:
-        if "name" in gdf.columns:
+        if "HMS Element" in gdf.columns:
+            gdf.rename(columns={"HMS Element": "hms_element"}, inplace=True)
+        elif "name" in gdf.columns:
             gdf.rename(columns={"name": "hms_element"}, inplace=True)
     return gdf
 
@@ -133,6 +138,8 @@ def init_hms_pilot(s3_conn, pilot: str):
     st.junctions = prep_gdf(df_junctions, "Junction", hms=True)
     df_reservoirs = gpd.read_file(st.pilot_layers["Reservoirs"])
     st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
+    st.hms_gages = query_s3_hms_gages_lookup(s3_conn, pilot)
+    st.hms_gages = prep_gdf(st.hms_gages, "Gage", hms=True)
 
 
 def init_ras_pilot(s3_conn, pilot: str):
