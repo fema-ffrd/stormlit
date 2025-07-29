@@ -31,7 +31,7 @@ from db.pull import (
     query_s3_stochastic_event_list,
     query_s3_ams_peaks_by_element,
     query_s3_gage_ams,
-    query_s3_ams_confidence_limits
+    query_s3_ams_confidence_limits,
 )
 
 # standard imports
@@ -576,7 +576,9 @@ def hms_results():
                 FeatureType.JUNCTION,
                 FeatureType.RESERVOIR,
             ]:
-                hms_gage = st.hms_gages.loc[st.hms_gages["hms_element"] == feature_label]
+                hms_gage = st.hms_gages.loc[
+                    st.hms_gages["hms_element"] == feature_label
+                ]
                 if hms_gage.empty:
                     hms_gage = None
             elif feature_type == FeatureType.GAGE:
@@ -679,17 +681,15 @@ def hms_results():
                         hms_rating_curve_url = hms_gage["Rating Curve URL"].values[0]
                         hms_usgs_data_url = hms_gage["URL"].values[0]
                         with gage_tab:
-                            st.markdown(
-                                f"🌐 [Rating Curve]({hms_rating_curve_url})"
-                            )
+                            st.markdown(f"🌐 [Rating Curve]({hms_rating_curve_url})")
                             st.markdown(f"🌐 [USGS Gage Data]({hms_usgs_data_url})")
                             gage_data = define_gage_data(hms_gage_id)
                             gage_meta_url = gage_data["Metadata"]
-                            gage_meta_status_ok, gage_meta = get_stac_meta(gage_meta_url)
+                            gage_meta_status_ok, gage_meta = get_stac_meta(
+                                gage_meta_url
+                            )
                             if gage_meta_status_ok:
-                                gage_stac_viewer_url = (
-                                    f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
-                                )
+                                gage_stac_viewer_url = f"{st.session_state['stac_browser_url']}/#/external/{gage_meta_url}"
                                 gage_props = gage_meta.get("properties", {})
                                 st.markdown(
                                     f"🌐 [STAC Metadata for Gage {hms_gage_id}]({gage_stac_viewer_url})"
@@ -703,11 +703,17 @@ def hms_results():
                                 for plot_type, plot_url in gage_data.items():
                                     if plot_type != "Metadata":
                                         with st.expander(plot_type, expanded=False):
-                                            plot_status_ok, plot_img = get_stac_img(plot_url)
+                                            plot_status_ok, plot_img = get_stac_img(
+                                                plot_url
+                                            )
                                             if plot_status_ok:
-                                                st.image(plot_img, use_container_width=True)
+                                                st.image(
+                                                    plot_img, use_container_width=True
+                                                )
                                             else:
-                                                st.error(f"Error retrieving {plot_type} image.")
+                                                st.error(
+                                                    f"Error retrieving {plot_type} image."
+                                                )
                             else:
                                 gage_tab.warning(
                                     "No additional gage data is currently available for this location."
@@ -749,14 +755,16 @@ def hms_results():
                             hms_gage_id,
                             realization_id=1,
                             duration="72Hour",
-                            variable="Flow"
+                            variable="Flow",
                         )
                         if not gage_ams_confidence_df.empty:
                             # remove duplicates
-                            gage_ams_confidence_df = gage_ams_confidence_df.drop_duplicates(
-                                subset=["AEP"]
+                            gage_ams_confidence_df = (
+                                gage_ams_confidence_df.drop_duplicates(subset=["AEP"])
                             )
-                            gage_ams_confidence_df["return_period"] = 1 / gage_ams_confidence_df["AEP"]
+                            gage_ams_confidence_df["return_period"] = (
+                                1 / gage_ams_confidence_df["AEP"]
+                            )
                     else:
                         gage_ams_confidence_df = None
                     if hms_gage_id is not None:
@@ -767,15 +775,15 @@ def hms_results():
                             hms_gage_id,
                         )
                         if not gage_ams_df.empty:
-                            gage_ams_df["aep"] = gage_ams_df["rank"] / (len(gage_ams_df))
+                            gage_ams_df["aep"] = gage_ams_df["rank"] / (
+                                len(gage_ams_df)
+                            )
                             gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
                             gage_ams_df["peak_time"] = pd.to_datetime(
                                 gage_ams_df["peak_time"]
                             ).dt.strftime("%Y-%m-%d")
                         else:
-                            st.warning(
-                                "No AMS data found for the selected gage."
-                            )
+                            st.warning("No AMS data found for the selected gage.")
                             gage_ams_df = None
                     else:
                         gage_ams_df = None
@@ -783,7 +791,9 @@ def hms_results():
                         st.write(
                             "Select one or multiple points (hold shift) from the curve to view their full hydrograph time series."
                         )
-                        selected_points = plot_flow_aep(multi_event_ams_df, gage_ams_df, gage_ams_confidence_df)
+                        selected_points = plot_flow_aep(
+                            multi_event_ams_df, gage_ams_df, gage_ams_confidence_df
+                        )
                         multi_events_flows_df = None
                         multi_events_baseflows_df = None
                         if selected_points:

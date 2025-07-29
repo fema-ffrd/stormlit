@@ -706,7 +706,8 @@ def query_s3_gage_ams(_conn, pilot: str, gage_id: str) -> pd.DataFrame:
 
 @st.cache_data
 def query_s3_hms_gages_lookup(
-    _conn, pilot: str,
+    _conn,
+    pilot: str,
 ) -> gpd.GeoDataFrame:
     """
     Query HMS gages lookup geodataframe from the S3 bucket.
@@ -725,6 +726,7 @@ def query_s3_hms_gages_lookup(
         msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
         raise StormlitQueryException(msg)
+
 
 @st.cache_data
 def query_s3_ams_confidence_limits(

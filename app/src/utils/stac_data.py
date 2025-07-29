@@ -11,7 +11,7 @@ from db.pull import (
     query_s3_bc_lines,
     query_s3_model_bndry,
     query_s3_hms_storms,
-    query_s3_hms_gages_lookup
+    query_s3_hms_gages_lookup,
 )
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder

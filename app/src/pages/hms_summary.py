@@ -18,6 +18,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
 def hms_summary():
     """
     Main function to render the HMS summary page.

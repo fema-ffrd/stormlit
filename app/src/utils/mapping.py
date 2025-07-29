@@ -300,16 +300,19 @@ def prep_fmap(
             )
         if st.hms_gages is not None:
             add_circles(
-                m, st.hms_gages, "Gages", [
+                m,
+                st.hms_gages,
+                "Gages",
+                [
                     "USGS ID",
-                "Name",
-                "Gage Rank",
-                "Regulated?",
-                "Start of Regulation",
-                "hms_element",
-                "Notes"
+                    "Name",
+                    "Gage Rank",
+                    "Regulated?",
+                    "Start of Regulation",
+                    "hms_element",
+                    "Notes",
                 ],
-                "#32cd32"
+                "#32cd32",
             )
 
     # Additional Elements
