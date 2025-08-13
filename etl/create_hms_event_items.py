@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import json
+import logging
+
 import pandas as pd
 import requests
-from pystac import Collection, Asset
 from hecstac.events.hms_ffrd import HMSEventItem
 from post_existing_collection import strip_collection_links_from_item
+from pystac import Asset, Collection
 from stac_admin_client import AdminClient
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

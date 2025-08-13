@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import json
+import logging
 from urllib.parse import urljoin
 
 import fsspec
-import pystac
 import requests
-from pystac import Collection, Item, Asset
+from pystac import Asset, Collection, Item
 from stac_admin_client import AdminClient
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ def collection_from_file(s3_uri: str) -> Collection | None:
             collection_dict = json.loads(file.read())
             return Collection.from_dict(collection_dict)
     except Exception as e:
-        logger.error(f"Error reading STAC collection: {e}")
+        logger.exception(f"Error reading STAC collection: {e}")
         return None
 
 
@@ -29,7 +30,7 @@ def item_dict_from_file(s3_uri: str) -> dict | None:
         with fsspec.open(s3_uri, mode="r") as file:
             return json.loads(file.read())
     except Exception as e:
-        logger.error(f"Error reading STAC item: {e}")
+        logger.exception(f"Error reading STAC item: {e}")
         return None
 
 

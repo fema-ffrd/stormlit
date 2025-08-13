@@ -1,11 +1,15 @@
-import pandas as pd
-import geopandas as gpd
-import duckdb
-import logging
+from __future__ import annotations
 
-from dotenv import load_dotenv, find_dotenv
-import boto3
+import logging
 import os
+from typing import TYPE_CHECKING
+
+import boto3
+import duckdb
+from dotenv import find_dotenv, load_dotenv
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,18 +25,21 @@ def query_s3_ams_multi_element(
     block_group_start: int,
     block_group_end: int,
 ) -> pd.DataFrame:
-    """
-    Query peak flow data for multiple elements and block groups, combining results into one dataframe.
+    """Query peak flow data for multiple elements and block groups, combining results into one dataframe.
 
-    Parameters:
+    Parameters
+    ----------
         _conn (connection): A DuckDB connection object.
         pilot (str): The pilot name for the S3 bucket.
         realization_id (int): The realization ID to query (e.g., 1).
         element_ids (list[str]): The element IDs to query (e.g., ['amon-g-carter_s010']).
         block_group_start (int): The starting block group index to query.
         block_group_end (int): The ending block group index to query.
-    Returns:
+
+    Returns
+    -------
         pd.DataFrame: A pandas DataFrame containing the stochastic block group flow data.
+
     """
     s3_paths = [
         f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/block_group={i}/peaks.pq"
