@@ -7,195 +7,18 @@ peaks and confidence limits.
 
 from __future__ import annotations
 
-import logging
-import os
 from pathlib import Path
 
-import duckdb
-import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
-import s3fs
-from dotenv import load_dotenv
+
+from etl import utils
+from etl.utils import S3QueryBuilder
 
 __all__ = ["plot_all_hms_elements"]
 
-_ = load_dotenv()
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-
-
-def _create_s3_connection(aws_region: str = "us-east-1") -> duckdb.DuckDBPyConnection:
-    """Create a connection to an S3 account using DuckDB.
-
-    This function uses the AWS extension with credential_chain provider to automatically
-    fetch credentials using AWS SDK default provider chain, supporting ECS instance credentials.
-
-    Parameters
-    ----------
-    aws_region : str, defaults to "us-east-1"
-        The AWS region to connect to.
-
-    Returns
-    -------
-    duckdb.DuckDBPyConnection
-        DuckDB connection object configured for S3 access.
-
-    """
-    conn = duckdb.connect()
-    conn.execute("INSTALL 'aws'")
-    conn.execute("LOAD 'aws'")
-    conn.execute("INSTALL 'httpfs'")
-    conn.execute("LOAD 'httpfs'")
-
-    conn.execute(
-        """
-        CREATE OR REPLACE SECRET aws_secret (
-            TYPE s3,
-            PROVIDER credential_chain,
-            REGION ?
-        )
-    """,
-        [os.getenv("AWS_REGION", aws_region)],
-    )
-    return conn
-
-
-def _query_s3_ams_peaks_by_element(
-    s3_conn: duckdb.DuckDBPyConnection, pilot: str, element_id: str, realization_id: int
-) -> pd.DataFrame:
-    """Query AMS peak data by element from the S3 bucket.
-
-    Parameters
-    ----------
-    s3_conn : duckdb.DuckDBPyConnection
-        The S3 connection object.
-    pilot : str
-        The pilot name for the S3 bucket.
-    element_id : str
-        The element ID to query.
-    realization_id : int
-        The realization ID to query.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A pandas DataFrame containing the AMS peak data with columns:
-        rank, element, peak_flow, event_id, block_group.
-
-    """
-    s3_path = f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/ams_by_elements.pq"
-    query = """
-        SELECT ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank,
-               element, peak_flow, event_id, block_group
-        FROM read_parquet(?, hive_partitioning=true)
-        WHERE element=?;
-    """
-    return s3_conn.execute(query, [s3_path, element_id]).fetchdf()
-
-
-def _query_s3_hms_storms(s3_conn: duckdb.DuckDBPyConnection, pilot: str) -> pd.DataFrame:
-    """Query the list of HMS storms from the S3 bucket.
-
-    Parameters
-    ----------
-    s3_conn : duckdb.DuckDBPyConnection
-        A DuckDB connection object.
-    pilot : str
-        The pilot name for the S3 bucket.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A pandas DataFrame containing the HMS storm data with columns:
-        event_id, storm_id, storm_type.
-
-    """
-    s3_path = f"s3://{pilot}/cloud-hms-db/storms.pq"
-    query = """
-        SELECT event_number as event_id, storm_id, storm_type
-        FROM read_parquet(?, hive_partitioning=true);
-    """
-    return s3_conn.execute(query, [s3_path]).fetchdf()
-
-
-def _query_s3_gage_ams(
-    s3_conn: duckdb.DuckDBPyConnection, pilot: str, gage_id: str
-) -> pd.DataFrame:
-    """Query AMS gage data from the S3 bucket.
-
-    Parameters
-    ----------
-    s3_conn : duckdb.DuckDBPyConnection
-        A DuckDB connection object.
-    pilot : str
-        The pilot name for the S3 bucket.
-    gage_id : str
-        The ID of the gage to query.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A pandas DataFrame containing the AMS gage data with columns:
-        peak_flow, gage_ht, gage_id, peak_time, rank.
-
-    """
-    s3_path = f"s3://{pilot}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
-    query = """
-        SELECT
-            peak_va as peak_flow,
-            gage_ht,
-            site_no as gage_id,
-            datetime as peak_time,
-            ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank
-        FROM read_parquet(?, hive_partitioning=true);
-    """
-    return s3_conn.execute(query, [s3_path]).fetchdf()
-
-
-def _query_s3_ams_confidence_limits(
-    s3_conn: duckdb.DuckDBPyConnection,
-    pilot: str,
-    gage_id: str,
-    realization_id: int,
-    duration: str,
-    variable: str,
-) -> pd.DataFrame:
-    """Query confidence limits data from the S3 bucket for a given gage ID.
-
-    Parameters
-    ----------
-    s3_conn : duckdb.DuckDBPyConnection
-        A DuckDB connection object.
-    pilot : str
-        The pilot name for the S3 bucket.
-    gage_id : str
-        The gage ID to query.
-    realization_id : int
-        The realization ID to query.
-    duration : str
-        The duration of the confidence limits (e.g., '1Hour', '24Hour', '72Hour').
-    variable : str
-        The variable to query (e.g., 'Flow', 'Elev').
-
-    Returns
-    -------
-    pandas.DataFrame
-        A pandas DataFrame containing the confidence limits data with columns:
-        site_no, variable, duration, AEP, return_period, computed, upper, lower.
-
-    """
-    s3_path = (
-        f"s3://{pilot}/cloud-hms-db/ams/realization={realization_id}/confidence_limits.parquet"
-    )
-    query = """
-        SELECT * FROM read_parquet(?, hive_partitioning=true)
-        WHERE duration=? and site_no=? and variable=?;
-    """
-    return s3_conn.execute(query, [s3_path, duration, gage_id, variable]).fetchdf()
+logger = utils.get_logger()
 
 
 def _plot_flow_aep(
@@ -387,8 +210,6 @@ def _save_empty_plot(
     logger.info(f"Saved empty plot for {gage_id}: {filename}")
 
 
-# TODO: We need to identify the acceptable values for all input parameters
-# and validate them. We then can use Literal for type hinting
 def plot_all_hms_elements(
     *,
     bucket_name: str = "trinity-pilot",
@@ -436,109 +257,95 @@ def plot_all_hms_elements(
         f"Parameters: realization_id={realization_id}, duration={duration}, variable={variable}"
     )
 
-    hms_gages_lookup_uri = f"s3://{bucket_name}/stac/prod-support/gages/hms_gages_lookup.parquet"
-    hms_lookup = gpd.read_parquet(hms_gages_lookup_uri)
-
-    s3_conn = _create_s3_connection()
-
     # To reduce the number of queries we filter out the stations that have no
     # folder containing AMS results. Note that although some stations have a
     # results folder but they may not contain the expected files.
-    fs = s3fs.S3FileSystem()
-    path = f"s3://{bucket_name}/stac/prod-support/gages/"
-    items = fs.ls(path, detail=True)
-    ams_gage_ids = [
-        item["name"].rsplit("/", 1)[-1] for item in items if item["type"] == "directory"
-    ]
-
-    elements = hms_lookup.groupby("HMS Element")["USGS ID"].apply(list).to_dict()
-
-    hms_storms = _query_s3_hms_storms(s3_conn, bucket_name)
-
     n_plots = 0
+    with S3QueryBuilder(bucket_name) as s3_query:
+        for element_id, usgs_ids in s3_query.hms_elements.items():
+            logger.info(f"Processing HMS element: {element_id}")
 
-    for element_id, usgs_ids in elements.items():
-        logger.info(f"Processing HMS element: {element_id}")
+            multi_event_ams_df = s3_query.ams_peaks_by_element(element_id, realization_id)
 
-        multi_event_ams_df = _query_s3_ams_peaks_by_element(
-            s3_conn, bucket_name, element_id, realization_id
-        )
-
-        if multi_event_ams_df.empty:
-            logger.warning(f"No AMS data found for element {element_id}")
-            for usgs_id in usgs_ids:
-                _save_empty_plot(
-                    usgs_id,
-                    f"No AMS data found for HMS element {element_id}",
-                    save_dir,
-                    figsize,
-                    dpi,
-                )
-            continue
-
-        multi_event_ams_df["aep"] = multi_event_ams_df["rank"] / len(multi_event_ams_df)
-        multi_event_ams_df["return_period"] = 1 / multi_event_ams_df["aep"]
-
-        multi_event_ams_df = pd.merge(
-            multi_event_ams_df, hms_storms, left_on="event_id", right_on="event_id", how="left"
-        )
-        multi_event_ams_df["storm_id"] = pd.to_datetime(multi_event_ams_df["storm_id"]).dt.strftime(
-            "%Y-%m-%d"
-        )
-
-        for usgs_id in usgs_ids:
-            if usgs_id not in ams_gage_ids:
-                logger.debug(f"Skipping {usgs_id} - no AMS data available")
-                _save_empty_plot(
-                    usgs_id, "No AMS data available for this gage", save_dir, figsize, dpi
-                )
-                continue
-
-            logger.info(f"Processing gage: {usgs_id}")
-
-            gage_ams_df = _query_s3_gage_ams(s3_conn, bucket_name, usgs_id)
-
-            if not gage_ams_df.empty:
-                gage_ams_df["aep"] = gage_ams_df["rank"] / len(gage_ams_df)
-                gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
-                gage_ams_df["peak_time"] = pd.to_datetime(gage_ams_df["peak_time"]).dt.strftime(
-                    "%Y-%m-%d"
-                )
-
-            gage_ams_confidence_df = _query_s3_ams_confidence_limits(
-                s3_conn, bucket_name, usgs_id, realization_id, duration, variable
-            )
-
-            if not gage_ams_confidence_df.empty:
-                if gage_ams_confidence_df["computed"].isna().all():
-                    logger.warning(f"Skipping {usgs_id} - all computed values are NaNs")
+            if multi_event_ams_df.empty:
+                logger.warning(f"No AMS data found for element {element_id}")
+                for usgs_id in usgs_ids:
                     _save_empty_plot(
                         usgs_id,
-                        "All computed confidence limit values are NaN",
+                        f"No AMS data found for HMS element {element_id}",
                         save_dir,
                         figsize,
                         dpi,
                     )
+                continue
+
+            multi_event_ams_df["aep"] = multi_event_ams_df["rank"] / len(multi_event_ams_df)
+            multi_event_ams_df["return_period"] = 1 / multi_event_ams_df["aep"]
+
+            multi_event_ams_df = pd.merge(
+                multi_event_ams_df, s3_query.hms_storms, left_on="event_id", right_on="event_id", how="left"
+            )
+            multi_event_ams_df["storm_id"] = pd.to_datetime(multi_event_ams_df["storm_id"]).dt.strftime(
+                "%Y-%m-%d"
+            )
+            if not s3_query.all_ams_gage_ids:
+                logger.warning(f"No AMS gage IDs found for HMS element {element_id}")
+                continue
+
+            for usgs_id in usgs_ids:
+                if usgs_id not in s3_query.all_ams_gage_ids:
+                    logger.debug(f"Skipping {usgs_id} - no AMS data available")
+                    _save_empty_plot(
+                        usgs_id, "No AMS data available for this gage", save_dir, figsize, dpi
+                    )
                     continue
 
-                gage_ams_confidence_df = gage_ams_confidence_df.drop_duplicates(subset=["AEP"])
-                gage_ams_confidence_df["return_period"] = 1 / gage_ams_confidence_df["AEP"]
+                logger.info(f"Processing gage: {usgs_id}")
 
-                _plot_flow_aep(
-                    multi_event_ams_df,
-                    usgs_id,
-                    gage_ams_df if not gage_ams_df.empty else None,
-                    gage_ams_confidence_df,
-                    save_dir,
-                    figsize=figsize,
-                    dpi=dpi,
+                gage_ams_df = s3_query.ams_peaks_by_element(usgs_id, realization_id)
+
+                if not gage_ams_df.empty:
+                    gage_ams_df["aep"] = gage_ams_df["rank"] / len(gage_ams_df)
+                    gage_ams_df["return_period"] = 1 / gage_ams_df["aep"]
+                    gage_ams_df["peak_time"] = pd.to_datetime(gage_ams_df["peak_time"]).dt.strftime(
+                        "%Y-%m-%d"
+                    )
+
+                gage_ams_confidence_df = s3_query.ams_confidence_limits(
+                    gage_id=usgs_id,
+                    realization_id=realization_id,
+                    duration=duration,
+                    variable=variable
                 )
-                n_plots += 1
-            else:
-                logger.warning(f"No confidence limits data found for {usgs_id}")
-                _save_empty_plot(usgs_id, "No confidence limits data found", save_dir, figsize, dpi)
 
-    s3_conn.close()
+                if not gage_ams_confidence_df.empty:
+                    if gage_ams_confidence_df["computed"].isna().all():
+                        logger.warning(f"Skipping {usgs_id} - all computed values are NaNs")
+                        _save_empty_plot(
+                            usgs_id,
+                            "All computed confidence limit values are NaN",
+                            save_dir,
+                            figsize,
+                            dpi,
+                        )
+                        continue
+
+                    gage_ams_confidence_df = gage_ams_confidence_df.drop_duplicates(subset=["AEP"])
+                    gage_ams_confidence_df["return_period"] = 1 / gage_ams_confidence_df["AEP"]
+
+                    _plot_flow_aep(
+                        multi_event_ams_df,
+                        usgs_id,
+                        gage_ams_df if not gage_ams_df.empty else None,
+                        gage_ams_confidence_df,
+                        save_dir,
+                        figsize=figsize,
+                        dpi=dpi,
+                    )
+                    n_plots += 1
+                else:
+                    logger.warning(f"No confidence limits data found for {usgs_id}")
+                    _save_empty_plot(usgs_id, "No confidence limits data found", save_dir, figsize, dpi)
 
     logger.info(f"Analysis complete! Generated {n_plots} discharge frequency plots.")
 
