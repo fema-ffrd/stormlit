@@ -8,12 +8,13 @@ peaks and confidence limits.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from etl import utils
-from etl.utils import S3QueryBuilder
+from etl.utils import DuckDBParquetQuery
 
 __all__ = ["plot_all_hms_elements"]
 
@@ -30,7 +31,7 @@ def _plot_flow_aep(
     figsize: tuple[int, int],
     dpi: int,
 ) -> None:
-    """Plot Discharge Frequency Plot using matplotlib.
+    """Plot Discharge Frequency Plot using ``matplotlib``.
 
     This creates a dual-axis structure:
     - Bottom x-axis: AEP (inverted, log scale)
@@ -213,9 +214,9 @@ def _save_empty_plot(
 def plot_all_hms_elements(
     *,
     bucket_name: str = "trinity-pilot",
-    realization_id: int = 1,
-    duration: str = "72Hour",
-    variable: str = "Flow",
+    realization_id: Literal[1] = 1,
+    duration: Literal["1Hour", "24Hour", "72Hour"] = "72Hour",
+    variable: Literal["Flow", "Elev"] = "Flow",
     save_dir: str | Path = "plots",
     figsize: tuple[int, int] = (12, 8),
     dpi: int = 300,
@@ -234,9 +235,11 @@ def plot_all_hms_elements(
     realization_id : int, defaults to 1
         The realization ID to query from the HMS database.
     duration : str, defaults to ``72Hour``
-        The duration for confidence limits (e.g., ``1Hour``, ``24Hour``, ``72Hour``).
+        The duration for confidence limits. Acceptable values are
+        ``1Hour``, ``24Hour``, and ``72Hour``.
     variable : str, defaults to "Flow"
-        The variable to query for confidence limits (e.g., ``Flow``, ``Elev``).
+        The variable to query for confidence limits. Acceptable values are
+        ``Flow`` and ``Elev``.
     save_dir : str or pathlib.Path, defaults to "./plots"
         The directory to save output plots.
     figsize : tuple of two ints, defaults to (12, 8)
@@ -253,6 +256,19 @@ def plot_all_hms_elements(
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Starting HMS flow analysis for bucket: {bucket_name}")
+
+    valid_realization_ids = (1,)
+    if realization_id not in valid_realization_ids:
+        raise ValueError(f"Invalid realization_id: {realization_id}. Valid IDs are: {valid_realization_ids}")
+
+    valid_durations = ("1Hour", "24Hour", "72Hour")
+    if duration not in valid_durations:
+        raise ValueError(f"Invalid duration: {duration}. Valid durations are: {valid_durations}")
+
+    valid_variables = ("Flow", "Elev")
+    if variable not in valid_variables:
+        raise ValueError(f"Invalid variable: {variable}. Valid variables are: {valid_variables}")
+
     logger.info(
         f"Parameters: realization_id={realization_id}, duration={duration}, variable={variable}"
     )
@@ -261,7 +277,7 @@ def plot_all_hms_elements(
     # folder containing AMS results. Note that although some stations have a
     # results folder but they may not contain the expected files.
     n_plots = 0
-    with S3QueryBuilder(bucket_name) as s3_query:
+    with DuckDBParquetQuery(bucket_name) as s3_query:
         for element_id, usgs_ids in s3_query.hms_elements.items():
             logger.info(f"Processing HMS element: {element_id}")
 
