@@ -4,7 +4,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import duckdb
 import geopandas as gpd
@@ -12,18 +12,22 @@ from dotenv import load_dotenv
 from duckdb import DuckDBPyConnection
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from logging import Logger
 
     from pandas import DataFrame
 
 
-
 __all__ = [
-    "S3QueryBuilder",
+    "AMSQueriesMixin",
+    "BaseDuckDBParquetQuery",
+    "DuckDBParquetQuery",
+    "HMSQueriesMixin",
     "get_logger",
 ]
 
 load_dotenv()
+
 
 def get_logger(verbose: bool = False) -> Logger:
     """Get a logger instance with either DEBUG or INFO level."""
@@ -54,7 +58,7 @@ def _get_env(*keys: str, default: str = "") -> str:
     return default
 
 
-def _create_s3_connection() -> DuckDBPyConnection:
+def _create_db_connection() -> DuckDBPyConnection:
     """Create a connection to an S3 account using DuckDB.
 
     This function uses the AWS extension with credential_chain
@@ -87,23 +91,21 @@ def _create_s3_connection() -> DuckDBPyConnection:
     return conn
 
 
-class S3QueryBuilder:
-    """A query builder for S3-based data operations using DuckDB."""
+class BaseDuckDBParquetQuery:
+    """Base class for S3-based parquet data operations using DuckDB."""
 
-    def __init__(self, pilot: str):
+    def __init__(self, bucket_name: str):
         """Initialize the S3 query builder.
 
         Parameters
         ----------
-        pilot : str
-            The pilot name for the S3 bucket.
+        bucket_name : str
+            The S3 bucket name.
 
         """
-        self.pilot = pilot
-        self.s3_conn = _create_s3_connection()
-        self._hms_elements = None
-        self._all_ams_gage_ids = None
-        self._hms_storms = None
+        self.bucket_name = bucket_name
+        self.db_conn = _create_db_connection()
+        self._cached_data: dict[str, Any] = {}
 
     def __enter__(self):
         """Context manager entry."""
@@ -115,15 +117,15 @@ class S3QueryBuilder:
 
     def close(self):
         """Close the S3 connection."""
-        if self.s3_conn is not None:
-            self.s3_conn.close()
+        if self.db_conn is not None:
+            self.db_conn.close()
 
     def __del__(self):
         """Destructor to ensure connection is closed."""
         self.close()
 
-    def _check_s3_path(self, s3_path: str) -> None:
-        """Check if a given S3 path exists using DuckDB.
+    def _check_filepath(self, s3_path: str) -> None:
+        """Check if a given path exists in the bucket.
 
         Parameters
         ----------
@@ -137,7 +139,7 @@ class S3QueryBuilder:
 
         """
         try:
-            result = self.s3_conn.execute("""
+            result = self.db_conn.execute("""
                 SELECT COUNT(*) as file_count
                 FROM glob(?)
             """, [s3_path]).fetchone()
@@ -172,35 +174,57 @@ class S3QueryBuilder:
             If the S3 path does not exist.
 
         """
-        self._check_s3_path(s3_path)
+        self._check_filepath(s3_path)
         if params is None:
             params = [s3_path]
-        return self.s3_conn.execute(query, params).fetchdf()
+        return self.db_conn.execute(query, params).fetchdf()
+
+    def _get_cached_property(self, cache_key: str, loader_func: Callable[[], Any]) -> Any:
+        """Get a cached property value or load it if not cached.
+
+        Parameters
+        ----------
+        cache_key : str
+            The key to use for caching.
+        loader_func : callable
+            Function to call to load the data if not cached.
+
+        Returns
+        -------
+        any
+            The cached or newly loaded data.
+
+        """
+        if not callable(loader_func):
+            raise TypeError("loader_func must be callable")
+
+        if cache_key not in self._cached_data:
+            self._cached_data[cache_key] = loader_func()
+        return self._cached_data[cache_key]
+
+
+class HMSQueriesMixin(BaseDuckDBParquetQuery):
+    """Mixin for HMS-related query methods."""
 
     @property
     def hms_elements(self) -> dict[str, list[str]]:
-        """Mapping of HMS elements to their associated USGS IDs."""
-        if self._hms_elements is None:
-            hms_gages_lookup_uri = f"s3://{self.pilot}/stac/prod-support/gages/hms_gages_lookup.parquet"
-            hms_lookup = gpd.read_parquet(hms_gages_lookup_uri)
-            self._hms_elements = (
+        """Mapping of HMS elements to their associated USGS IDs.
+
+        Returns
+        -------
+        dict[str, list[str]]
+            Dictionary mapping HMS element names to lists of USGS IDs.
+
+        """
+        def _load_hms_elements():
+            s3_path = f"s3://{self.bucket_name}/stac/prod-support/gages/hms_gages_lookup.parquet"
+            self._check_filepath(s3_path)
+            hms_lookup = gpd.read_parquet(s3_path)
+            return (
                 hms_lookup.groupby("HMS Element")["USGS ID"].apply(list).to_dict()
             )
-        return self._hms_elements
 
-    @property
-    def all_ams_gage_ids(self) -> list[str]:
-        """List of all available AMS gage IDs."""
-        if self._all_ams_gage_ids is None:
-            with contextlib.suppress(Exception):
-                s3_pattern = f"s3://{self.pilot}/stac/prod-support/gages/*/*.pq"
-                result = self.s3_conn.execute("""
-                    SELECT DISTINCT regexp_extract(file, '.*/([^/]+)/[^/]+\\.pq$', 1) as gage_id
-                    FROM glob(?)
-                    WHERE file LIKE '%-ams.pq'
-                """, [s3_pattern]).fetchall()
-                return [row[0] for row in result if row[0]]
-        return []
+        return self._get_cached_property("hms_elements", _load_hms_elements)
 
     @property
     def hms_storms(self) -> DataFrame:
@@ -209,17 +233,45 @@ class S3QueryBuilder:
         Returns
         -------
         pandas.DataFrame
-            Columns: event_id, storm_id, storm_type.
+            DataFrame with columns: event_id, storm_id, storm_type.
 
         """
-        if self._hms_storms is None:
-            s3_path = f"s3://{self.pilot}/cloud-hms-db/storms.pq"
+        def _load_hms_storms():
+            s3_path = f"s3://{self.bucket_name}/cloud-hms-db/storms.pq"
             query = """
                 SELECT event_number as event_id, storm_id, storm_type
                 FROM read_parquet(?, hive_partitioning=true);
             """
-            self._hms_storms = self._execute_query(s3_path, query)
-        return self._hms_storms
+            return self._execute_query(s3_path, query)
+
+        return self._get_cached_property("hms_storms", _load_hms_storms)
+
+
+class AMSQueriesMixin(BaseDuckDBParquetQuery):
+    """Mixin for AMS-related query methods."""
+
+    @property
+    def all_ams_gage_ids(self) -> list[str]:
+        """List of all available AMS gage IDs.
+
+        Returns
+        -------
+        list[str]
+            List of gage IDs that have AMS data available.
+
+        """
+        def _load_all_ams_gage_ids():
+            with contextlib.suppress(Exception):
+                s3_pattern = f"s3://{self.bucket_name}/stac/prod-support/gages/*/*.pq"
+                result = self.db_conn.execute("""
+                    SELECT DISTINCT regexp_extract(file, '.*/([^/]+)/[^/]+\\.pq$', 1) as gage_id
+                    FROM glob(?)
+                    WHERE file LIKE '%-ams.pq'
+                """, [s3_pattern]).fetchall()
+                return [row[0] for row in result if row[0]]
+            return []
+
+        return self._get_cached_property("all_ams_gage_ids", _load_all_ams_gage_ids)
 
     def gage_ams(self, gage_id: str) -> DataFrame:
         """Query AMS gage data from the S3 bucket.
@@ -236,7 +288,7 @@ class S3QueryBuilder:
             peak_flow, gage_ht, gage_id, peak_time, rank.
 
         """
-        s3_path = f"s3://{self.pilot}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
+        s3_path = f"s3://{self.bucket_name}/stac/prod-support/gages/{gage_id}/{gage_id}-ams.pq"
         query = """
             SELECT
                 peak_va as peak_flow,
@@ -265,7 +317,7 @@ class S3QueryBuilder:
             rank, element, peak_flow, event_id, block_group.
 
         """
-        s3_path = f"s3://{self.pilot}/cloud-hms-db/ams/realization={realization_id}/ams_by_elements.pq"
+        s3_path = f"s3://{self.bucket_name}/cloud-hms-db/ams/realization={realization_id}/ams_by_elements.pq"
         query = """
             SELECT ROW_NUMBER() OVER (ORDER BY peak_flow DESC) AS rank,
                    element, peak_flow, event_id, block_group
@@ -301,9 +353,24 @@ class S3QueryBuilder:
             site_no, variable, duration, AEP, return_period, computed, upper, lower.
 
         """
-        s3_path = f"s3://{self.pilot}/cloud-hms-db/ams/realization={realization_id}/confidence_limits.parquet"
+        s3_path = f"s3://{self.bucket_name}/cloud-hms-db/ams/realization={realization_id}/confidence_limits.parquet"
         query = """
             SELECT * FROM read_parquet(?, hive_partitioning=true)
             WHERE duration=? and site_no=? and variable=?;
         """
         return self._execute_query(s3_path, query, [s3_path, duration, gage_id, variable])
+
+
+class DuckDBParquetQuery(HMSQueriesMixin, AMSQueriesMixin):
+    """A query builder for S3-based data operations using DuckDB."""
+
+    def __init__(self, bucket_name: str):
+        """Initialize the S3 query builder.
+
+        Parameters
+        ----------
+        bucket_name : str
+            The S3 bucket name.
+
+        """
+        super().__init__(bucket_name)
