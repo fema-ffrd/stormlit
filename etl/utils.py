@@ -212,8 +212,8 @@ class HMSQueriesMixin(BaseDuckDBParquetQuery):
 
         Returns
         -------
-        dict[str, list[str]]
-            Dictionary mapping HMS element names to lists of USGS IDs.
+        dict
+            Dictionary mapping each HMS element name to its associated list of USGS IDs.
 
         """
         def _load_hms_elements():
@@ -256,7 +256,7 @@ class AMSQueriesMixin(BaseDuckDBParquetQuery):
 
         Returns
         -------
-        list[str]
+        list of str
             List of gage IDs that have AMS data available.
 
         """
