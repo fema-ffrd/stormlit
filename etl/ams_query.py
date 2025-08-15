@@ -1,13 +1,15 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+import boto3
 import duckdb
 import pandas as pd
-import boto3
-import os
-import json
-import time
-from dotenv import load_dotenv, find_dotenv
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
-import logging
+from dotenv import find_dotenv, load_dotenv
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,7 +84,7 @@ def process_block(block, storms_path, s3_response_dict, bucket, output_prefix):
         logging.info(f"Block {block_index} processed in {time.time() - start:.2f}s")
         return None
     except Exception as e:
-        logging.error(f"Failed processing block {block_index}: {e}")
+        logging.exception(f"Failed processing block {block_index}: {e}")
         return block
 
 

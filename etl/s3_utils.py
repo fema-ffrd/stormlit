@@ -1,5 +1,8 @@
-import s3fs
+from __future__ import annotations
+
 import json
+
+import s3fs
 
 
 def find_event_items(models_prefix: str):
@@ -25,16 +28,15 @@ def find_event_items(models_prefix: str):
                         if data.get("type") == "Feature":
                             valid_items.append(f"s3://{item_path}")
                     except json.JSONDecodeError:
-                        print(f"Invalid JSON in {item_path}")
+                        pass
             else:
-                print(f"No item found at: {item_path}")
+                pass
 
     return valid_items
 
 
 def find_calibration_items(models_prefix: str):
     """Find calibration items in each "model=" prefix. Used for finding RAS model calibration items."""
-
     fs = s3fs.S3FileSystem(anon=False)
 
     valid_items = []
@@ -50,8 +52,8 @@ def find_calibration_items(models_prefix: str):
                     if data.get("type") == "Feature":
                         valid_items.append(f"s3://{item_path}")
                     else:
-                        print(f"No item found at: {item_path}")
+                        pass
                 except json.JSONDecodeError:
-                    print(f"Invalid JSON in {item_path}")
+                    pass
 
     return valid_items

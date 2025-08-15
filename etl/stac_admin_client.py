@@ -1,16 +1,15 @@
 """A class for managing read and write operations on a STAC API."""
+from __future__ import annotations
 
 import json
 import logging
 import os
 import re
-import traceback
-from typing import Union
 
 import pystac_client
 import requests
 from dotenv import load_dotenv
-from pystac import Catalog, CatalogType, TemporalExtent
+from pystac import Catalog, CatalogType
 
 
 class AdminClient:
@@ -102,7 +101,7 @@ class AdminClient:
         )
         response.raise_for_status()
 
-    def add_collection(self, collection: Union[str, dict]) -> None:
+    def add_collection(self, collection: str | dict) -> None:
         """Create new collection on the remote."""
         if isinstance(collection, str):
             collection_id = collection
