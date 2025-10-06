@@ -74,6 +74,10 @@ class ApplicationStack(BaseStack):
                     "execution_role_statements": [],
                     "secret_arns": [pgstac_admin_secret_arn],
                 },
+                "flood-data-plotter": {
+                    "task_role_statements": [],
+                    "execution_role_statements": [],
+                },
             },
             tags=config.tags,
         )
@@ -140,6 +144,14 @@ class ApplicationStack(BaseStack):
                 ),
                 task_role_arn=Token.as_string(
                     self.iam.service_task_roles["stac-api"].arn
+                ),
+            ),
+            "flood-data-plotter": ServiceRoles(
+                execution_role_arn=Token.as_string(
+                    self.iam.service_execution_roles["flood-data-plotter"].arn
+                ),
+                task_role_arn=Token.as_string(
+                    self.iam.service_task_roles["flood-data-plotter"].arn
                 ),
             ),
         }

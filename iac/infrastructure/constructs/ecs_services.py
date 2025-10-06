@@ -145,6 +145,50 @@ class EcsServicesConstruct(Construct):
                 enable_service_connect=False,
             )
 
+        # Create flood-data-plotter service
+        if "flood-data-plotter" in service_roles:
+            flood_data_plotter_container_definitions = [
+                {
+                    "name": "flood-data-plotter",
+                    "image": f"{ecs_config.flood_data_plotter_config.image_repository}:{ecs_config.flood_data_plotter_config.image_tag}",
+                    "cpu": ecs_config.flood_data_plotter_config.cpu,
+                    "memory": ecs_config.flood_data_plotter_config.memory,
+                    "essential": True,
+                    "portMappings": [
+                        {
+                            "containerPort": ecs_config.flood_data_plotter_config.container_port,
+                            "protocol": "tcp",
+                            "name": "flood-data-plotter-http",
+                        }
+                    ],
+                    "environment": [],
+                    "logConfiguration": {
+                        "logDriver": "awslogs",
+                        "options": {
+                            "awslogs-group": f"/ecs/{self.resource_prefix}-flood-data-plotter",
+                            "awslogs-region": current_region,
+                            "awslogs-stream-prefix": "flood-data-plotter",
+                            "awslogs-create-group": "true",
+                        },
+                    },
+                }
+            ]
+
+            self.services["flood-data-plotter"] = self._create_service(
+                service_name="flood-data-plotter",
+                container_definitions=flood_data_plotter_container_definitions,
+                roles=service_roles["flood-data-plotter"],
+                service_config=ecs_config.flood_data_plotter_config,
+                cluster_id=cluster_id,
+                private_subnet_ids=private_subnet_ids,
+                security_group_id=security_group_id,
+                tags=tags,
+                load_balancers=[],
+                enable_service_connect=True,
+                service_connect_service_name="flood-data-plotter-svc",
+                service_connect_port_name="flood-data-plotter-http",
+            )
+
         # Create STAC API service
         if "stac-api" in service_roles:
             stac_container_definitions = [

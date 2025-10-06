@@ -75,12 +75,14 @@ class EcsConfig:
         instance_count (int): The number of ECS instances.
         stormlit_config (EcsServiceConfig): Configuration for the Stormlit service.
         stac_api_config (EcsServiceConfig): Configuration for the STAC FastAPI PGSTAC service.
+        flood_data_plotter_config (EcsServiceConfig): Configuration for the Flood Data Plotter service.
     """
 
     instance_type: str
     instance_count: int
     stormlit_config: EcsServiceConfig
     stac_api_config: EcsServiceConfig
+    flood_data_plotter_config: EcsServiceConfig
 
 
 @dataclass
@@ -219,7 +221,7 @@ def get_development_config() -> EnvironmentConfig:
             ),
         ),
         ecs=EcsConfig(
-            instance_type="t3.medium",
+            instance_type="t3.large",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
@@ -232,6 +234,14 @@ def get_development_config() -> EnvironmentConfig:
             stac_api_config=EcsServiceConfig(
                 image_repository="ghcr.io/stac-utils/stac-fastapi-pgstac",
                 image_tag="4.0.0",
+                container_count=1,
+                cpu=512,
+                memory=1024,
+                container_port=8080,
+            ),
+            flood_data_plotter_config=EcsServiceConfig(
+                image_repository="ghcr.io/fema-ffrd/flood-data-plotter",
+                image_tag="latest",
                 container_count=1,
                 cpu=512,
                 memory=1024,
@@ -293,7 +303,7 @@ def get_production_config() -> EnvironmentConfig:
             ),
         ),
         ecs=EcsConfig(
-            instance_type="t3.medium",
+            instance_type="t3.large",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
@@ -306,6 +316,14 @@ def get_production_config() -> EnvironmentConfig:
             stac_api_config=EcsServiceConfig(
                 image_repository="ghcr.io/stac-utils/stac-fastapi-pgstac",
                 image_tag="4.0.0",
+                container_count=1,
+                cpu=512,
+                memory=1024,
+                container_port=8080,
+            ),
+            flood_data_plotter_config=EcsServiceConfig(
+                image_repository="ghcr.io/fema-ffrd/flood-data-plotter",
+                image_tag="latest",
                 container_count=1,
                 cpu=512,
                 memory=1024,
