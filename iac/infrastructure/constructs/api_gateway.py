@@ -28,6 +28,7 @@ class ApiGatewayConstruct(Construct):
     A construct for creating an API Gateway (HTTP API) with JWT authentication
     for the STAC API, integrated with an ECS service via an NLB and VPC Link.
     Includes custom domain configuration.
+    Also creates target group and listener for flood-data-plotter on the same internal NLB.
     """
 
     def __init__(
@@ -41,6 +42,7 @@ class ApiGatewayConstruct(Construct):
         vpc_id: str,
         private_subnet_ids: List[str],
         stac_service_config: EcsServiceConfig,
+        flood_data_plotter_config: EcsServiceConfig,
         stac_api_certificate_arn: str,
         app_domain_hosted_zone_id: str,
         ecs_security_group_id: str,
@@ -105,6 +107,58 @@ class ApiGatewayConstruct(Construct):
             "stac_nlb_target_group_arn",
             value=self.stac_nlb_target_group.arn,
             description="ARN of the NLB Target Group for STAC API",
+        )
+
+        # Create target group and listener for flood-data-plotter on the internal NLB
+        # Note: Using port 8081 on NLB to avoid conflict with stac-api (8080)
+        flood_data_plotter_nlb_port = 8081
+
+        self.flood_data_plotter_nlb_target_group = NlbTargetGroup(
+            self,
+            "flood-data-plotter-nlb-tg",
+            name=f"{resource_prefix}-flood-plotter-tg",
+            port=flood_data_plotter_config.container_port,
+            protocol="TCP",
+            vpc_id=vpc_id,
+            target_type="ip",
+            health_check={
+                "enabled": True,
+                "protocol": "TCP",
+                "port": str(flood_data_plotter_config.container_port),
+                "interval": 30,
+                "healthy_threshold": 2,
+                "unhealthy_threshold": 2,
+            },
+            tags={**tags, "Name": f"{resource_prefix}-flood-plotter-tg"},
+        )
+
+        self.flood_data_plotter_nlb_listener = LbListener(
+            self,
+            "flood-data-plotter-nlb-listener",
+            load_balancer_arn=self.nlb.arn,
+            port=flood_data_plotter_nlb_port,
+            protocol="TCP",
+            default_action=[
+                LbListenerDefaultAction(
+                    type="forward",
+                    target_group_arn=self.flood_data_plotter_nlb_target_group.arn,
+                )
+            ],
+            tags=tags,
+        )
+
+        self.flood_data_plotter_nlb_target_group_arn_output = TerraformOutput(
+            self,
+            "flood_data_plotter_nlb_target_group_arn",
+            value=self.flood_data_plotter_nlb_target_group.arn,
+            description="ARN of the NLB Target Group for flood-data-plotter",
+        )
+
+        self.flood_data_plotter_nlb_endpoint_output = TerraformOutput(
+            self,
+            "flood_data_plotter_nlb_endpoint",
+            value=f"{self.nlb.dns_name}:{flood_data_plotter_nlb_port}",
+            description="Internal NLB endpoint for flood-data-plotter (VPC access only)",
         )
 
         # 2. Create VPC Link for API Gateway

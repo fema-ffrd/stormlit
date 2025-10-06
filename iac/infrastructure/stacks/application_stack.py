@@ -123,6 +123,7 @@ class ApplicationStack(BaseStack):
             vpc_id=vpc_id,
             private_subnet_ids=private_subnet_ids,
             stac_service_config=config.ecs.stac_api_config,
+            flood_data_plotter_config=config.ecs.flood_data_plotter_config,
             stac_api_certificate_arn=stac_api_cert_arn_val,
             app_domain_hosted_zone_id=app_domain_hz_id_val,
             ecs_security_group_id=ecs_security_group_id,
@@ -173,6 +174,9 @@ class ApplicationStack(BaseStack):
             ),
             stac_api_nlb_target_group_arn=Token.as_string(
                 self.api_gateway.stac_nlb_target_group.arn
+            ),
+            flood_data_plotter_nlb_target_group_arn=Token.as_string(
+                self.api_gateway.flood_data_plotter_nlb_target_group.arn
             ),
             ecs_config=config.ecs,
             rds_host=rds_host,

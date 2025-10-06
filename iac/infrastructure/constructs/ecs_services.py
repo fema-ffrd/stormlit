@@ -40,6 +40,7 @@ class EcsServicesConstruct(Construct):
         security_group_id: str,
         stormlit_alb_target_group_arn: str,
         stac_api_nlb_target_group_arn: str,
+        flood_data_plotter_nlb_target_group_arn: str,
         ecs_config: EcsConfig,
         rds_host: str,
         pgstac_admin_secret_arn: str,
@@ -174,6 +175,16 @@ class EcsServicesConstruct(Construct):
                 }
             ]
 
+            flood_data_plotter_load_balancers = []
+            if flood_data_plotter_nlb_target_group_arn:
+                flood_data_plotter_load_balancers.append(
+                    EcsServiceLoadBalancer(
+                        target_group_arn=flood_data_plotter_nlb_target_group_arn,
+                        container_name="flood-data-plotter",
+                        container_port=ecs_config.flood_data_plotter_config.container_port,
+                    )
+                )
+
             self.services["flood-data-plotter"] = self._create_service(
                 service_name="flood-data-plotter",
                 container_definitions=flood_data_plotter_container_definitions,
@@ -183,7 +194,7 @@ class EcsServicesConstruct(Construct):
                 private_subnet_ids=private_subnet_ids,
                 security_group_id=security_group_id,
                 tags=tags,
-                load_balancers=[],
+                load_balancers=flood_data_plotter_load_balancers,
                 enable_service_connect=True,
                 service_connect_service_name="flood-data-plotter-svc",
                 service_connect_port_name="flood-data-plotter-http",
