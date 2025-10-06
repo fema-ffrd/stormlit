@@ -131,6 +131,7 @@ echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config"""
                     **tags,
                     "Name": f"{resource_prefix}-ecs-instance-{i + 1}",
                 },
+                lifecycle={"create_before_destroy": True},
             )
             self.instances.append(instance)
 
