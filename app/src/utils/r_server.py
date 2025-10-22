@@ -225,14 +225,14 @@ def get_flow_plot(
 
         # Remove R-specific top-level keys that aren't part of standard Plotly
         r_specific_keys = {
-            "visdat", # R plotly visualization data (internal R metadata)
-            "cur_data", # Current data reference (R internal)
-            "attrs", # R plotly attributes (internal R metadata)
-            "base_url", # Base URL for R service (internal R metadata)
-            "shinyEvents", # Shiny event data (internal R metadata)
-            "highlight", # Highlight data (internal R metadata)
-            "source", # Source data (internal R metadata)
-            "config", # Configuration data (internal R metadata)
+            "visdat",  # R plotly visualization data (internal R metadata)
+            "cur_data",  # Current data reference (R internal)
+            "attrs",  # R plotly attributes (internal R metadata)
+            "base_url",  # Base URL for R service (internal R metadata)
+            "shinyEvents",  # Shiny event data (internal R metadata)
+            "highlight",  # Highlight data (internal R metadata)
+            "source",  # Source data (internal R metadata)
+            "config",  # Configuration data (internal R metadata)
         }
         for key in r_specific_keys:
             cleaned_data.pop(key, None)
