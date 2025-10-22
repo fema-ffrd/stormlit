@@ -5,7 +5,6 @@ from utils.r_server import get_flow_plot
 # standard imports
 import os
 import json
-import traceback
 from dotenv import load_dotenv
 import logging
 
