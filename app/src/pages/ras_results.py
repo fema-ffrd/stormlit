@@ -30,16 +30,17 @@ from db.pull import (
 
 # standard imports
 import os
+import logging
+from typing import Callable, List, Optional
+
+# third party imports
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
 from streamlit.errors import StreamlitDuplicateElementKey
 from dotenv import load_dotenv
-from streamlit_folium import st_folium
-from typing import Callable, List, Optional
 from urllib.parse import urljoin
 from enum import Enum
-import logging
 from shapely.geometry import shape
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
