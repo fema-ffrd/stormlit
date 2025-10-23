@@ -4,6 +4,8 @@ import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
+import streamlit as st
+
 load_dotenv()
 
 
@@ -131,9 +133,9 @@ def clean_r_plotly_object(obj, parent_key=None, trace_context=False):
         return obj
 
 
+@st.cache_data
 def get_flow_plot(
     data: Dict[str, Any],
-    json_output_path: str,
     return_html: bool = False,
 ) -> Dict[str, Any] | str:
     """
@@ -146,7 +148,6 @@ def get_flow_plot(
     Args:
         data (Dict[str, Any]): Dictionary containing the flow data to plot.
             Should match the expected schema for the /api/realization/flows endpoint.
-        json_output_path (str): Path where the input data JSON should be saved.
         return_html (bool): If True, returns HTML instead of JSON. Default False.
 
     Returns:
