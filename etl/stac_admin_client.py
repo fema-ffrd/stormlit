@@ -19,7 +19,9 @@ class AdminClient:
     def __init__(self, stac_endpoint: str) -> None:
         """Construct class."""
         self.stac_endpoint = stac_endpoint
-        self.stac_client = pystac_client.Client.open(self.stac_endpoint, headers=self.auth_header)
+        self.stac_client = pystac_client.Client.open(
+            self.stac_endpoint, headers=self.auth_header
+        )
 
         self.collection_url = "{}/collections/{}"
         self.item_url = "{}/collections/{}/items/{}"
@@ -46,7 +48,9 @@ class AdminClient:
             "Authorization": "Bearer null",
         }
 
-        auth_response = requests.request("POST", auth_server, headers=headers, data=auth_payload)
+        auth_response = requests.request(
+            "POST", auth_server, headers=headers, data=auth_payload
+        )
 
         try:
             token = json.loads(auth_response.text)["access_token"]
@@ -61,10 +65,14 @@ class AdminClient:
 
         return headers
 
-    def api_to_local_catalog(self, out_path: str, catalog_filter: re.Pattern = re.compile("(.*?)")):
+    def api_to_local_catalog(
+        self, out_path: str, catalog_filter: re.Pattern = re.compile("(.*?)")
+    ):
         """Copy a collection from a pystac-api to a local catalog."""
         collections = self.stac_client.get_collections()
-        collections = [c for c in collections if catalog_filter.fullmatch(c.id) is not None]
+        collections = [
+            c for c in collections if catalog_filter.fullmatch(c.id) is not None
+        ]
 
         for c in collections:
             out_catalog = Catalog(
@@ -113,7 +121,9 @@ class AdminClient:
             collection_id = collection["id"]
 
         # check if exists first
-        response = requests.get(self.collection_url.format(self.stac_endpoint, collection_id))
+        response = requests.get(
+            self.collection_url.format(self.stac_endpoint, collection_id)
+        )
         if response.status_code != 404:
             return
 
