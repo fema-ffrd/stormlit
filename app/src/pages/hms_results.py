@@ -2,7 +2,7 @@
 from utils.session import init_session_state
 from utils.custom import stylable_container
 from utils.nwis_api import query_nwis
-from utils.mapping import get_map_pos, prep_fmap
+from utils.mapping import get_map_pos, prep_hmsmap
 from db.utils import create_pg_connection, create_s3_connection
 from utils.plotting import (
     plot_ts,
@@ -46,6 +46,7 @@ from urllib.parse import urljoin
 from enum import Enum
 import logging
 from shapely.geometry import shape
+import leafmap.foliumap as leafmap
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
 srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
@@ -357,7 +358,7 @@ def hms_results():
     st.sidebar.page_link("pages/model_qc.py", label="Model QC")
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
-    st.sidebar.page_link("pages/all_results.py", label="All Results")
+    # st.sidebar.page_link("pages/all_results.py", label="All Results")
 
     st.sidebar.markdown("## Getting Started")
     with st.sidebar:
@@ -401,13 +402,7 @@ def hms_results():
             st.rerun()
 
     # Map Position
-    if st.session_state["single_event_focus_feature_label"]:
-        c_lat = st.session_state["single_event_focus_lat"]
-        c_lon = st.session_state["single_event_focus_lon"]
-        zoom = st.session_state["single_event_focus_zoom"]
-    # Default map position
-    else:
-        c_lat, c_lon, zoom = get_map_pos("HMS")
+    c_lat, c_lon, zoom = get_map_pos("HMS")
 
     # Get the feature type from session state or default to None
     # to determine how to display the map
@@ -417,52 +412,17 @@ def hms_results():
             # reset all session state related to feature focus
             reset_selections()
             st.rerun()
+
         else:
             feature_type = FeatureType(feature_type)
 
-    # Map
+        # Map
+    bbox = st.session_state.get("single_event_focus_bounding_box")
     with map_col:
         with st.spinner("Loading map..."):
-            st.fmap = prep_fmap(
-                c_lat, c_lon, zoom, "HMS", st.session_state["cog_layer"]
-            )
-            # Fit the map to the bounding box of a selected polygon or line feature
-            bbox = st.session_state.get("single_event_focus_bounding_box")
-            if bbox and feature_type in [
-                FeatureType.SUBBASIN,
-            ]:
-                st.fmap.fit_bounds(bbox)
-                st.map_output = st_folium(
-                    st.fmap,
-                    height=500,
-                    use_container_width=True,
-                    returned_objects=[
-                        "last_active_drawing",
-                    ],
-                )
-            elif feature_type in [
-                FeatureType.GAGE,
-                FeatureType.DAM,
-            ]:
-                st.map_output = st_folium(
-                    st.fmap,
-                    center=[c_lat, c_lon],
-                    zoom=zoom,
-                    height=500,
-                    use_container_width=True,
-                    returned_objects=[
-                        "last_active_drawing",
-                    ],
-                )
-            else:
-                st.map_output = st_folium(
-                    st.fmap,
-                    height=500,
-                    use_container_width=True,
-                    returned_objects=[
-                        "last_active_drawing",
-                    ],
-                )
+            st.fmap = prep_hmsmap(bbox, zoom, c_lat, c_lon)
+            st.map_output = st.fmap.to_streamlit(height=500, bidirectional=True)
+
     # Handle when a feature is selected from the map
     last_active_drawing = st.map_output.get("last_active_drawing", None)
     if last_active_drawing:
@@ -1100,7 +1060,7 @@ def hms_results():
         )
     with col_gages:
         map_popover(
-            "🟢 Gages",
+            "🟩 Gages",
             {}
             if st.session_state["gages_filtered"] is None
             else st.session_state["gages_filtered"].to_dict("records"),
@@ -1112,7 +1072,7 @@ def hms_results():
         )
     with col_dams:
         map_popover(
-            "🔴 Dams",
+            "🟥 Dams",
             {}
             if st.session_state["dams_filtered"] is None
             else st.session_state["dams_filtered"].to_dict("records"),
@@ -1149,8 +1109,8 @@ def hms_results():
         - 🟪 {num_reaches} Reaches
         - 🟫 {num_junctions} Junctions
         - ⬛ {num_reservoirs} Reservoirs
-        - 🟢 {num_gages} Gages 
-        - 🔴 {num_dams} Dams 
+        - 🟩 {num_gages} Gages 
+        - 🟥 {num_dams} Dams 
         - 🌧️ 0 Storms
         """
     )
