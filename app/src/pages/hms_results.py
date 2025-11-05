@@ -739,7 +739,9 @@ def hms_results():
             - 🌧️ 0 Storms
             """
         )
-        if st.session_state["subbasin_id"] is not None:
+        if st.session_state["subbasin_id"] is None:
+            selection_stats.markdown("Make a selection to view filtered stats.")
+        else:
             selection_stats.markdown(
                 f"""
                 #### Filtered to `{st.session_state["subbasin_id"]}`

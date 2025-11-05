@@ -384,7 +384,11 @@ def stochastic_events(col_event_id, info_col, feature_label):
     st.session_state["stochastic_event"] = col_event_id.selectbox(
         "Select Event ID", stochastic_events, index=None
     )
-    if st.session_state["stochastic_event"] is not None:
+    st.write(f"Column ID: {feature_label}")
+    if st.session_state["stochastic_event"] is None:
+        st.warning("Please select a stochastic event to view time series data.")
+    else:
+        
         stochastic_flow_ts = query_s3_stochastic_ras_flow(
             st.session_state["s3_conn"],
             st.session_state["pilot"],
@@ -787,7 +791,9 @@ def ras_results():
             - 🌧️ 0 Storms
             """
         )
-        if st.session_state["model_id"] is not None:
+        if st.session_state["model_id"] is None:
+            selection_stats.markdown("Make a selection to view filtered stats.")
+        else:
             selection_stats.markdown(
                 f"""
                 #### Filtered to `{st.session_state["model_id"]}`
