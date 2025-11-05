@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 from streamlit.errors import StreamlitDuplicateElementKey
 
 # module imports
-from pages.hms_results import FeatureType
 from utils.mapping import focus_feature
 
 if TYPE_CHECKING:
@@ -62,7 +61,7 @@ def map_popover(
     get_item_id: Callable,
     color: str = "#f0f0f0",
     callback: Optional[Callable] = None,
-    feature_type: Optional[FeatureType] = None,
+    feature_type: Optional = None,
     download_url: Optional[str] = None,
     image_path: Optional[str] = None,
     logger: Optional[logging.Logger] = None,
