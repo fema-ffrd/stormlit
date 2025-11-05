@@ -1,6 +1,8 @@
 import folium
 import streamlit as st
 import leafmap.foliumap as leafmap
+import geopandas as gpd
+from shapely.geometry import shape
 
 
 def highlight_function(feature):
@@ -49,6 +51,15 @@ def get_map_pos(map_layer: str):
     tuple
         A tuple containing the latitude, longitude, and zoom level
     """
+    # Check if there's a focused feature position in session state
+    focus_lat = st.session_state.get("single_event_focus_lat")
+    focus_lon = st.session_state.get("single_event_focus_lon")
+    focus_zoom = st.session_state.get("single_event_focus_zoom")
+
+    if focus_lat is not None and focus_lon is not None and focus_zoom is not None:
+        return focus_lat, focus_lon, focus_zoom
+
+    # Otherwise, use default position based on layer
     if map_layer == "HMS":
         c_df = st.subbasins.copy()
         if "lat" not in c_df.columns or "lon" not in c_df.columns:
@@ -90,9 +101,12 @@ def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
     """
     m = leafmap.Map(
         locate_control=True,
-        atlon_control=True,
-        draw_export=True,
+        atlon_control=False,
+        draw_export=False,
+        draw_control=False,
         minimap_control=False,
+        toolbar_control=False,
+        layers_control=True,
         zoom_start=zoom,
     )
 
@@ -102,6 +116,7 @@ def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
             st.models,
             layer_name="Models",
             info_mode="on_hover",
+            fields=["model"],
             style_function=style_models,
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -233,10 +248,14 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
     """
     m = leafmap.Map(
         locate_control=True,
-        atlon_control=True,
-        draw_export=True,
+        atlon_control=False,
+        draw_export=False,
+        draw_control=False,
         minimap_control=False,
+        toolbar_control=False,
+        layers_control=True,
         zoom_start=zoom,
+        center=[c_lat, c_lon],  # Explicitly set center
     )
 
     # Add the layers to the map
@@ -245,6 +264,7 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
             st.subbasins,
             layer_name="Subbasins",
             info_mode="on_hover",
+            fields=["hms_element"],
             style_function=style_subbasins,
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -255,6 +275,7 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
             st.reaches,
             layer_name="Reaches",
             info_mode="on_hover",
+            fields=["hms_element"],
             style_function=style_reaches,
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -276,6 +297,7 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
             st.junctions,
             layer_name="Junctions",
             info_mode="on_hover",
+            fields=["hms_element"],
             marker=folium.Marker(icon=junctions_div_icon),
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -297,6 +319,7 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
             st.reservoirs,
             layer_name="Reservoirs",
             info_mode="on_hover",
+            fields=["hms_element"],
             marker=folium.Marker(icon=reservoirs_div_icon),
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -358,6 +381,274 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
         min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
         bbox = [min_lon, min_lat, max_lon, max_lat]
         m.zoom_to_bounds(bbox)
-    else:
-        m.set_center(c_lon, c_lat, zoom=8)
+
     return m
+
+
+def get_hms_legend_stats(
+    selected_gdf: gpd.GeoDataFrame, session_gdf: gpd.GeoDataFrame, filtered_gdf: str
+):
+    """
+    Generate HMS model subbasin statistics for the map legend based on given geodataframe.
+    Updates the session state with filtered geodataframe and their count.
+
+    Parameters
+    ----------
+    selected_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing the selected geometry.
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing geometries to filter subbasins.
+    filtered_gdf: str
+        The name of the filtered GeoDataFrame to update in session state.
+
+    Returns
+    -------
+    num_subbasins: int
+        The number of subbasins filtered and stored in session state.
+    """
+    if not selected_gdf.empty:
+        model_geom = selected_gdf.geometry.iloc[0]
+        centroids = session_gdf.geometry.centroid
+        mask = centroids.within(model_geom)
+        st.session_state[filtered_gdf] = session_gdf[mask].copy()
+        st.session_state[filtered_gdf]["model"] = st.session_state["subbasin_id"]
+        num_items = len(st.session_state[filtered_gdf])
+    else:
+        st.session_state[filtered_gdf] = None
+        num_items = 0
+    return num_items
+
+
+def get_gis_legend_stats(
+    session_gdf: gpd.GeoDataFrame,
+    filtered_gdf: str,
+    area_gdf: gpd.GeoDataFrame,
+    area_col: str,
+    target_id: str,
+):
+    """
+    Generate GIS layer (gages and dams) statistics for the map legend based on given geodataframe.
+    Updates the session state with filtered geodataframe and their count.
+
+    Parameters
+    ----------
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing geometries to filter subbasins.
+        Example: st.gages for gages, st.dams for dams.
+    filtered_: str
+        The name of the filtered GeoDataFrame to update in session state.
+        Example: "gages_filtered" for gages, "dams_filtered" for dams.
+    area_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing the area geometry to filter by.
+        Example: st.subbasins for HMS subbasins, st.models for RAS models.
+    area_col: str
+        The column name for the area ID.
+        Example: "hms_element" for HMS subbasins, "model" for RAS models.
+    target_id: str
+        The target area ID to filter by.
+        Example: st.session_state["subbasin_id"] for HMS subbasins, st.session_state["model_id"] for RAS models.
+
+    Returns
+    -------
+    num_items: int
+        The number of items filtered and stored in session state.
+    """
+    st.session_state[filtered_gdf] = gpd.sjoin(
+        session_gdf,
+        area_gdf[area_gdf[area_col] == target_id],
+        how="inner",
+        predicate="intersects",
+    )
+    st.session_state[filtered_gdf]["lat"] = st.session_state[filtered_gdf]["lat_left"]
+    st.session_state[filtered_gdf]["lon"] = st.session_state[filtered_gdf]["lon_left"]
+    st.session_state[filtered_gdf]["index"] = st.session_state[filtered_gdf][
+        "index_right"
+    ]
+    st.session_state[filtered_gdf]["layer"] = "Gages"
+    st.session_state[filtered_gdf].drop(
+        columns=[
+            "lat_left",
+            "lon_left",
+            "lat_right",
+            "lon_right",
+            "layer_right",
+            "layer_left",
+            "index_right",
+        ],
+        inplace=True,
+    )
+    num_items = len(st.session_state[filtered_gdf])
+    return num_items
+
+
+def get_model_subbasin(
+    geom: gpd.GeoSeries, session_gdf: gpd.GeoDataFrame, element_col: str
+):
+    """
+    Get the HMS or RAS model subbasin ID that a provided geodataframe's geometry may be within.
+    A subbasin refers to either an HMS or RAS model subbasin.
+
+    Parameters
+    ----------
+    geom: gpd.GeoSeries
+        The GeoSeries containing subbasin data.
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing subbasin geometries.
+        Example: st.subbasins for HMS subbasins, st.models for RAS models.
+    element_col: str
+        The column name for the subbasin/model ID.
+        Example: "hms_element" for HMS subbasins, "model" for RAS models.
+    Returns
+    -------
+    subbasin_id: str
+        The subbasin ID extracted from the GeoDataFrame.
+    """
+    # Get the centroids of the geometries in the GeoDataFrame
+    centroid = geom.centroid
+    # Check if the centroid is within any subbasin geometry
+    mask = centroid.within(session_gdf.geometry)
+    filtered_gdf = session_gdf[mask].copy()
+    if not filtered_gdf.empty:
+        subbasin_id = filtered_gdf.iloc[0][element_col]
+        return subbasin_id
+
+
+def get_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
+    """
+    Get the gage ID from a subbasin geometry.
+    Determine if there are any gage points located within the subbasin polygon
+
+    Parameters
+    ----------
+    subbasin_geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the subbasin.
+
+    Returns
+    -------
+    gage_id: str
+        The gage ID if a gage is found within the subbasin, otherwise None
+    """
+    # Combine all subbasin geometries into one (if multiple)
+    subbasin_geom = subbasin_geom.unary_union
+    # Get centroids of all gages
+    gage_centroids = st.gages.centroid
+    # Find which gage centroids are within the subbasin geometry
+    mask = gage_centroids.within(subbasin_geom)
+    filtered_gdf = st.gages[mask].copy()
+    if not filtered_gdf.empty:
+        return filtered_gdf["site_no"].tolist()
+    else:
+        return None
+
+
+def get_gage_from_pt_ln(_geom: gpd.GeoSeries):
+    """
+    Get the gage ID from a point or line geometry.
+    Determine if there are any gage points located within the reach line.
+
+    Parameters
+    ----------
+    _geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the point or line.
+
+    Returns
+    -------
+    subbasin_id: str
+        The subbasin ID if a subbasin is found containing the point or line, otherwise None
+    """
+    # Combine all geometries into one (if multiple)
+    _geom = _geom.unary_union.centroid
+    # Get all subbasin geometries
+    subbasin_geoms = st.subbasins.geometry
+    # Find which subbasins contain the ln/pt geometry
+    mask = subbasin_geoms.contains(_geom)
+    filtered_gdf = st.subbasins[mask].copy()
+    if filtered_gdf.empty:
+        return None
+    else:
+        return get_gage_from_subbasin(filtered_gdf.geometry)
+
+
+def get_gage_from_ref_ln(ref_id: str):
+    """
+    Identify the gage ID from a reference point or line ID.
+
+    Parameters
+    ----------
+    ref_id: str
+        The reference ID to extract the gage ID from.
+
+    Returns
+    -------
+    tuple
+        A tuple containing a boolean indicating if it is a gage and the gage ID if applicable.
+    """
+    is_gage = False
+    gage_id = None
+    if "gage" in ref_id:
+        is_gage = True
+        ref_id = ref_id.split("_")
+        # find the index where usgs appears
+        for idx, part in enumerate(ref_id):
+            if "usgs" in part.lower():
+                gage_idx = idx + 1
+                gage_id = ref_id[gage_idx]
+                return is_gage, gage_id
+    else:
+        return is_gage, gage_id
+
+
+def focus_feature(
+    item: dict,
+    item_id: str,
+    item_label: str,
+    feature_type,
+    map_click: bool = False,
+):
+    """
+    Focus on a map feature by updating the session state with the item's details.
+
+    Parameters
+    ----------
+    item: dict
+        The item to focus on, containing its details.
+    item_id: str
+        The ID of the item.
+    item_label: str
+        The label of the item.
+    feature_type: FeatureType or FeatureType
+        The type of feature (Model, Gage, Dam, Reference Line, Reference Point, BC Line)
+    map_click: bool
+        Whether the focus was triggered by a map click or a button click.
+    """
+    geom = item.get("geometry", None)
+    if geom and isinstance(geom, dict):
+        # Convert dict to Geometry object if necessary
+        geom = shape(geom)
+    if geom:
+        bounds = geom.bounds
+        bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
+    else:
+        bbox = None
+
+    if "model" in item:
+        st.session_state["model_id"] = item["model"]
+    if "hms_element" in item:
+        st.session_state["hms_element_id"] = item["hms_element"]
+        st.session_state["subbasin_id"] = get_model_subbasin(
+            geom, st.subbasins, "hms_element"
+        )
+
+    st.session_state.update(
+        {
+            "single_event_focus_feature_label": item_label,
+            "single_event_focus_feature_id": item_id,
+            "single_event_focus_lat": item.get("lat"),
+            "single_event_focus_lon": item.get("lon"),
+            # TODO: Add logic to determine zoom level based on item extent
+            "single_event_focus_zoom": 12,
+            "single_event_focus_bounding_box": bbox,
+            "single_event_focus_feature_type": feature_type.value,
+            "single_event_focus_map_click": map_click,
+        }
+    )
