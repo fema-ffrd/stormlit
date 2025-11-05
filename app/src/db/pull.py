@@ -89,6 +89,11 @@ def query_db(
     try:
         # NOTE: A /UTC error occurs when using fetchdf() with duckdb
         df = _conn.execute(query, pg_args).fetchnumpy()
+    except duckdb.BinderException as e:
+        msg = f"DuckDB Binder Error: {e}"
+        logger.error(msg)
+        st.error(msg)
+        return pd.DataFrame()
     except duckdb.Error as e:
         msg = f"DuckDB S3 Error: {e}"
         logger.error(msg)
