@@ -388,7 +388,6 @@ def stochastic_events(col_event_id, info_col, feature_label):
     if st.session_state["stochastic_event"] is None:
         st.warning("Please select a stochastic event to view time series data.")
     else:
-        
         stochastic_flow_ts = query_s3_stochastic_ras_flow(
             st.session_state["s3_conn"],
             st.session_state["pilot"],

@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 import logging
 
 # Add the src directory to the path so we can import from it
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+)
 
 # third party imports
 import streamlit as st
@@ -27,7 +29,6 @@ def test_results():
     st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
 
     st.title("R Plots Test Page")
-
 
     test_plot_file = "/workspace/app/tests/flow-example.json"
     if os.path.exists(test_plot_file):
