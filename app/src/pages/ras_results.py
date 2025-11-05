@@ -384,7 +384,6 @@ def stochastic_events(col_event_id, info_col, feature_label):
     st.session_state["stochastic_event"] = col_event_id.selectbox(
         "Select Event ID", stochastic_events, index=None
     )
-    st.write(f"Column ID: {feature_label}")
     if st.session_state["stochastic_event"] is None:
         st.warning("Please select a stochastic event to view time series data.")
     else:
@@ -423,7 +422,7 @@ def ras_results():
     if "session_id" not in st.session_state:
         init_session_state()
 
-    st.title("RAS Model Results")
+    st.title("RAS Results")
 
     # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")

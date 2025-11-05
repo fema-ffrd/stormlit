@@ -354,7 +354,7 @@ def hms_results():
     if "map_version" not in st.session_state:
         st.session_state["map_version"] = 0
 
-    st.title("HMS Model Results")
+    st.title("HMS Results")
 
     # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")
