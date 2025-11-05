@@ -31,6 +31,7 @@ def reset_selections():
             "single_event_focus_lon": None,
             "single_event_focus_bounding_box": None,
             "single_event_focus_feature_type": None,
+            "single_event_focus_zoom": None,
             "single_event_focus_map_click": False,
             "model_id": None,
             "subbasin_id": None,
@@ -51,6 +52,7 @@ def reset_selections():
             "reservoirs_filtered": None,
             "stochastic_event": None,
             "stochastic_storm": None,
+            "hms_element_id": None,
         }
     )
 
