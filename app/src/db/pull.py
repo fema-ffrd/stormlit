@@ -472,61 +472,17 @@ def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
 
 
 @st.cache_data
-def query_s3_stochastic_storm_list(
-    _conn, pilot: str, element_id: str = "amon-g-carter_s010"
-) -> list:
+def query_s3_folder_names(_conn, s3_path: str, folder_name: str) -> list:
     """
-    Query the list of stochastic storm events from the S3 bucket for a given HMS element ID.
+    Query the list of folder names within a specific S3 bucket.
 
     Parameters:
         _conn (connection): A DuckDB connection object.
-        pilot (str): The pilot name for the S3 bucket.
+        s3_path (str): The S3 path to query.
+        folder_name (str): The folder name to look for (e.g., 'event_id=', 'storm_id=').
     Returns:
-        list: A list of simulated event IDs associated with the gage.
+        list: A list of folder names within the specified S3 path.
     """
-    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/"
-    if s3_path_exists(s3_path):
-        query = f"SELECT file FROM glob('{s3_path}**')"
-        try:
-            # Fetch as list of tuples, not DataFrame
-            result = _conn.execute(query).fetchall()
-            # Extract the next-level folder name after s3_path
-            storm_ids = set()
-            for row in result:
-                rel = row[0][len(s3_path) :].lstrip("/")
-                if "/" in rel:
-                    folder = rel.split("/")[0]
-                    if "storm_id=" in folder:
-                        # Extract the event ID from the folder name
-                        storm = folder.split("=")[-1]
-                        storm_ids.add(storm)
-            return sorted(storm_ids)
-        except Exception as e:
-            msg = f"DuckDB S3 Error: {e}"
-            logger.error(msg)
-            raise StormlitQueryException(msg) from e
-    else:
-        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
-        logger.error(msg)
-        raise StormlitQueryException(msg)
-
-
-@st.cache_data
-def query_s3_stochastic_event_list(
-    _conn, pilot: str, element_id: str, storm_id: str
-) -> list:
-    """
-    Query the list of stochastic events from the S3 bucket for a given element ID and storm ID.
-
-    Parameters:
-        _conn (connection): A DuckDB connection object.
-        pilot (str): The pilot name for the S3 bucket.
-        element_id (str): The element ID to query.
-        storm_id (str): The storm ID to query.
-    Returns:
-        list: A list of simulated event IDs associated with the element ID and storm ID.
-    """
-    s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/"
     if s3_path_exists(s3_path):
         query = f"SELECT file FROM glob('{s3_path}**')"
         try:
@@ -538,7 +494,7 @@ def query_s3_stochastic_event_list(
                 rel = row[0][len(s3_path) :].lstrip("/")
                 if "/" in rel:
                     folder = rel.split("/")[0]
-                    if "event_id=" in folder:
+                    if folder_name in folder:
                         # Extract the event ID from the folder name
                         event = folder.split("=")[-1]
                         event_ids.add(event)
@@ -573,6 +529,36 @@ def query_s3_stochastic_hms_flow(
     s3_path = f"s3://{pilot}/cloud-hms-db/simulations/element={element_id}/storm_id={storm_id}/event_id={event_id}/{flow_type}.pq"
     if s3_path_exists(s3_path):
         query = f"""SELECT datetime, values as hms_flow
+                FROM read_parquet('{s3_path}', hive_partitioning=true);"""
+        return query_db(_conn, query)
+    else:
+        msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
+        logger.error(msg)
+        st.warning(msg)
+        return pd.DataFrame()
+
+
+@st.cache_data
+def query_s3_stochastic_ras_flow(
+    _conn, pilot: str, event_id: str, model_id: str, col_id: str
+) -> pd.DataFrame:
+    """
+    Query stochastic RAS flow timeseries data from the S3 bucket.
+    Rows are timesteps (datetime).
+    Columns are RAS elements (e.g., bc_line_id_0, refpt_id_1, refln_id_2, etc.)
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        event_id (str): The event ID to query (e.g., '13094').
+        model_id (str): The HEC-RAS model ID to query (e.g., 'bardwell-creek').
+        col_id (str): The column ID to query (e.g., 'bc_line_id_0').
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the stochastic RAS flow data.
+    """
+    s3_path = f"s3://{pilot}/stac/prod-support/conformance/hydraulics/event_id={event_id}/model={model_id}/timeseries.pq"
+    if s3_path_exists(s3_path):
+        query = f"""SELECT time, {col_id} as Hydrograph
                 FROM read_parquet('{s3_path}', hive_partitioning=true);"""
         return query_db(_conn, query)
     else:
