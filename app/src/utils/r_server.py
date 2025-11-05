@@ -134,7 +134,8 @@ def clean_r_plotly_object(obj, parent_key=None, trace_context=False):
 
 
 @st.cache_data
-def get_flow_plot(
+def get_r_plot(
+    plot_type: str,
     data: Dict[str, Any],
     return_html: bool = False,
 ) -> Dict[str, Any] | str:
@@ -146,6 +147,7 @@ def get_flow_plot(
     as a cleaned JSON object or HTML.
 
     Args:
+        plot_type (str): Type of plot to generate (e.g., "flows", or "stage").
         data (Dict[str, Any]): Dictionary containing the flow data to plot.
             Should match the expected schema for the /api/realization/flows endpoint.
         return_html (bool): If True, returns HTML instead of JSON. Default False.
@@ -159,10 +161,13 @@ def get_flow_plot(
 
     Example:
         >>> # Get as cleaned JSON for Plotly
-        >>> plot_json = get_flow_plot(flow_data, "flow_input.json")
+        >>> plot_json = get_r_plot(flow_data, "flow_input.json")
         >>> import plotly.graph_objects as go
         >>> fig = go.Figure(data=plot_json['data'], layout=plot_json['layout'])
     """
+    if plot_type not in ["flows", "stage"]:
+        raise ValueError(f"Invalid plot_type: {plot_type}. Must be 'flows' or 'stage'.")
+
     # Get R service URL from environment variable
     service = os.getenv("R_SERVICE")
     base_url = f"http://{service}"
@@ -180,7 +185,7 @@ def get_flow_plot(
     request_data["json"] = True
 
     # Construct the full API endpoint
-    endpoint = f"{base_url}/api/realization/flows"
+    endpoint = f"{base_url}/api/realization/{plot_type}"
 
     # Make POST request with JSON data
     headers = {"Content-Type": "application/json"}
