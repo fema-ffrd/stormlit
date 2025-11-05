@@ -1,1 +1,1 @@
-# This file marks the db directory as a Python package.
+# This file marks the tests directory as a Python package.

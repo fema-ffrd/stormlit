@@ -2,35 +2,28 @@
 from src.utils.r_server import get_r_plot
 
 # standard imports
-import sys
 import os
 import json
 from dotenv import load_dotenv
 import logging
 
-# Add the src directory to the path so we can import from it
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-)
-
 # third party imports
 import streamlit as st
 import plotly.graph_objects as go
 
-currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
-srcDir = os.path.abspath(os.path.join(currDir, ".."))  # go up one level to src
-assetsDir = os.path.abspath(os.path.join(srcDir, "assets"))  # go up one level to src
-load_dotenv("/workspace/app/.env")
+currDir = os.path.dirname(os.path.realpath(__file__))
+dataDir = os.path.join(currDir, "data")
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 
-def test_results():
+def test_r_plots():
     st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
 
     st.title("R Plots Test Page")
 
-    test_plot_file = "/workspace/app/tests/flow-example.json"
+    test_plot_file = os.path.join(dataDir, "json", "flow-example.json")
     if os.path.exists(test_plot_file):
         with open(test_plot_file, "r") as f:
             flow_data = json.load(f)
@@ -58,4 +51,4 @@ def test_results():
 
 
 if __name__ == "__main__":
-    test_results()
+    test_r_plots()
