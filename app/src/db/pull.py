@@ -558,7 +558,7 @@ def query_s3_stochastic_ras_flow(
     """
     s3_path = f"s3://{pilot}/stac/prod-support/conformance/hydraulics/event_id={event_id}/model={model_id}/timeseries.pq"
     if s3_path_exists(s3_path):
-        query = f"""SELECT time, {col_id} as Hydrograph
+        query = f"""SELECT time, "{col_id}" as Hydrograph
                 FROM read_parquet('{s3_path}', hive_partitioning=true);"""
         return query_db(_conn, query)
     else:
