@@ -30,9 +30,6 @@ def home_page():
     st.sidebar.page_link("pages/model_qc.py", label="Model QC")
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
-    # st.sidebar.page_link("pages/all_results.py", label="All Results")
-    # TESTING
-    st.sidebar.page_link("pages/test_page.py", label="Test Page")
 
     database_link_dict = {
         "FFRD Cloud": "https://ffrd.cloud.dewberryanalytics.com/",
