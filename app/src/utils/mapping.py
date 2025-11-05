@@ -221,7 +221,7 @@ def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
         bbox = [min_lon, min_lat, max_lon, max_lat]
         m.zoom_to_bounds(bbox)
     else:
-        m.set_center(c_lon, c_lat, zoom=8)
+        m.set_center(c_lon, c_lat, zoom)
 
     return m
 
@@ -381,7 +381,8 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
         min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
         bbox = [min_lon, min_lat, max_lon, max_lat]
         m.zoom_to_bounds(bbox)
-
+    else:
+        m.set_center(c_lon, c_lat, zoom)
     return m
 
 
