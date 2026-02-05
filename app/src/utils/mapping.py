@@ -1,154 +1,17 @@
-import os
-import requests
 import folium
 import streamlit as st
-import pandas as pd
+import leafmap.foliumap as leafmap
 import geopandas as gpd
+from shapely.geometry import shape
 
 
 def highlight_function(feature):
     return {
-        "fillColor": "yellow",
-        "color": "black",
+        "fillColor": "red",
+        "color": "red",
         "weight": 3,
-        "opacity": 0.5,
+        "opacity": 0.9,
     }
-
-
-def add_polygons(
-    fmap: folium.Map,
-    gdf: gpd.GeoDataFrame,
-    layer_name: str,
-    tooltip_fields: list,
-    style_function: callable,
-    show_layer: bool = True,
-):
-    """
-    Add polygons to a folium map as a layer
-
-    Parameters
-    ----------
-    fmap: folium.Map
-        The folium map object to add the polygons to
-    gdf: gpd.GeoDataFrame
-        A GeoDataFrame with polygon geometries
-    layer_name: str
-        The name of the layer to add to the map
-    tooltip_fields: list
-        A list of fields to display in the tooltip
-    style_function: callable
-        A function to style the polygons
-    show_layer: bool
-        Whether to show the layer by default
-    Returns
-    -------
-    None
-
-    """
-    gdf["geometry"] = gdf["geometry"].simplify(tolerance=0.001)
-    folium.GeoJson(
-        gdf,
-        name=layer_name,
-        zoom_on_click=True,
-        style_function=style_function,
-        highlight_function=highlight_function,
-        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-        popup=folium.GeoJsonPopup(fields=tooltip_fields),
-        popup_keep_highlighted=True,
-        show=show_layer,
-    ).add_to(fmap)
-
-
-def add_squares(
-    fmap: folium.Map,
-    gdf: gpd.GeoDataFrame,
-    layer_name: str,
-    tooltip_fields: list,
-    color: str,
-):
-    """
-    Add points to a folium map as a layer
-
-    Parameters
-    ----------
-    fmap: folium.Map
-        The folium map object to add the points to
-    gdf: gpd.GeoDataFrame
-        A GeoDataFrame with point geometries
-    layer_name: str
-        The name of the layer to add to the map
-    tooltip_fields: list
-        A list of fields to display in the tooltip
-    color: str
-        The color of the squares to be used as markers
-    Returns
-    -------
-    None
-    """
-    div_icon = folium.DivIcon(
-        html=f"""
-        <div style="
-            background-color: {color};
-            border: 1px solid black;
-            width: 10px;
-            height: 10px">
-        </div>
-        """
-    )
-    folium.GeoJson(
-        gdf,
-        name=layer_name,
-        marker=folium.Marker(icon=div_icon),
-        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-        popup=folium.GeoJsonPopup(fields=tooltip_fields),
-        popup_keep_highlighted=True,
-        highlight_function=highlight_function,
-        zoom_on_click=True,
-    ).add_to(fmap)
-
-
-def add_circles(
-    fmap: folium.Map,
-    gdf: gpd.GeoDataFrame,
-    layer_name: str,
-    tooltip_fields: list,
-    color: str,
-):
-    """
-    Add circles to a folium map as a layer
-
-    Parameters
-    ----------
-    fmap: folium.Map
-        The folium map object to add the circles to
-    gdf: gpd.GeoDataFrame
-        A GeoDataFrame with point geometries
-    layer_name: str
-        The name of the layer to add to the map
-    tooltip_fields: list
-        A list of fields to display in the tooltip
-    color: str
-        The color of the circles to be used as markers
-    Returns
-    -------
-    None
-    """
-    folium.GeoJson(
-        gdf,
-        name=layer_name,
-        marker=folium.CircleMarker(
-            radius=5,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=1,
-        ),
-        tooltip=folium.GeoJsonTooltip(fields=tooltip_fields),
-        popup=folium.GeoJsonPopup(fields=tooltip_fields),
-        popup_keep_highlighted=True,
-        highlight_function=highlight_function,
-        zoom_on_click=True,
-    ).add_to(fmap)
 
 
 def style_bc_lines(feature):
@@ -160,7 +23,7 @@ def style_ref_lines(feature):
 
 
 def style_models(feature):
-    return {"fillColor": "#32cd32"}
+    return {"fillColor": "#1e90ff"}
 
 
 def style_subbasins(feature):
@@ -188,15 +51,24 @@ def get_map_pos(map_layer: str):
     tuple
         A tuple containing the latitude, longitude, and zoom level
     """
+    # Check if there's a focused feature position in session state
+    focus_lat = st.session_state.get("single_event_focus_lat")
+    focus_lon = st.session_state.get("single_event_focus_lon")
+    focus_zoom = st.session_state.get("single_event_focus_zoom")
+
+    if focus_lat is not None and focus_lon is not None and focus_zoom is not None:
+        return focus_lat, focus_lon, focus_zoom
+
+    # Otherwise, use default position based on layer
     if map_layer == "HMS":
-        c_df = st.subbasins
+        c_df = st.subbasins.copy()
         if "lat" not in c_df.columns or "lon" not in c_df.columns:
             c_df["lat"] = c_df.geometry.centroid.y
             c_df["lon"] = c_df.geometry.centroid.x
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
         c_zoom = 8
     elif map_layer == "RAS":
-        c_df = st.models
+        c_df = st.models.copy()
         if "lat" not in c_df.columns or "lon" not in c_df.columns:
             c_df["lat"] = c_df.geometry.centroid.y
             c_df["lon"] = c_df.geometry.centroid.x
@@ -207,171 +79,577 @@ def get_map_pos(map_layer: str):
     return c_lat, c_lon, c_zoom
 
 
-@st.cache_data
-def prep_fmap(
-    c_lat: float, c_lon: float, zoom: int, map_type: str, cog_layer: str = None
-) -> folium.Map:
+def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.Map:
     """
-    Prep a folium map object given a geojson with a specificed basemap
+    Prepare the leafmap map object based on the selected map layer.
 
     Parameters
     ----------
-    c_lat: float
-        The latitude to center the map on
-    c_lon: float
-        The longitude to center the map on
+    bounds: list
+        The bounding box to zoom to [[min_lon, min_lat], [max_lon, max_lat]]
     zoom: int
         The initial zoom level for the map
-    map_type: str
-        The type of map to create, either "HMS", "RAS", or "All
-    cog_layer: str, optional
-        The name of the COG layer to add to the map. If None, no COG layer is added.
+    c_lat: float
+        The center latitude for the map
+    c_lon: float
+        The center longitude for the map
 
     Returns
     -------
-    folium.Map
-        Folium map object
+    leafmap.Map
+        The prepared leafmap map object
     """
-    # Create a folium map centered at the mean latitude and longitude
-    m = folium.Map(
-        location=[c_lat, c_lon], zoom_start=zoom, crs="EPSG3857"
-    )  # default web mercator crs
+    m = leafmap.Map(
+        locate_control=True,
+        atlon_control=False,
+        draw_export=False,
+        draw_control=False,
+        minimap_control=False,
+        toolbar_control=False,
+        layers_control=True,
+        zoom_start=zoom,
+    )
 
-    folium.plugins.Fullscreen(
-        position="topright",
-        title="Expand me",
-        title_cancel="Exit me",
-        force_separate_button=True,
-    ).add_to(m)
-
-    # Google Basemap
-    folium.TileLayer(
-        tiles="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        attr="Google",
-        name="Google Satellite",
-        overlay=False,
-        control=True,
-        show=False,
-    ).add_to(m)
-
-    # RAS Elements
-    if map_type == "RAS" or map_type == "All":
-        # Add the layers to the map
-        if st.models is not None:
-            add_polygons(m, st.models, "Models", ["model"], style_models)
-        if st.bc_lines is not None:
-            add_polygons(m, st.bc_lines, "BC Lines", ["id", "model"], style_bc_lines)
-        if st.ref_points is not None:
-            add_squares(
-                m, st.ref_points, "Reference Points", ["id", "model"], "#e6870b"
-            )
-        if st.ref_lines is not None:
-            add_polygons(
-                m, st.ref_lines, "Reference Lines", ["id", "model"], style_ref_lines
-            )
-    # HMS Elements
-    if map_type == "HMS" or map_type == "All":
-        if st.subbasins is not None:
-            add_polygons(
-                m,
-                st.subbasins,
-                "Subbasins",
-                ["hms_element", "layer"],
-                style_function=style_subbasins,
-            )
-        if st.reaches is not None:
-            add_polygons(
-                m,
-                st.reaches,
-                "Reaches",
-                ["hms_element", "layer"],
-                style_function=style_reaches,
-            )
-        if st.junctions is not None:
-            add_squares(
-                m, st.junctions, "Junctions", ["hms_element", "layer"], "#70410c"
-            )
-        if st.reservoirs is not None:
-            add_squares(
-                m, st.reservoirs, "Reservoirs", ["hms_element", "layer"], "#0a0703"
-            )
+    # Add the layers to the map
+    if st.models is not None:
+        m.add_gdf(
+            st.models,
+            layer_name="Models",
+            info_mode="on_hover",
+            fields=["model"],
+            style_function=style_models,
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.bc_lines is not None:
+        m.add_gdf(
+            st.bc_lines,
+            layer_name="BC Lines",
+            info_mode="on_hover",
+            style_function=style_bc_lines,
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.ref_points is not None:
+        color = "#e6870b"
+        rt_pt_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.ref_points,
+            layer_name="Reference Points",
+            info_mode="on_hover",
+            marker=folium.Marker(icon=rt_pt_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.ref_lines is not None:
+        m.add_gdf(
+            st.ref_lines,
+            layer_name="Reference Lines",
+            info_mode="on_hover",
+            fields=["id", "model"],
+            style_function=style_ref_lines,
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
 
     # Additional Elements
     if st.dams is not None:
-        add_circles(m, st.dams, "Dams", ["id"], "#e21426")
+        color = "#e21426"
+        dams_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.dams,
+            layer_name="Dams",
+            info_mode="on_hover",
+            fields=["id"],
+            marker=folium.Marker(icon=dams_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
     if st.gages is not None:
-        add_circles(m, st.gages, "Gages", ["site_no"], "#32cd32")
+        color = "#32cd32"
+        gage_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.gages,
+            layer_name="Gages",
+            info_mode="on_hover",
+            fields=["site_no"],
+            marker=folium.Marker(icon=gage_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
 
-    # Add COG layer if selected
-    if cog_layer is not None:
-        cog_s3uri = st.cog_layers[cog_layer]
+    if bounds is not None:
+        # bounds is in format [[lat, lon], [lat, lon]] from folium/focus_feature
+        # Need to convert to [min_lon, min_lat, max_lon, max_lat] for leafmap
+        lat1, lon1 = bounds[0]
+        lat2, lon2 = bounds[1]
+        min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
+        min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
+        bbox = [min_lon, min_lat, max_lon, max_lat]
+        m.zoom_to_bounds(bbox)
+    else:
+        m.set_center(c_lon, c_lat, zoom)
 
-        # Get the tile server URL from environment variable
-        titiler_url = os.getenv("TITILER_API_URL", "http://stormlit-titiler")
-
-        try:
-            # First get COG statistics to determine min/max values for rescaling
-            stats_url = f"{titiler_url}/cog/statistics"
-            stats_response = requests.get(
-                stats_url, params={"url": cog_s3uri}, timeout=30
-            )
-            stats_data = stats_response.json()
-            st.session_state["cog_stats"] = stats_data["b1"]
-            st.session_state["cog_hist"] = pd.DataFrame(stats_data["b1"]["histogram"]).T
-
-            # Get min/max values for rescaling
-            min_value = stats_data["b1"]["min"]
-            max_value = stats_data["b1"]["max"]
-
-            # Get TileJSON for the COG
-            tilejson_url = f"{titiler_url}/cog/WebMercatorQuad/tilejson.json"
-            tilejson_response = requests.get(
-                tilejson_url,
-                params={
-                    "url": cog_s3uri,
-                    "rescale": f"{min_value},{max_value}",
-                    "colormap_name": "viridis",
-                },
-                timeout=10,
-            )
-            tilejson_data = tilejson_response.json()
-            st.session_state["cog_tilejson"] = tilejson_data
-
-            # Add the COG as a TileLayer to the map
-            if "tiles" in tilejson_data:
-                tile_url = tilejson_data["tiles"][0]
-                folium_titiler_url = os.getenv(
-                    "FOLIUM_TITILER_URL", "http://localhost:8000"
-                )
-                tile_url = tile_url.replace(titiler_url, folium_titiler_url)
-                folium.TileLayer(
-                    tiles=tile_url,
-                    attr=f"COG: {cog_layer}",
-                    name=cog_layer,
-                    overlay=True,
-                    control=True,
-                    opacity=1,
-                ).add_to(m)
-
-                # zoom to the extent of the COG
-                if "bounds" in tilejson_data:
-                    bounds = tilejson_data["bounds"]
-                    m.fit_bounds(
-                        [
-                            [bounds[1], bounds[0]],
-                            [bounds[3], bounds[2]],
-                        ]
-                    )
-                else:
-                    st.session_state["cog_error"] = (
-                        "No bounds found in TileJSON response"
-                    )
-            else:
-                st.session_state["cog_error"] = "No tiles found in TileJSON response"
-
-        except Exception as e:
-            st.session_state["cog_error"] = str(e)
-
-    # Add the layer control to the map
-    folium.LayerControl().add_to(m)
     return m
+
+
+def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.Map:
+    """
+    Prepare the leafmap map object based on the selected map layer.
+
+    Parameters
+    ----------
+    bounds: list
+        The bounding box to zoom to [[min_lon, min_lat], [max_lon, max_lat]]
+    zoom: int
+        The initial zoom level for the map
+    c_lat: float
+        The center latitude for the map
+    c_lon: float
+        The center longitude for the map
+
+    Returns
+    -------
+    leafmap.Map
+        The prepared leafmap map object
+    """
+    m = leafmap.Map(
+        locate_control=True,
+        atlon_control=False,
+        draw_export=False,
+        draw_control=False,
+        minimap_control=False,
+        toolbar_control=False,
+        layers_control=True,
+        zoom_start=zoom,
+        center=[c_lat, c_lon],  # Explicitly set center
+    )
+
+    # Add the layers to the map
+    if st.subbasins is not None:
+        m.add_gdf(
+            st.subbasins,
+            layer_name="Subbasins",
+            info_mode="on_hover",
+            fields=["hms_element"],
+            style_function=style_subbasins,
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.reaches is not None:
+        m.add_gdf(
+            st.reaches,
+            layer_name="Reaches",
+            info_mode="on_hover",
+            fields=["hms_element"],
+            style_function=style_reaches,
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.junctions is not None:
+        color = "#70410c"
+        junctions_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.junctions,
+            layer_name="Junctions",
+            info_mode="on_hover",
+            fields=["hms_element"],
+            marker=folium.Marker(icon=junctions_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.reservoirs is not None:
+        color = "#0a0703"
+        reservoirs_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.reservoirs,
+            layer_name="Reservoirs",
+            info_mode="on_hover",
+            fields=["hms_element"],
+            marker=folium.Marker(icon=reservoirs_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+
+    # Additional Elements
+    if st.dams is not None:
+        color = "#e21426"
+        dams_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.dams,
+            layer_name="Dams",
+            info_mode="on_hover",
+            fields=["id"],
+            marker=folium.Marker(icon=dams_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.gages is not None:
+        color = "#32cd32"
+        gage_div_icon = folium.DivIcon(
+            html=f"""
+            <div style="
+                background-color: {color};
+                border: 1px solid black;
+                width: 10px;
+                height: 10px">
+            </div>
+            """
+        )
+        m.add_gdf(
+            st.gages,
+            layer_name="Gages",
+            info_mode="on_hover",
+            fields=["site_no"],
+            marker=folium.Marker(icon=gage_div_icon),
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+
+    if bounds is not None:
+        # bounds is in format [[lat, lon], [lat, lon]] from folium/focus_feature
+        # Need to convert to [min_lon, min_lat, max_lon, max_lat] for leafmap
+        lat1, lon1 = bounds[0]
+        lat2, lon2 = bounds[1]
+        min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
+        min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
+        bbox = [min_lon, min_lat, max_lon, max_lat]
+        m.zoom_to_bounds(bbox)
+    else:
+        m.set_center(c_lon, c_lat, zoom)
+    return m
+
+
+def get_hms_legend_stats(
+    selected_gdf: gpd.GeoDataFrame, session_gdf: gpd.GeoDataFrame, filtered_gdf: str
+):
+    """
+    Generate HMS model subbasin statistics for the map legend based on given geodataframe.
+    Updates the session state with filtered geodataframe and their count.
+
+    Parameters
+    ----------
+    selected_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing the selected geometry.
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing geometries to filter subbasins.
+    filtered_gdf: str
+        The name of the filtered GeoDataFrame to update in session state.
+
+    Returns
+    -------
+    num_subbasins: int
+        The number of subbasins filtered and stored in session state.
+    """
+    if not selected_gdf.empty:
+        model_geom = selected_gdf.geometry.iloc[0]
+        centroids = session_gdf.geometry.centroid
+        mask = centroids.within(model_geom)
+        st.session_state[filtered_gdf] = session_gdf[mask].copy()
+        st.session_state[filtered_gdf]["model"] = st.session_state["subbasin_id"]
+        num_items = len(st.session_state[filtered_gdf])
+    else:
+        st.session_state[filtered_gdf] = None
+        num_items = 0
+    return num_items
+
+
+def get_gis_legend_stats(
+    session_gdf: gpd.GeoDataFrame,
+    filtered_gdf: str,
+    area_gdf: gpd.GeoDataFrame,
+    area_col: str,
+    target_id: str,
+):
+    """
+    Generate GIS layer (gages and dams) statistics for the map legend based on given geodataframe.
+    Updates the session state with filtered geodataframe and their count.
+
+    Parameters
+    ----------
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing geometries to filter subbasins.
+        Example: st.gages for gages, st.dams for dams.
+    filtered_: str
+        The name of the filtered GeoDataFrame to update in session state.
+        Example: "gages_filtered" for gages, "dams_filtered" for dams.
+    area_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing the area geometry to filter by.
+        Example: st.subbasins for HMS subbasins, st.models for RAS models.
+    area_col: str
+        The column name for the area ID.
+        Example: "hms_element" for HMS subbasins, "model" for RAS models.
+    target_id: str
+        The target area ID to filter by.
+        Example: st.session_state["subbasin_id"] for HMS subbasins, st.session_state["model_id"] for RAS models.
+
+    Returns
+    -------
+    num_items: int
+        The number of items filtered and stored in session state.
+    """
+    st.session_state[filtered_gdf] = gpd.sjoin(
+        session_gdf,
+        area_gdf[area_gdf[area_col] == target_id],
+        how="inner",
+        predicate="intersects",
+    )
+    st.session_state[filtered_gdf]["lat"] = st.session_state[filtered_gdf]["lat_left"]
+    st.session_state[filtered_gdf]["lon"] = st.session_state[filtered_gdf]["lon_left"]
+    st.session_state[filtered_gdf]["index"] = st.session_state[filtered_gdf][
+        "index_right"
+    ]
+    st.session_state[filtered_gdf]["layer"] = "Gages"
+    st.session_state[filtered_gdf].drop(
+        columns=[
+            "lat_left",
+            "lon_left",
+            "lat_right",
+            "lon_right",
+            "layer_right",
+            "layer_left",
+            "index_right",
+        ],
+        inplace=True,
+    )
+    num_items = len(st.session_state[filtered_gdf])
+    return num_items
+
+
+def get_model_subbasin(
+    geom: gpd.GeoSeries, session_gdf: gpd.GeoDataFrame, element_col: str
+):
+    """
+    Get the HMS or RAS model subbasin ID that a provided geodataframe's geometry may be within.
+    A subbasin refers to either an HMS or RAS model subbasin.
+
+    Parameters
+    ----------
+    geom: gpd.GeoSeries
+        The GeoSeries containing subbasin data.
+    session_gdf: gpd.GeoDataFrame
+        The GeoDataFrame containing subbasin geometries.
+        Example: st.subbasins for HMS subbasins, st.models for RAS models.
+    element_col: str
+        The column name for the subbasin/model ID.
+        Example: "hms_element" for HMS subbasins, "model" for RAS models.
+    Returns
+    -------
+    subbasin_id: str
+        The subbasin ID extracted from the GeoDataFrame.
+    """
+    # Get the centroids of the geometries in the GeoDataFrame
+    centroid = geom.centroid
+    # Check if the centroid is within any subbasin geometry
+    mask = centroid.within(session_gdf.geometry)
+    filtered_gdf = session_gdf[mask].copy()
+    if not filtered_gdf.empty:
+        subbasin_id = filtered_gdf.iloc[0][element_col]
+        return subbasin_id
+
+
+def get_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
+    """
+    Get the gage ID from a subbasin geometry.
+    Determine if there are any gage points located within the subbasin polygon
+
+    Parameters
+    ----------
+    subbasin_geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the subbasin.
+
+    Returns
+    -------
+    gage_id: str
+        The gage ID if a gage is found within the subbasin, otherwise None
+    """
+    # Combine all subbasin geometries into one (if multiple)
+    subbasin_geom = subbasin_geom.unary_union
+    # Get centroids of all gages
+    gage_centroids = st.gages.centroid
+    # Find which gage centroids are within the subbasin geometry
+    mask = gage_centroids.within(subbasin_geom)
+    filtered_gdf = st.gages[mask].copy()
+    if not filtered_gdf.empty:
+        return filtered_gdf["site_no"].tolist()
+    else:
+        return None
+
+
+def get_gage_from_pt_ln(_geom: gpd.GeoSeries):
+    """
+    Get the gage ID from a point or line geometry.
+    Determine if there are any gage points located within the reach line.
+
+    Parameters
+    ----------
+    _geom: gpd.GeoSeries
+        A GeoSeries containing the geometry of the point or line.
+
+    Returns
+    -------
+    subbasin_id: str
+        The subbasin ID if a subbasin is found containing the point or line, otherwise None
+    """
+    # Combine all geometries into one (if multiple)
+    _geom = _geom.unary_union.centroid
+    # Get all subbasin geometries
+    subbasin_geoms = st.subbasins.geometry
+    # Find which subbasins contain the ln/pt geometry
+    mask = subbasin_geoms.contains(_geom)
+    filtered_gdf = st.subbasins[mask].copy()
+    if filtered_gdf.empty:
+        return None
+    else:
+        return get_gage_from_subbasin(filtered_gdf.geometry)
+
+
+def get_gage_from_ref_ln(ref_id: str):
+    """
+    Identify the gage ID from a reference point or line ID.
+
+    Parameters
+    ----------
+    ref_id: str
+        The reference ID to extract the gage ID from.
+
+    Returns
+    -------
+    tuple
+        A tuple containing a boolean indicating if it is a gage and the gage ID if applicable.
+    """
+    is_gage = False
+    gage_id = None
+    if "gage" in ref_id:
+        is_gage = True
+        ref_id = ref_id.split("_")
+        # find the index where usgs appears
+        for idx, part in enumerate(ref_id):
+            if "usgs" in part.lower():
+                gage_idx = idx + 1
+                gage_id = ref_id[gage_idx]
+                return is_gage, gage_id
+    else:
+        return is_gage, gage_id
+
+
+def focus_feature(
+    item: dict,
+    item_id: str,
+    item_label: str,
+    feature_type,
+    map_click: bool = False,
+):
+    """
+    Focus on a map feature by updating the session state with the item's details.
+
+    Parameters
+    ----------
+    item: dict
+        The item to focus on, containing its details.
+    item_id: str
+        The ID of the item.
+    item_label: str
+        The label of the item.
+    feature_type: FeatureType or FeatureType
+        The type of feature (Model, Gage, Dam, Reference Line, Reference Point, BC Line)
+    map_click: bool
+        Whether the focus was triggered by a map click or a button click.
+    """
+    geom = item.get("geometry", None)
+    if geom and isinstance(geom, dict):
+        # Convert dict to Geometry object if necessary
+        geom = shape(geom)
+    if geom:
+        bounds = geom.bounds
+        bbox = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
+    else:
+        bbox = None
+
+    if "model" in item:
+        st.session_state["model_id"] = item["model"]
+    if "hms_element" in item:
+        st.session_state["hms_element_id"] = item["hms_element"]
+        st.session_state["subbasin_id"] = get_model_subbasin(
+            geom, st.subbasins, "hms_element"
+        )
+
+    st.session_state.update(
+        {
+            "single_event_focus_feature_label": item_label,
+            "single_event_focus_feature_id": item_id,
+            "single_event_focus_lat": item.get("lat"),
+            "single_event_focus_lon": item.get("lon"),
+            # TODO: Add logic to determine zoom level based on item extent
+            "single_event_focus_zoom": 12,
+            "single_event_focus_bounding_box": bbox,
+            "single_event_focus_feature_type": feature_type.value,
+            "single_event_focus_map_click": map_click,
+        }
+    )

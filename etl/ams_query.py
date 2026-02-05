@@ -42,7 +42,9 @@ def build_uris(storm_events, s3_response, bucket: str) -> list:
 
 def get_storm_events(storms_path, block):
     storms = pd.read_parquet(storms_path)
-    block_storms = storms.loc[list(range(block["block_event_start"], block["block_event_end"] + 1))]
+    block_storms = storms.loc[
+        list(range(block["block_event_start"], block["block_event_end"] + 1))
+    ]
     storm_events = [(row["storm_id"], idx) for idx, row in block_storms.iterrows()]
     return storm_events
 
@@ -77,7 +79,11 @@ def process_block(block, storms_path, s3_response_dict, bucket, output_prefix):
             ORDER BY peak_flow, event_id;
         """
         df = con.execute(query).fetch_df()
-        df["rank"] = df.groupby("element")["peak_flow"].rank(method="first", ascending=False).astype(int)
+        df["rank"] = (
+            df.groupby("element")["peak_flow"]
+            .rank(method="first", ascending=False)
+            .astype(int)
+        )
         df.to_parquet(s3_output_path)
         logging.info(f"Block {block_index} processed in {time.time() - start:.2f}s")
         return None
@@ -94,7 +100,6 @@ def main(
     storms_path,
     block_info_path,
 ):
-
     with open(block_info_path) as f:
         block_info_json = json.load(f)
 
@@ -133,4 +138,6 @@ if __name__ == "__main__":
     storms_path = "storms_4326.pq"
     block_info_path = "blocks_fixed_length.json"
 
-    main(bucket, prefix, output_prefix, failed_blocks_path, storms_path, block_info_path)
+    main(
+        bucket, prefix, output_prefix, failed_blocks_path, storms_path, block_info_path
+    )

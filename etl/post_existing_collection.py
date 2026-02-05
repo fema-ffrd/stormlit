@@ -33,7 +33,9 @@ def item_dict_from_file(s3_uri: str) -> dict | None:
         return None
 
 
-def force_assets_absolute(collection: Collection, collection_root: str, bucket_name: str) -> Collection:
+def force_assets_absolute(
+    collection: Collection, collection_root: str, bucket_name: str
+) -> Collection:
     """Convert all relative asset HREFs in a STAC Collection to absolute S3 or HTTP URLs."""
     if collection.is_relative():
         updated_assets = {}
@@ -42,11 +44,16 @@ def force_assets_absolute(collection: Collection, collection_root: str, bucket_n
                 s3_url = f"{collection_root}/{asset.href}"
                 updated_href = s3_url
             else:
-                http_prefix = collection_root.replace(f"s3://{bucket_name}", f"https://{bucket_name}.s3.amazonaws.com")
+                http_prefix = collection_root.replace(
+                    f"s3://{bucket_name}", f"https://{bucket_name}.s3.amazonaws.com"
+                )
                 updated_href = f"{http_prefix}/{asset.href.replace('../', '')}"
 
             updated_assets[key] = Asset(
-                href=updated_href, title=asset.title, media_type=asset.media_type, roles=asset.roles
+                href=updated_href,
+                title=asset.title,
+                media_type=asset.media_type,
+                roles=asset.roles,
             )
 
         collection.assets = updated_assets
@@ -57,7 +64,9 @@ def force_assets_absolute(collection: Collection, collection_root: str, bucket_n
 def strip_collection_links_from_item(item_dict: dict) -> dict:
     """Remove collection-level links from a STAC Item dictionary."""
     item_dict["links"] = [
-        link for link in item_dict.get("links", []) if link["rel"] not in ["parent", "root", "collection"]
+        link
+        for link in item_dict.get("links", [])
+        if link["rel"] not in ["parent", "root", "collection"]
     ]
     return item_dict
 
@@ -71,7 +80,10 @@ def update_asset_hrefs_to_absolute(item: Item) -> Item:
     for key, asset in item.get_assets().items():
         updated_href = urljoin(self_href, asset.href)
         updated_assets[key] = Asset(
-            href=updated_href, title=asset.title, media_type=asset.media_type, roles=asset.roles
+            href=updated_href,
+            title=asset.title,
+            media_type=asset.media_type,
+            roles=asset.roles,
         )
         logger.info(f"Updated asset {key} href to: {updated_href}")
 
@@ -89,7 +101,9 @@ if __name__ == "__main__":
     stac_api_url = "https://stac-api.arc-apps.net"
     client = AdminClient(stac_api_url)
 
-    response = requests.get(client.collection_url.format(client.stac_endpoint, existing_collection.id))
+    response = requests.get(
+        client.collection_url.format(client.stac_endpoint, existing_collection.id)
+    )
     if response.status_code == 404:  # Add collection to API if not there
         response = requests.post(
             client.collection_url.format(client.stac_endpoint, ""),

@@ -92,7 +92,9 @@ def build_event_item(
 
 def upload_collection(client: AdminClient, collection: Collection):
     collection_id = collection.id
-    response = requests.get(client.collection_url.format(client.stac_endpoint, collection_id))
+    response = requests.get(
+        client.collection_url.format(client.stac_endpoint, collection_id)
+    )
     if response.status_code == 404:
         response = requests.post(
             client.collection_url.format(client.stac_endpoint, ""),
@@ -111,7 +113,9 @@ if __name__ == "__main__":
     storms_path = "storms_4326.pq"
     seeds_path = "seeds.csv"
     block_info_path = "blocks_fixed_length.json"
-    authoritative_model_path = "https://stac-api.arc-apps.net/collections/conformance-models/items/trinity"
+    authoritative_model_path = (
+        "https://stac-api.arc-apps.net/collections/conformance-models/items/trinity"
+    )
 
     source_paths = ["/home/sjanke/repos/hecstac/hms_events/trinity.json"]
     client = AdminClient("https://stac-api.arc-apps.net")
@@ -122,7 +126,9 @@ if __name__ == "__main__":
         b_idx = block["block_index"]
         logger.info(f"Processing r{r_idx:02d}-b{b_idx:04d}")
 
-        event_ids_in_block = list(range(block["block_event_start"], block["block_event_end"] + 1))
+        event_ids_in_block = list(
+            range(block["block_event_start"], block["block_event_end"] + 1)
+        )
         block_storms = storms.loc[event_ids_in_block]
         block_seeds = seeds[seeds["Events"].isin(event_ids_in_block)]
 
@@ -133,7 +139,9 @@ if __name__ == "__main__":
 
         for event_number, row in block_storms.iterrows():
             event_index_by_block = event_ids_in_block.index(event_number) + 1
-            event_seed = str(seeds.loc[seeds["Events"] == event_number, "event_seed"].iloc[0])
+            event_seed = str(
+                seeds.loc[seeds["Events"] == event_number, "event_seed"].iloc[0]
+            )
             item = build_event_item(
                 event_number,
                 row,
