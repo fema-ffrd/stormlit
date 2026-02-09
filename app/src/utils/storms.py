@@ -472,101 +472,102 @@ def build_storm_animation(
 
 
 def _frame_to_png_data_url(
-        frame: np.ndarray,
-        vmin: float,
-        vmax: float,
-        cmap_name: str = "Spectral_r",
+    frame: np.ndarray,
+    vmin: float,
+    vmax: float,
+    cmap_name: str = "Spectral_r",
 ) -> str:
-        masked = np.ma.masked_invalid(frame)
-        buffer = io.BytesIO()
-        plt.imsave(
-                buffer,
-                masked,
-                cmap=cmap_name,
-                vmin=vmin,
-                vmax=vmax,
-                origin="lower",
-                format="png",
-        )
-        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-        return f"data:image/png;base64,{encoded}"
+    masked = np.ma.masked_invalid(frame)
+    buffer = io.BytesIO()
+    plt.imsave(
+        buffer,
+        masked,
+        cmap=cmap_name,
+        vmin=vmin,
+        vmax=vmax,
+        origin="lower",
+        format="png",
+    )
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def build_storm_animation_maplibre(
-        frames: np.ndarray,
-        times: np.ndarray,
-        bounds: list[tuple[float, float]] | None,
+    frames: np.ndarray,
+    times: np.ndarray,
+    bounds: list[tuple[float, float]] | None,
     style_url: str | None = None,
-        interval_ms: int = 250,
+    interval_ms: int = 250,
 ) -> str | None:
-        """Build a MapLibre animation from precipitation frames.
+    """Build a MapLibre animation from precipitation frames.
 
-        Parameters
-        ----------
-        frames: np.ndarray
-                3D array of precipitation frames (time, y, x).
-        times: np.ndarray
-                1D array of time values corresponding to frames.
-        bounds: list[tuple[float, float]] | None
-                Geographic bounds as [(south, west), (north, east)].
-        style_url: str | None
-            MapLibre style URL for the basemap. If None, uses a lightweight
-            inline style with an OSM raster layer.
-        interval_ms: int
-                Frame interval in milliseconds.
-        Returns
-        -------
-        str | None
-                HTML string with a MapLibre animation, or None if invalid data.
-        """
-        if frames is None:
-                return None
-        data = np.asarray(frames)
-        if data.ndim != 3 or data.size == 0:
-            return None
-        data = np.where(data == 0, np.nan, data)
-        if not np.isfinite(data).any():
-            return None
-        extent = _bounds_to_extent(bounds)
-        if extent is None:
-                return None
-        west, east, south, north = extent
-        center_lon = (west + east) / 2.0
-        center_lat = (south + north) / 2.0
-        coords = [
-                [west, north],
-                [east, north],
-                [east, south],
-                [west, south],
-        ]
-        vmin = float(np.nanmin(data))
-        vmax = float(np.nanmax(data))
-        labels = _format_time_labels(times, data.shape[0])
-        labels_serializable = [str(label) for label in labels]
-        frame_urls = [
-                _frame_to_png_data_url(frame, vmin=vmin, vmax=vmax)
-                for frame in data
-        ]
-        map_id = f"maplibre-{uuid4().hex}"
-        label_id = f"maplibre-label-{uuid4().hex}"
-        error_id = f"maplibre-error-{uuid4().hex}"
-        fit_bounds = json.dumps([[west, south], [east, north]])
-        inline_style = {
-            "version": 8,
-            "sources": {
-                "osm": {
-                    "type": "raster",
-                    "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                    "tileSize": 256,
-                    "attribution": "© OpenStreetMap contributors",
-                }
+    Parameters
+    ----------
+    frames: np.ndarray
+            3D array of precipitation frames (time, y, x).
+    times: np.ndarray
+            1D array of time values corresponding to frames.
+    bounds: list[tuple[float, float]] | None
+            Geographic bounds as [(south, west), (north, east)].
+    style_url: str | None
+        MapLibre style URL for the basemap. If None, uses a lightweight
+        inline style with an OSM raster layer.
+    interval_ms: int
+            Frame interval in milliseconds.
+    Returns
+    -------
+    str | None
+            HTML string with a MapLibre animation, or None if invalid data.
+    """
+    if frames is None:
+        return None
+    data = np.asarray(frames)
+    if data.ndim != 3 or data.size == 0:
+        return None
+    data = np.where(data == 0, np.nan, data)
+    if not np.isfinite(data).any():
+        return None
+    extent = _bounds_to_extent(bounds)
+    if extent is None:
+        return None
+    west, east, south, north = extent
+    center_lon = (west + east) / 2.0
+    center_lat = (south + north) / 2.0
+    coords = [
+        [west, north],
+        [east, north],
+        [east, south],
+        [west, south],
+    ]
+    vmin = float(np.nanmin(data))
+    vmax = float(np.nanmax(data))
+    labels = _format_time_labels(times, data.shape[0])
+    labels_serializable = [str(label) for label in labels]
+    frame_urls = [_frame_to_png_data_url(frame, vmin=vmin, vmax=vmax) for frame in data]
+    map_id = f"maplibre-{uuid4().hex}"
+    label_id = f"maplibre-label-{uuid4().hex}"
+    error_id = f"maplibre-error-{uuid4().hex}"
+    fit_bounds = json.dumps([[west, south], [east, north]])
+    inline_style = {
+        "version": 8,
+        "sources": {
+            "osm": {
+                "type": "raster",
+                "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                "tileSize": 256,
+                "attribution": "© OpenStreetMap contributors",
+            }
+        },
+        "layers": [
+            {
+                "id": "background",
+                "type": "background",
+                "paint": {"background-color": "#dde"},
             },
-            "layers": [
-                {"id": "background", "type": "background", "paint": {"background-color": "#dde"}},
-                {"id": "osm", "type": "raster", "source": "osm"},
-            ],
-        }
-        html = f"""
+            {"id": "osm", "type": "raster", "source": "osm"},
+        ],
+    }
+    html = f"""
         <div style=\"width: 100%;\">
             <div id=\"{map_id}\" style=\"height: 600px; width: 100%;\"></div>
             <div id=\"{label_id}\" style=\"padding: 6px 10px; font-weight: 600;\"></div>
@@ -630,4 +631,4 @@ def build_storm_animation_maplibre(
             }}
         </script>
         """
-        return html
+    return html

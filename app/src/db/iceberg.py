@@ -73,19 +73,19 @@ def create_and_load_iceberg_table(
     parquet_files: list[str],
     catalog_path: str,
     schema: str = None,
-    union_by_name: bool = False
+    union_by_name: bool = False,
 ):
     """
     Create an Iceberg table and load data from a list of parquet files.
-    
+
     Note: DuckDB's Iceberg extension currently works with REST catalogs (Iceberg REST Catalog servers).
     For S3-based catalogs, you need to either:
     1. Use a REST catalog service (like Apache Iceberg REST)
     2. Read Iceberg tables directly using iceberg_scan()
     3. Create regular DuckDB tables instead
-    
+
     This function creates a regular DuckDB table from parquet files.
-    
+
     Args:
         conn: DuckDB connection object with Iceberg extension loaded
         table_name: Name of the table to create
@@ -96,10 +96,10 @@ def create_and_load_iceberg_table(
         union_by_name: If True, uses UNION BY NAME to combine files with different schemas,
                       filling missing columns with NULL. If False (default), requires all
                       files to have the same schema.
-    
+
     Returns:
         pd.DataFrame: The created table as a pandas DataFrame
-    
+
     Example:
         df = create_and_load_iceberg_table(
             conn,
@@ -111,7 +111,7 @@ def create_and_load_iceberg_table(
     """
     # Ensure Iceberg extension is loaded
     conn.execute("LOAD 'iceberg'")
-    
+
     if union_by_name:
         # Create table by reading all parquet files with UNION BY NAME
         # This allows files with different schemas to be combined
@@ -120,54 +120,56 @@ def create_and_load_iceberg_table(
             CREATE OR REPLACE TABLE {table_name} AS 
             SELECT * FROM read_parquet(['{parquet_list}'], union_by_name=true)
         """)
-        print(f"Successfully created table '{table_name}' from {len(parquet_files)} parquet file(s) using UNION BY NAME")
+        print(
+            f"Successfully created table '{table_name}' from {len(parquet_files)} parquet file(s) using UNION BY NAME"
+        )
     else:
         # Create table from first parquet file
         conn.execute(f"""
             CREATE OR REPLACE TABLE {table_name} AS 
             SELECT * FROM read_parquet('{parquet_files[0]}')
         """)
-        
+
         # Insert data from remaining parquet files
         for parquet_file in parquet_files[1:]:
             conn.execute(f"""
                 INSERT INTO {table_name}
                 SELECT * FROM read_parquet('{parquet_file}')
             """)
-        
-        print(f"Successfully created table '{table_name}' and loaded {len(parquet_files)} parquet file(s)")
-    
+
+        print(
+            f"Successfully created table '{table_name}' and loaded {len(parquet_files)} parquet file(s)"
+        )
+
     # Get row count and column info
-    row_count = conn.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+    row_count = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
     print(f"Table rows: {row_count}")
-    
+
     # Convert table to DataFrame and return
-    df = conn.execute(f'SELECT * FROM {table_name}').df()
+    df = conn.execute(f"SELECT * FROM {table_name}").df()
     print(f"Returning DataFrame with shape: {df.shape}")
-    
+
     return df
 
 
 def create_table_from_iceberg_metadata(
-    conn: duckdb.DuckDBPyConnection,
-    table_name: str,
-    metadata_json_path: str
+    conn: duckdb.DuckDBPyConnection, table_name: str, metadata_json_path: str
 ):
     """
     Create a table by reading an Iceberg metadata JSON file from S3.
-    
+
     This function uses DuckDB's iceberg_scan() to read Iceberg table metadata
     and create a table from the referenced data files.
-    
+
     Args:
         conn: DuckDB connection object with S3 and Iceberg extensions loaded
         table_name: Name of the table to create
         metadata_json_path: S3 path to the Iceberg metadata JSON file
                            (e.g., 's3://bucket/path/metadata/v1.metadata.json')
-    
+
     Returns:
         pd.DataFrame: The created table as a pandas DataFrame
-    
+
     Example:
         df = create_table_from_iceberg_metadata(
             conn,
@@ -180,23 +182,23 @@ def create_table_from_iceberg_metadata(
         CREATE OR REPLACE TABLE {table_name} AS 
         SELECT * FROM iceberg_scan('{metadata_json_path}')
     """)
-    
-    row_count = conn.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+
+    row_count = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
     print(f"Successfully created table '{table_name}' from Iceberg metadata")
     print(f"Table rows: {row_count}")
-    
+
     # Display schema
-    schema = conn.execute(f'DESCRIBE {table_name}').fetchall()
+    schema = conn.execute(f"DESCRIBE {table_name}").fetchall()
     print(f"Table schema ({len(schema)} columns):")
     for col in schema[:5]:  # Show first 5 columns
         print(f"  - {col[0]}: {col[1]}")
     if len(schema) > 5:
         print(f"  ... and {len(schema) - 5} more columns")
-    
+
     # Convert table to DataFrame and return
-    df = conn.execute(f'SELECT * FROM {table_name}').df()
+    df = conn.execute(f"SELECT * FROM {table_name}").df()
     print(f"Returning DataFrame with shape: {df.shape}")
-    
+
     return df
 
 
@@ -218,7 +220,6 @@ if __name__ == "__main__":
         "test_table",
         "s3://trinity-pilot/dev/conformance/iceberg-warehouse/hydraulics/flow_timeseries/metadata/00000-f0bbe3d2-4674-47e0-84af-5dd044f7ec2f.metadata.json",
     )
-    
+
     print("\nDataFrame info:")
     print(df.head())
-

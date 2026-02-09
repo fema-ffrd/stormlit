@@ -241,7 +241,9 @@ def hydro_met():
                     )
                 elif animation_payload and animation_payload.get("frames") is not None:
                     if st.session_state.get("storm_bounds") is None:
-                        st.warning("Storm bounds not available yet. Try again after the map loads.")
+                        st.warning(
+                            "Storm bounds not available yet. Try again after the map loads."
+                        )
                     else:
                         if st.session_state.get("storm_animation_html") is None:
                             st.write("Rendering animation...")
@@ -262,6 +264,7 @@ def hydro_met():
                             st.warning("Unable to render animation for this storm.")
                 else:
                     st.warning("Animation frames are not ready. Try again.")
+
 
 if __name__ == "__main__":
     hydro_met()

@@ -8,6 +8,7 @@ from utils.constants import (
     FLOW_LABEL,
 )
 
+
 def plot_ts(
     df1: pd.DataFrame,
     df2: pd.DataFrame,

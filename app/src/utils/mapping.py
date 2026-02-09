@@ -42,6 +42,7 @@ def style_reaches(feature):
 def style_reservoirs(feature):
     return {"fillColor": "#0a0703", "weight": 4}
 
+
 @st.cache_data(show_spinner=False)
 def _prepare_rgba_image(
     image_data: np.ndarray, cmap_name: str = "Spectral_r"
@@ -243,7 +244,7 @@ def get_map_pos(map_layer: str):
 
 
 def prep_metmap(
-        zoom: int, c_lat: float, c_lon: float, storm_id: int | None
+    zoom: int, c_lat: float, c_lon: float, storm_id: int | None
 ) -> leafmap.Map:
     """
     Prepare the leafmap map object based on the selected map layer.
@@ -303,7 +304,8 @@ def prep_metmap(
             colors=["blue", "cyan", "green", "yellow", "orange", "red"],
             caption="72-Hour Accumulated Precipitation (inches)",
             vmax=st.session_state["storm_max"],
-            vmin=st.session_state["storm_min"],)
+            vmin=st.session_state["storm_min"],
+        )
     m.clear_controls()
     m.set_center(c_lon, c_lat, zoom)
 
