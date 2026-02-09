@@ -1,0 +1,459 @@
+import numpy as np
+import xarray as xr
+import streamlit as st
+from contextlib import nullcontext
+from pyproj import CRS, Transformer
+from pyproj.exceptions import ProjError
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+TransformerGroup = None  # type: ignore[assignment]
+WGS84 = CRS.from_epsg(4326)
+
+
+def compute_storm(
+    ds: xr.Dataset,
+    storm_id: int,
+    tab: st.delta_generator.DeltaGenerator | None = None,
+) -> None:
+    """
+    Compute storm precipitation from the FFRD dataset.
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        The input dataset containing storm data.
+    storm_id: int
+        The ID of the storm to compute.
+    tab: st.delta_generator.DeltaGenerator, optional
+        The Streamlit tab to display progress (default is None).
+    Returns
+    -------
+    None
+    """
+    st.session_state["hydromet_animation"] = None
+    if storm_id not in st.session_state["storm_cache"].keys():
+        parent_ctx = tab if tab is not None else nullcontext()
+        with parent_ctx:
+            with st.spinner(
+                f"Computing 72-hour total precipitation for Storm ID: {storm_id}..."
+            ):
+                ds_storm = ds.sel(storm_id=storm_id)
+                if "APCP_surface" not in ds_storm:
+                    raise ValueError(
+                        "Dataset does not contain 'APCP_surface' variable."
+                    )
+                da_precip = ds_storm["APCP_surface"]
+                if "time" not in da_precip.dims:
+                    raise ValueError(
+                        "'APCP_surface' variable does not have 'time' dimension."
+                    )
+                precip_cube = _load_precip_cube(da_precip)
+                total_precip = precip_cube.sum(dim="time")
+                st.session_state["hydromet_storm_data"] = total_precip
+                st.session_state["storm_cache"][storm_id] = total_precip
+    else:
+        st.session_state["hydromet_storm_data"] = st.session_state["storm_cache"][
+            storm_id
+        ]
+
+
+def compute_hyetograph(
+    ds: xr.Dataset,
+    storm_id: int,
+    lat: float,
+    lon: float,
+    tab: st.delta_generator.DeltaGenerator | None = None,
+) -> None:
+    """
+    Compute a hyetograph for a given point from the FFRD dataset.
+
+    Args:
+        ds (xr.Dataset): The input gridded precipitation dataset.
+        storm_id (int): The ID of the storm to compute.
+        lat (float): The latitude of the point.
+        lon (float): The longitude of the point.
+        tab (st.delta_generator.DeltaGenerator): The Streamlit tab to display progress.
+    """
+    if lat is None or lon is None or storm_id is None:
+        return
+
+    parent_ctx = tab if tab is not None else nullcontext()
+    with parent_ctx:
+        with st.spinner(f"Computing hyetograph for point ({lat}, {lon})..."):
+            ds_storm = ds.sel(storm_id=storm_id)
+            proj_x, proj_y = _project_lonlat_to_dataset(ds_storm, lon, lat)
+            sel_kwargs = {"x": proj_x, "y": proj_y}
+            ds_point = ds_storm.sel(sel_kwargs, method="nearest")
+            if "APCP_surface" not in ds_point:
+                raise ValueError("Dataset does not contain 'APCP_surface' variable.")
+            da_precip = ds_point["APCP_surface"]
+            if "time" not in da_precip.dims:
+                raise ValueError(
+                    "'APCP_surface' variable does not have 'time' dimension."
+                )
+            precip_point = da_precip / 1000 * 39.3701
+            st.session_state["hydromet_hyetograph_data"] = precip_point
+
+
+def compute_storm_animation(
+    ds: xr.Dataset,
+    storm_id: int | None,
+) -> None:
+    """
+    Compute per-timestep precipitation frames for animation.
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        The input dataset containing storm data.
+    storm_id: int
+        The ID of the storm to compute the animation for.
+
+    Returns
+    -------
+    None
+    """
+    if storm_id is None:
+        st.info("Select a storm before generating an animation.")
+        return
+
+    ds_storm = ds.sel(storm_id=storm_id)
+    if "APCP_surface" not in ds_storm:
+        raise ValueError("Dataset does not contain 'APCP_surface' variable.")
+    da_precip = ds_storm["APCP_surface"]
+    if "time" not in da_precip.dims:
+        raise ValueError("'APCP_surface' variable does not have 'time' dimension.")
+    precip_cube = _load_precip_cube(da_precip)
+    precip_cube = _orient_cube_north_up(precip_cube)
+    st.session_state["hydromet_animation"] = _animation_payload_from_cube(precip_cube)
+
+
+def _coerce_crs_input(value: object) -> object | None:
+    """Normalize CRS metadata that may arrive as raw bytes."""
+    if value is None or isinstance(value, CRS):
+        return value
+
+    if isinstance(value, (bytes, bytearray, np.bytes_)):
+        raw = bytes(value)
+        for encoding in ("utf-8", "cp1252", "latin-1"):
+            try:
+                return raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return raw.decode("utf-8", errors="ignore")
+
+    return value
+
+
+def _resolve_dataset_crs(ds: xr.Dataset) -> CRS | None:
+    """Attempt to resolve the dataset's CRS from common locations and formats."""
+
+    def _attempt(value):
+        normalized = _coerce_crs_input(value)
+        if normalized is None:
+            return None
+        try:
+            return CRS.from_user_input(normalized)
+        except Exception:
+            return None
+
+    data_var = ds["APCP_surface"] if "APCP_surface" in ds else None
+    if data_var is not None:
+        try:
+            crs_val = data_var.rio.crs  # type: ignore[attr-defined]
+            if crs_val:
+                crs_obj = _attempt(crs_val)
+                if crs_obj:
+                    return crs_obj
+        except Exception:
+            pass
+        for key in ("spatial_ref", "crs_wkt", "crs"):
+            val = data_var.attrs.get(key)
+            if val:
+                crs_obj = _attempt(val)
+                if crs_obj:
+                    return crs_obj
+
+    if "spatial_ref" in ds.coords:
+        attrs = ds.coords["spatial_ref"].attrs
+        for key in ("spatial_ref", "crs_wkt", "crs"):
+            val = attrs.get(key)
+            if val:
+                crs_obj = _attempt(val)
+                if crs_obj:
+                    return crs_obj
+
+    if "crs" in ds.attrs:
+        crs_obj = _attempt(ds.attrs["crs"])
+        if crs_obj:
+            return crs_obj
+
+    return None
+
+
+def _horizontal_crs(crs: CRS) -> CRS:
+    """Return the horizontal component of a CRS (projected/geographic)."""
+    if crs.is_geographic or crs.is_projected:
+        return crs
+
+    if crs.sub_crs_list:
+        for candidate in crs.sub_crs_list:
+            horiz = _horizontal_crs(candidate)
+            if horiz.is_geographic or horiz.is_projected:
+                return horiz
+
+    base = crs.source_crs or crs.base_crs
+    if base is not None:
+        horiz = _horizontal_crs(base)
+        if horiz.is_geographic or horiz.is_projected:
+            return horiz
+
+    return crs
+
+
+def _transform_point(
+    src_crs: CRS,
+    dst_crs: CRS,
+    x: float,
+    y: float,
+) -> tuple[tuple[float, float] | None, Exception | None]:
+    """Transform a point between two CRSs, returning the last error if all pipelines fail."""
+    if src_crs == dst_crs:
+        return (float(x), float(y)), None
+
+    transformers: list[Transformer] = []
+    last_error: Exception | None = None
+
+    for allow_ballpark in (False, True):
+        try:
+            transformers.append(
+                Transformer.from_crs(
+                    src_crs,
+                    dst_crs,
+                    always_xy=True,
+                    allow_ballpark=allow_ballpark,
+                )
+            )
+        except ProjError as exc:
+            last_error = exc
+
+    for transformer in transformers:
+        try:
+            tx, ty = transformer.transform(x, y)
+        except ProjError as exc:
+            last_error = exc
+            continue
+
+        if np.isfinite(tx) and np.isfinite(ty):
+            return (float(tx), float(ty)), None
+
+    return None, last_error
+
+
+def _project_lonlat_to_dataset(
+    ds: xr.Dataset,
+    lon: float,
+    lat: float,
+) -> tuple[float, float]:
+    """Project a lon/lat pair to the dataset's native CRS coordinates."""
+    try:
+        lon = float(lon)
+        lat = float(lat)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Longitude and latitude must be numeric values.") from exc
+
+    if not (np.isfinite(lon) and np.isfinite(lat)):
+        raise ValueError("Longitude and latitude must be finite values.")
+
+    dataset_crs = _resolve_dataset_crs(ds)
+    if dataset_crs is None:
+        dims = set(ds.dims.keys()) if isinstance(ds.dims, dict) else set(ds.dims)
+        lon_like = {"lon", "longitude"}
+        lat_like = {"lat", "latitude"}
+        if dims & lon_like and dims & lat_like:
+            return lon, lat
+        raise ValueError("Unable to determine dataset CRS for projection.")
+
+    target_crs = _horizontal_crs(dataset_crs)
+    geodetic_crs = target_crs.geodetic_crs or (
+        target_crs if target_crs.is_geographic else None
+    )
+
+    errors: list[str] = []
+
+    lon_geo, lat_geo = lon, lat
+    if geodetic_crs is not None and geodetic_crs != WGS84:
+        geo_result, geo_err = _transform_point(WGS84, geodetic_crs, lon, lat)
+        if geo_result is None:
+            errors.append(f"WGS84→{geodetic_crs.to_string()} failed: {geo_err}")
+            # Treat WGS84≈NAD83 if datums are effectively the same; fall back otherwise.
+            if "NAD83" not in geodetic_crs.name.upper():
+                raise ValueError(
+                    "Failed to project lon/lat into dataset datum; "
+                    "unable to convert WGS84 coordinates."
+                ) from geo_err
+        else:
+            lon_geo, lat_geo = geo_result
+
+    projected_result, proj_err = _transform_point(
+        geodetic_crs or WGS84,
+        target_crs,
+        lon_geo,
+        lat_geo,
+    )
+    if projected_result is not None:
+        return projected_result
+
+    errors.append(
+        f"{(geodetic_crs or WGS84).to_string()}→{target_crs.to_string()} failed: {proj_err}"
+    )
+
+    area = target_crs.area_of_use
+    if area is not None:
+        bounds = (
+            f"west={area.west_lon_degree:.2f}, east={area.east_lon_degree:.2f}, "
+            f"south={area.south_lat_degree:.2f}, north={area.north_lat_degree:.2f}"
+        )
+        msg = (
+            "Failed to project lon/lat into dataset CRS; the point may lie outside the "
+            f"supported area ({bounds})."
+        )
+    else:
+        msg = f"Failed to project lon/lat into dataset CRS ({target_crs.to_string()})."
+
+    if errors:
+        msg = f"{msg} Attempts: {' | '.join(errors)}"
+    raise ValueError(msg) from proj_err
+
+
+def _load_precip_cube(da_precip: xr.DataArray) -> xr.DataArray:
+    """Load the precipitation cube, converting units from mm to inches."""
+    return (da_precip / 1000 * 39.3701).load()
+
+
+def _animation_payload_from_cube(precip_cube: xr.DataArray) -> dict:
+    """Extract frames and times from the precipitation cube for animation."""
+    frames = precip_cube.values
+    times = precip_cube["time"].values if "time" in precip_cube.coords else None
+    return {"frames": frames, "times": times}
+
+
+def _orient_cube_north_up(cube: xr.DataArray) -> xr.DataArray:
+    """Ensure the cube is oriented with north up by checking the y-coordinate values."""
+    y_dim = None
+    for candidate in ("y", "lat", "latitude", "projection_y_coordinate"):
+        if candidate in cube.dims:
+            y_dim = candidate
+            break
+    if y_dim is None:
+        return cube
+
+    coord = cube.coords.get(y_dim)
+    if coord is None or coord.ndim != 1:
+        return cube
+
+    values = np.asarray(coord.values)
+    if values.size == 0 or not np.isfinite(values).any():
+        return cube
+
+    if values[0] < values[-1]:
+        return cube
+
+    return cube.isel({y_dim: slice(None, None, -1)})
+
+
+def _format_time_labels(times, frame_count: int) -> list[str]:
+    labels = []
+    times_arr = np.asarray(times) if times is not None else None
+    for idx in range(frame_count):
+        label = None
+        if times_arr is not None and idx < times_arr.shape[0]:
+            val = times_arr[idx]
+            try:
+                label = np.datetime_as_string(np.datetime64(val), unit="h")
+            except Exception:
+                try:
+                    label = np.array(val).astype(str)
+                except Exception:
+                    label = None
+        if label is None:
+            label = f"Hour {idx}"
+        labels.append(label)
+    return labels
+
+
+def _bounds_to_extent(bounds):
+    if not bounds:
+        return None
+    try:
+        south = float(bounds[0][0])
+        west = float(bounds[0][1])
+        north = float(bounds[1][0])
+        east = float(bounds[1][1])
+        return [west, east, south, north]
+    except Exception:
+        return None
+
+
+@st.cache_data(show_spinner=True)
+def build_storm_animation(
+    frames: np.ndarray, times: np.ndarray, bounds: list[tuple[float, float]]
+) -> str | None:
+    """Build a matplotlib animation from precipitation frames.
+
+    Parameters
+    ----------
+    frames: np.ndarray
+        3D array of precipitation frames (time, y, x).
+    times: np.ndarray
+        1D array of time values corresponding to frames.
+    bounds: list[tuple[float, float]]
+        Geographic bounds as [(south, west), (north, east)].
+    Returns
+    -------
+    str | None
+        HTML representation of the animation, or None if invalid data.
+    """
+    if frames is None:
+        return None
+    data = np.asarray(frames)
+    if data.ndim != 3 or data.size == 0:
+        return None
+    if not np.isfinite(data).any():
+        return None
+    extent = _bounds_to_extent(bounds)
+    vmin = float(np.nanmin(data))
+    vmax = float(np.nanmax(data))
+    labels = _format_time_labels(times, data.shape[0])
+    fig, ax = plt.subplots(figsize=(7, 5))
+    image = ax.imshow(
+        data[0],
+        cmap="Spectral_r",
+        vmin=vmin,
+        vmax=vmax,
+        extent=extent,
+        origin="lower",
+    )
+    ax.set_xlabel("Longitude" if extent else "X")
+    ax.set_ylabel("Latitude" if extent else "Y")
+    title = ax.set_title(labels[0])
+
+    def update(idx):
+        image.set_data(data[idx])
+        if extent:
+            image.set_extent(extent)
+        title.set_text(labels[idx])
+        return (image, title)
+
+    anim = FuncAnimation(
+        fig,
+        update,
+        frames=data.shape[0],
+        interval=400,
+        blit=False,
+        repeat=True,
+    )
+    html_anim = anim.to_jshtml()
+    plt.close(fig)
+    return html_anim
