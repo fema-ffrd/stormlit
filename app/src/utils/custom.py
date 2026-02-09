@@ -182,6 +182,7 @@ def about_popover(color: str = "white"):
                 """
             )
 
+
 def about_popover_met(color: str = "white"):
     """
     Render the styled About popover section for Meteorology.
