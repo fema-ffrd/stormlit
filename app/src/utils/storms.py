@@ -10,6 +10,8 @@ from contextlib import nullcontext
 from pyproj import CRS, Transformer
 from pyproj.exceptions import ProjError
 import matplotlib.pyplot as plt
+import geopandas as gpd
+from shapely.geometry import box
 from matplotlib.animation import FuncAnimation
 
 TransformerGroup = None  # type: ignore[assignment]
@@ -474,23 +476,76 @@ def build_storm_animation(
     return html_anim
 
 
+def _prepare_overlay_gdf(
+    gdf: gpd.GeoDataFrame | None,
+    extent: list[float] | None,
+) -> gpd.GeoDataFrame | None:
+    if gdf is None or not hasattr(gdf, "geometry"):
+        return None
+
+    try:
+        gdf_local = gdf.copy()
+    except Exception:
+        return None
+
+    try:
+        if gdf_local.crs is not None and gdf_local.crs != WGS84:
+            gdf_local = gdf_local.to_crs(WGS84)
+    except Exception:
+        pass
+
+    if extent is None:
+        return gdf_local
+
+    west, east, south, north = extent
+    try:
+        bbox = box(west, south, east, north)
+        try:
+            gdf_local = gdf_local.clip(bbox)
+        except Exception:
+            gdf_local = gdf_local[gdf_local.intersects(bbox)]
+    except Exception:
+        pass
+
+    return gdf_local
+
+
 def _frame_to_png_data_url(
     frame: np.ndarray,
     vmin: float,
     vmax: float,
     cmap_name: str = "Spectral_r",
+    extent: list[float] | None = None,
+    overlays: list[tuple[gpd.GeoDataFrame, dict]] | None = None,
 ) -> str:
     masked = np.ma.masked_invalid(frame)
     buffer = io.BytesIO()
-    plt.imsave(
-        buffer,
+    fig, ax = plt.subplots(figsize=(7, 5), dpi=120)
+    ax.imshow(
         masked,
         cmap=cmap_name,
         vmin=vmin,
         vmax=vmax,
         origin="lower",
-        format="png",
+        extent=extent,
     )
+    if extent:
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
+    ax.set_axis_off()
+    ax.set_position([0, 0, 1, 1])
+
+    if overlays:
+        for overlay_gdf, style in overlays:
+            if overlay_gdf is None or overlay_gdf.empty:
+                continue
+            try:
+                overlay_gdf.plot(ax=ax, **style)
+            except Exception:
+                continue
+
+    fig.savefig(buffer, format="png", transparent=True, dpi=120)
+    plt.close(fig)
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
@@ -546,7 +601,48 @@ def build_storm_animation_maplibre(
     vmax = float(np.nanmax(data))
     labels = _format_time_labels(times, data.shape[0])
     labels_serializable = [str(label) for label in labels]
-    frame_urls = [_frame_to_png_data_url(frame, vmin=vmin, vmax=vmax) for frame in data]
+
+    overlays: list[tuple[gpd.GeoDataFrame, dict]] = []
+    transpo_gdf = _prepare_overlay_gdf(getattr(st, "transpo", None), extent)
+    if transpo_gdf is not None and not transpo_gdf.empty:
+        overlays.append(
+            (
+                transpo_gdf,
+                {
+                    "facecolor": "none",
+                    "edgecolor": "#ff0404",
+                    "linewidth": 1.5,
+                    "linestyle": "--",
+                    "alpha": 0.9,
+                    "zorder": 3,
+                },
+            )
+        )
+    models_gdf = _prepare_overlay_gdf(getattr(st, "models", None), extent)
+    if models_gdf is not None and not models_gdf.empty:
+        overlays.append(
+            (
+                models_gdf,
+                {
+                    "facecolor": "none",
+                    "edgecolor": "#162fbe",
+                    "linewidth": 1.0,
+                    "alpha": 0.8,
+                    "zorder": 2,
+                },
+            )
+        )
+
+    frame_urls = [
+        _frame_to_png_data_url(
+            frame,
+            vmin=vmin,
+            vmax=vmax,
+            extent=extent,
+            overlays=overlays,
+        )
+        for frame in data
+    ]
     map_id = f"maplibre-{uuid4().hex}"
     label_id = f"maplibre-label-{uuid4().hex}"
     error_id = f"maplibre-error-{uuid4().hex}"
