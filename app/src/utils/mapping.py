@@ -237,7 +237,7 @@ def get_map_pos(map_layer: str):
             c_df["lat"] = c_df.geometry.centroid.y
             c_df["lon"] = c_df.geometry.centroid.x
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
-        c_zoom = 5
+        c_zoom = 6
     else:
         raise ValueError(f"Invalid map layer {map_layer}. Choose 'HMS' or 'RAS'.")
     return c_lat, c_lon, c_zoom
@@ -295,7 +295,7 @@ def prep_metmap(
             fields=["model"],
             style_function=style_models,
             highlight_function=highlight_function,
-            zoom_on_click=True,
+            zoom_on_click=False,
             show=True,
         )
     if st.session_state["hydromet_storm_data"] is not None:

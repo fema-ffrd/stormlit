@@ -103,3 +103,4 @@ def init_session_state():
     st.session_state["storm_animation_html"] = None
     st.session_state["storm_max"] = None
     st.session_state["storm_min"] = None
+    st.session_state["hyeto_cache"] = {}

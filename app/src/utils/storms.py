@@ -78,12 +78,16 @@ def compute_hyetograph(
     """
     Compute a hyetograph for a given point from the FFRD dataset.
 
-    Args:
+    Parameters
+    ----------
         ds (xr.Dataset): The input gridded precipitation dataset.
         storm_id (int): The ID of the storm to compute.
         lat (float): The latitude of the point.
         lon (float): The longitude of the point.
         tab (st.delta_generator.DeltaGenerator): The Streamlit tab to display progress.
+    Returns
+    -------
+    None
     """
     if lat is None or lon is None or storm_id is None:
         return
@@ -103,7 +107,7 @@ def compute_hyetograph(
                     "'APCP_surface' variable does not have 'time' dimension."
                 )
             precip_point = da_precip / 1000 * 39.3701
-            st.session_state["hydromet_hyetograph_data"] = precip_point
+            st.session_state["hyeto_cache"][(lat, lon)] = precip_point
 
 
 def compute_storm_animation(
@@ -569,7 +573,7 @@ def build_storm_animation_maplibre(
     }
     html = f"""
         <div style=\"width: 100%;\">
-            <div id=\"{map_id}\" style=\"height: 600px; width: 100%;\"></div>
+            <div id=\"{map_id}\" style=\"height: 500px; width: 100%;\"></div>
             <div id=\"{label_id}\" style=\"padding: 6px 10px; font-weight: 600;\"></div>
             <div id=\"{error_id}\" style=\"padding: 6px 10px; color: #b00020; font-weight: 600;\"></div>
         </div>

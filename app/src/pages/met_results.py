@@ -23,7 +23,7 @@ from enum import Enum
 # third party imports
 import streamlit as st
 from dotenv import load_dotenv
-import plotly.express as px
+import plotly.graph_objects as go
 from streamlit.components.v1 import html as components_html
 
 currDir = os.path.dirname(os.path.realpath(__file__))  # located within pages folder
@@ -82,6 +82,7 @@ def hydro_met():
             )
             st.session_state["init_met_pilot"] = True
     st.session_state.setdefault("storm_cache", {})
+    st.session_state.setdefault("hyeto_cache", {})
 
     repo = open_repo(
         bucket=st.session_state["pilot"], prefix="test/trinity-storms.icechunk"
@@ -142,7 +143,7 @@ def hydro_met():
 
     # Map Position (render after potential overlay computation)
     c_lat, c_lon, zoom = get_map_pos("MET")
-    with map_col:
+    with map_tab:
         with st.spinner("Loading map..."):
             st.fmap = prep_metmap(
                 zoom,
@@ -157,7 +158,8 @@ def hydro_met():
         st.json(st.session_state["storm_cache"], expanded=False)
         st.markdown("## Map State")
         last_active_drawing = st.map_output.get("last_active_drawing", None)
-        st.write(last_active_drawing)
+        st.write(st.map_output["all_drawings"])
+        # st.write(last_active_drawing)
         if last_active_drawing:
             logger.debug("Map feature selected")
             geometry = last_active_drawing.get("geometry", {})
@@ -175,39 +177,73 @@ def hydro_met():
 
     with hyeto_tab:
         st.markdown("## Hyetographs")
-        st.write("Select points on the map to generate hyetographs.")
-        compute_hyetograph(
-            ds,
-            storm_id=st.session_state["hydromet_storm_id"],
-            lat=st.session_state["single_event_focus_lat"],
-            lon=st.session_state["single_event_focus_lon"],
-            tab=hyeto_tab,
-        )
-        with st.expander("Plots", expanded=False, icon="📈"):
-            if st.session_state["hydromet_hyetograph_data"] is not None:
-                hyeto_da = st.session_state["hydromet_hyetograph_data"]
-                hyeto_df = hyeto_da.to_dataframe(name="precip_in").reset_index()
-                time_cols = [
-                    col for col in ("abs_time", "time") if col in hyeto_df.columns
-                ]
-                if time_cols:
-                    x_col = time_cols[0]
-                else:
-                    hyeto_df["timestep"] = range(len(hyeto_df))
-                    x_col = "timestep"
-
-                fig = px.line(
-                    hyeto_df,
-                    x=x_col,
-                    y="precip_in",
-                    labels={x_col: "Time", "precip_in": "Precipitation (inches)"},
-                    markers=True,
+        if st.map_output.get("all_drawings") is not None:
+            for drawing in st.map_output["all_drawings"]:
+                geometry = drawing.get("geometry", {})
+                if geometry.get("type") != "Point":
+                    continue
+                coordinates = geometry.get("coordinates", [])
+                if len(coordinates) != 2:
+                    continue
+                lon, lat = coordinates
+                compute_hyetograph(
+                    ds,
+                    storm_id=st.session_state["hydromet_storm_id"],
+                    lat=lat,
+                    lon=lon,
+                    tab=hyeto_tab,
                 )
-                fig.update_layout(margin=dict(l=20, r=20, t=20, b=20))
+        with st.expander("Plots", expanded=True, icon="📈"):
+            if st.session_state.get("hyeto_cache"):
+                fig = go.Figure()
+                for key, hyeto_da in st.session_state["hyeto_cache"].items():
+                    lat, lon = key
+                    hyeto_df = hyeto_da.to_dataframe(name="precip_in").reset_index()
+                    time_cols = [
+                        col for col in ("abs_time", "time") if col in hyeto_df.columns
+                    ]
+                    if time_cols:
+                        x_col = time_cols[0]
+                    else:
+                        hyeto_df["timestep"] = range(len(hyeto_df))
+                        x_col = "timestep"
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=hyeto_df[x_col],
+                            y=hyeto_df["precip_in"],
+                            mode="lines+markers",
+                            name=f"Lat {lat:.4f}, Lon {lon:.4f}",
+                        )
+                    )
+
+                fig.update_layout(
+                    title="Hyetographs",
+                    xaxis_title="Time",
+                    yaxis_title="Precipitation (inches)",
+                    margin=dict(l=20, r=20, t=40, b=20),
+                    legend_title_text="Locations",
+                )
                 st.plotly_chart(fig, use_container_width=True)
         with st.expander("Tables", expanded=False, icon="🔢"):
-            if st.session_state["hydromet_hyetograph_data"] is not None:
-                st.dataframe(hyeto_df)
+            if st.session_state.get("hyeto_cache"):
+                for key, hyeto_da in st.session_state["hyeto_cache"].items():
+                    lat, lon = key
+                    hyeto_df = hyeto_da.to_dataframe(name="precip_in").reset_index()
+                    hyeto_df_display = hyeto_df.copy()
+                    time_cols = [
+                        col for col in ("abs_time", "time") if col in hyeto_df.columns
+                    ]
+                    if time_cols:
+                        x_col = time_cols[0]
+                        hyeto_df_display[x_col] = hyeto_df_display[x_col].astype(
+                            str
+                        )  # Convert to string for better display
+                    else:
+                        hyeto_df_display["timestep"] = range(len(hyeto_df_display))
+
+                    st.markdown(f"### Lat {lat:.4f}, Lon {lon:.4f}")
+                    st.dataframe(hyeto_df_display, use_container_width=True)
 
     with anime_tab:
         st.markdown("## Storm Animation")
@@ -221,21 +257,20 @@ def hydro_met():
                 st.info("Select a storm to enable animation.")
             else:
                 if st.button(
-                    "Generate 72-Hour Animation",
+                    "Generate Animation",
                     type="primary",
                     use_container_width=True,
                 ):
                     st.session_state["storm_animation_requested"] = True
                     st.session_state["storm_animation_html"] = None
                     with st.spinner("Computing animation frames..."):
-                        st.write("Computing animation frames...")
                         compute_storm_animation(ds, storm_id=storm_id)
 
                 animation_payload = st.session_state.get("storm_animation")
                 if st.session_state.get("storm_animation_html"):
                     components_html(
                         st.session_state["storm_animation_html"],
-                        height=650,
+                        height=500,
                         scrolling=False,
                     )
                 elif not st.session_state.get("storm_animation_requested"):
@@ -249,14 +284,14 @@ def hydro_met():
                         )
                     else:
                         if st.session_state.get("storm_animation_html") is None:
-                            st.write("Rendering animation...")
-                            st.session_state["storm_animation_html"] = (
-                                build_storm_animation_maplibre(
-                                    animation_payload.get("frames"),
-                                    animation_payload.get("times"),
-                                    st.session_state.get("storm_bounds"),
+                            with st.spinner("Rendering animation..."):
+                                st.session_state["storm_animation_html"] = (
+                                    build_storm_animation_maplibre(
+                                        animation_payload.get("frames"),
+                                        animation_payload.get("times"),
+                                        st.session_state.get("storm_bounds"),
+                                    )
                                 )
-                            )
                         if st.session_state["storm_animation_html"]:
                             components_html(
                                 st.session_state["storm_animation_html"],
