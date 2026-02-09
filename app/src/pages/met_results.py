@@ -9,7 +9,7 @@ from utils.storms import (
     compute_storm,
     compute_hyetograph,
     compute_storm_animation,
-    build_storm_animation,
+    build_storm_animation_maplibre,
 )
 from utils.custom import about_popover, map_popover
 from utils.mapping import prep_metmap, get_map_pos
@@ -208,6 +208,8 @@ def hydro_met():
 
     with anime_tab:
         st.markdown("## Storm Animation")
+        st.session_state.setdefault("storm_animation_requested", False)
+        st.session_state.setdefault("storm_animation_html", None)
         if ds is None:
             st.info("Dataset not loaded yet.")
         else:
@@ -220,30 +222,46 @@ def hydro_met():
                     type="primary",
                     use_container_width=True,
                 ):
+                    st.session_state["storm_animation_requested"] = True
+                    st.session_state["storm_animation_html"] = None
                     with st.spinner("Computing animation frames..."):
                         st.write("Computing animation frames...")
                         compute_storm_animation(ds, storm_id=storm_id)
 
                 animation_payload = st.session_state.get("storm_animation")
-                if animation_payload and animation_payload.get("frames") is not None:
-                    st.write("Rendering animation...")
-                    st.session_state["storm_animation_html"] = build_storm_animation(
-                        animation_payload.get("frames"),
-                        animation_payload.get("times"),
-                        st.session_state.get("storm_bounds"),
+                if st.session_state.get("storm_animation_html"):
+                    components_html(
+                        st.session_state["storm_animation_html"],
+                        height=650,
+                        scrolling=False,
                     )
-                else:
+                elif not st.session_state.get("storm_animation_requested"):
                     st.info(
                         "Click the button above to generate an animation for the selected storm."
                     )
-                if st.session_state["storm_animation_html"]:
-                    components_html(
-                        st.session_state["storm_animation_html"],
-                        height=1000,
-                        scrolling=True,
-                    )
+                elif animation_payload and animation_payload.get("frames") is not None:
+                    if st.session_state.get("storm_bounds") is None:
+                        st.warning("Storm bounds not available yet. Try again after the map loads.")
+                    else:
+                        if st.session_state.get("storm_animation_html") is None:
+                            st.write("Rendering animation...")
+                            st.session_state["storm_animation_html"] = (
+                                build_storm_animation_maplibre(
+                                    animation_payload.get("frames"),
+                                    animation_payload.get("times"),
+                                    st.session_state.get("storm_bounds"),
+                                )
+                            )
+                        if st.session_state["storm_animation_html"]:
+                            components_html(
+                                st.session_state["storm_animation_html"],
+                                height=650,
+                                scrolling=False,
+                            )
+                        else:
+                            st.warning("Unable to render animation for this storm.")
                 else:
-                    st.warning("Unable to render animation for this storm.")
+                    st.warning("Animation frames are not ready. Try again.")
 
 if __name__ == "__main__":
     hydro_met()
