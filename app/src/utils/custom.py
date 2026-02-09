@@ -181,3 +181,33 @@ def about_popover(color: str = "white"):
             6. To reset selections, click the "Reset Selections" button located in the upper corner of the page
                 """
             )
+
+def about_popover_met(color: str = "white"):
+    """
+    Render the styled About popover section for Meteorology.
+    """
+    with stylable_container(
+        key="popover_container_about",
+        css_styles=f"""
+            button {{
+                background-color: {color};
+                color: black;
+                border-radius: 5px;
+                white-space: nowrap;
+            }}
+        """,
+    ):
+        with st.popover("READ ME ℹ️", use_container_width=True):
+            st.markdown(
+                """
+            1. Select a pilot study to initialize the storms catalog dataset.
+            2. Turn map layers on and off using the layer toggle in the top right corner of the map.
+            2. Select storms by rank, time, accumulation, or seasonality from the dropdown.
+            3. Once a storm is selected, the following information can be viewed:
+            4. **Metadata**: View metadata about the storm, including its rank, seasonality, time range, and total accumulation.
+            5. **Hyetograph**: View the hyetograph for one or multiple point within the storm's footprint. 
+            Drop points on the map to compute the hyetograph for that location. The hyetograph will show the storm's precipitation intensity over time at that location.
+            6. **Animation**: View an animation of the storm's precipitation footprint over time. 
+            The animation will show how the storm's precipitation intensity changes over time across the entire footprint.
+                """
+            )

@@ -11,7 +11,7 @@ from utils.storms import (
     compute_storm_animation,
     build_storm_animation_maplibre,
 )
-from utils.custom import about_popover, map_popover
+from utils.custom import about_popover_met, map_popover
 from utils.mapping import prep_metmap, get_map_pos
 from utils.stac_data import init_met_pilot, get_stac_meta
 
@@ -57,7 +57,7 @@ def hydro_met():
 
     st.sidebar.markdown("## Getting Started")
     with st.sidebar:
-        about_popover()
+        about_popover_met()
 
     st.sidebar.markdown("## Select Study")
     st.session_state["pilot"] = st.sidebar.selectbox(
@@ -176,7 +176,7 @@ def hydro_met():
                     )
 
     with hyeto_tab:
-        st.markdown("## Hyetographs")
+        st.markdown("## Storm Hyetographs")
         if st.map_output.get("all_drawings") is not None:
             for drawing in st.map_output["all_drawings"]:
                 geometry = drawing.get("geometry", {})
