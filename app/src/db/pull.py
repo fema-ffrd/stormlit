@@ -442,6 +442,38 @@ def query_s3_model_bndry(_conn, pilot: str, model_id: str) -> gpd.GeoDataFrame:
 
 
 @st.cache_data
+def query_s3_geojson(s3_path: str, name: str) -> gpd.GeoDataFrame:
+    """
+    Query geojson data from the S3 bucket.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        name (str): The name of the layer to assign to the GeoDataFrame.
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame containing the geojson data.
+    """
+    fs = s3fs.S3FileSystem(anon=False)
+    if not fs.exists(s3_path):
+        msg = f"GeoJSON does not exist at {s3_path}"
+        logger.error(msg)
+        raise StormlitQueryException(msg)
+    try:
+        with fs.open(s3_path, "rb") as src:
+            geojson_bytes = src.read()
+        gdf = gpd.read_file(io.BytesIO(geojson_bytes))
+    except Exception as exc:
+        msg = f"Failed to read GeoJSON: {exc}"
+        logger.error(msg)
+        raise StormlitQueryException(msg) from exc
+    gdf = gdf.to_crs(epsg=4326)
+    centroids = gdf.geometry.centroid
+    gdf["lat"] = centroids.y.astype(float)
+    gdf["lon"] = centroids.x.astype(float)
+    gdf["layer"] = name
+    return gdf
+
+
+@st.cache_data
 def query_s3_model_thumbnail(_conn, pilot: str, model_id: str) -> Image:
     """
     Query a thumbnail image file directly below the S3 model path.
