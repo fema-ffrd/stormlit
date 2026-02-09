@@ -237,7 +237,7 @@ def get_map_pos(map_layer: str):
             c_df["lat"] = c_df.geometry.centroid.y
             c_df["lon"] = c_df.geometry.centroid.x
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
-        c_zoom = 6
+        c_zoom = 5
     else:
         raise ValueError(f"Invalid map layer {map_layer}. Choose 'HMS' or 'RAS'.")
     return c_lat, c_lon, c_zoom

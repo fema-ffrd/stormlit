@@ -90,7 +90,10 @@ def hydro_met():
 
     map_col, info_col = st.columns(2)
 
-    with map_col:
+    map_tab, session_tab = map_col.tabs(["Storm Map", "Session State"])
+
+    with map_tab:
+        st.markdown("## Storm Selection")
         map_popover(
             "🌧️ Storms",
             range(1, 441),
@@ -107,8 +110,8 @@ def hydro_met():
             image_path=os.path.join(assetsDir, "storm_icon.png"),
         )
 
-    metadata_tab, hyeto_tab, anime_tab, session_tab = info_col.tabs(
-        ["Metadata", "Hyetographs", "Animation", "Session"]
+    metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
+        ["Metadata", "Hyetographs", "Animation"]
     )
 
     if ds is None:
