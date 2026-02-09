@@ -82,7 +82,7 @@ def identify_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
         The gage ID if a gage is found within the subbasin, otherwise None
     """
     # Combine all subbasin geometries into one (if multiple)
-    subbasin_geom = subbasin_geom.unary_union
+    subbasin_geom = subbasin_geom.union_all
     # Get centroids of all gages
     gage_centroids = st.gages.centroid
     # Find which gage centroids are within the subbasin geometry
@@ -110,7 +110,7 @@ def identify_gage_from_pt_ln(_geom: gpd.GeoSeries):
         The subbasin ID if a subbasin is found containing the point or line, otherwise None
     """
     # Combine all geometries into one (if multiple)
-    _geom = _geom.unary_union.centroid
+    _geom = _geom.union_all.centroid
     # Get all subbasin geometries
     subbasin_geoms = st.subbasins.geometry
     # Find which subbasins contain the ln/pt geometry
