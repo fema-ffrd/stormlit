@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import xarray as xr
-import matplotlib.pyplot as plt
 from plotly import express as px
 import plotly.graph_objects as go
 from typing import Optional
@@ -9,35 +7,6 @@ from typing import Optional
 from utils.constants import (
     FLOW_LABEL,
 )
-
-
-def plot_colorbar(
-    da: xr.DataArray,
-    label: str,
-    orientation: str = "horizontal",
-    colormap: str = "Spectral_r",
-) -> None:
-    """Plot a colorbar for the storm precipitation.
-
-    Args:
-        da (xr.DataArray): A DataArray for plotting.
-        label (str): The label for the colorbar.
-        orientation (str, optional): The orientation of the colorbar. Defaults to "horizontal".
-        colormap (str, optional): The colormap to use for the colorbar. Defaults to "Spectral_r".
-    """
-    fig_colorbar, ax_colorbar = plt.subplots(figsize=(4, 1.0))
-    norm = plt.Normalize(vmin=0, vmax=da.max().item())
-    sm = plt.cm.ScalarMappable(cmap=colormap, norm=norm)
-    sm.set_array([])
-    cbar = fig_colorbar.colorbar(
-        sm,
-        cax=ax_colorbar,
-        orientation=orientation,
-    )
-    cbar.set_label(label)
-    fig_colorbar.tight_layout()
-    st.pyplot(fig_colorbar)
-
 
 def plot_ts(
     df1: pd.DataFrame,

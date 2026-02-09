@@ -31,7 +31,7 @@ def compute_storm(
     -------
     None
     """
-    st.session_state["hydromet_animation"] = None
+    st.session_state["storm_animation"] = None
     if storm_id not in st.session_state["storm_cache"].keys():
         parent_ctx = tab if tab is not None else nullcontext()
         with parent_ctx:
@@ -126,7 +126,7 @@ def compute_storm_animation(
         raise ValueError("'APCP_surface' variable does not have 'time' dimension.")
     precip_cube = _load_precip_cube(da_precip)
     precip_cube = _orient_cube_north_up(precip_cube)
-    st.session_state["hydromet_animation"] = _animation_payload_from_cube(precip_cube)
+    st.session_state["storm_animation"] = _animation_payload_from_cube(precip_cube)
 
 
 def _coerce_crs_input(value: object) -> object | None:
