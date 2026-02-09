@@ -236,9 +236,7 @@ def hydro_met():
                     ]
                     if time_cols:
                         x_col = time_cols[0]
-                        hyeto_df_display[x_col] = hyeto_df_display[x_col].astype(
-                            str
-                        )  # Convert to string for better display
+                        hyeto_df_display[x_col] = hyeto_df_display[x_col].astype(str)
                     else:
                         hyeto_df_display["timestep"] = range(len(hyeto_df_display))
 

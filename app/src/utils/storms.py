@@ -441,7 +441,6 @@ def build_storm_animation(
     vmin = float(np.nanmin(data))
     vmax = float(np.nanmax(data))
     labels = _format_time_labels(times, data.shape[0])
-    labels_serializable = [str(label) for label in labels]
     fig, ax = plt.subplots(figsize=(7, 5))
     image = ax.imshow(
         data[0],
