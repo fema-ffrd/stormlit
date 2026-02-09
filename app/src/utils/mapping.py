@@ -42,7 +42,7 @@ def style_reaches(feature):
 def style_reservoirs(feature):
     return {"fillColor": "#0a0703", "weight": 4}
 
-
+@st.cache_data(show_spinner=False)
 def _prepare_rgba_image(
     image_data: np.ndarray, cmap_name: str = "Spectral_r"
 ) -> np.ndarray | None:
@@ -171,6 +171,8 @@ def add_storm_layer(m: leafmap.Map, storm_id: int | None) -> None:
     if storm_id is None or storm_data is None:
         return
     bounds = st.session_state.get("storm_bounds")
+    st.session_state["storm_max"] = float(storm_data.values.max())
+    st.session_state["storm_min"] = float(storm_data.values.min())
     if bounds is None:
         bounds = _compute_overlay_bounds(storm_data)
         if bounds is None:
@@ -241,15 +243,13 @@ def get_map_pos(map_layer: str):
 
 
 def prep_metmap(
-    bounds: list, zoom: int, c_lat: float, c_lon: float, storm_id: int | None
+        zoom: int, c_lat: float, c_lon: float, storm_id: int | None
 ) -> leafmap.Map:
     """
     Prepare the leafmap map object based on the selected map layer.
 
     Parameters
     ----------
-    bounds: list
-        The bounding box to zoom to [[min_lon, min_lat], [max_lon, max_lat]]
     zoom: int
         The initial zoom level for the map
     c_lat: float
@@ -299,17 +299,12 @@ def prep_metmap(
         )
     if st.session_state["hydromet_storm_data"] is not None:
         add_storm_layer(m, storm_id)
-
-    # if bounds is not None:
-    #     # bounds is in format [[lat, lon], [lat, lon]] from folium/focus_feature
-    #     # Need to convert to [min_lon, min_lat, max_lon, max_lat] for leafmap
-    #     lat1, lon1 = bounds[0]
-    #     lat2, lon2 = bounds[1]
-    #     min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
-    #     min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
-    #     bbox = [min_lon, min_lat, max_lon, max_lat]
-    #     m.zoom_to_bounds(bbox)
-    # else:
+        m.add_colorbar(
+            colors=["blue", "cyan", "green", "yellow", "orange", "red"],
+            caption="72-Hour Accumulated Precipitation (inches)",
+            vmax=st.session_state["storm_max"],
+            vmin=st.session_state["storm_min"],)
+    m.clear_controls()
     m.set_center(c_lon, c_lat, zoom)
 
     return m
