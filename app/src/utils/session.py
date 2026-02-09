@@ -91,3 +91,18 @@ def init_session_state():
     st.sel_map_obj = None
     st.hms_meta_url = None
     st.ras_meta_url = None
+
+    # Hydro-Met
+    st.session_state["hydromet_storm_id"] = None
+    st.session_state["hydromet_storm_data"] = None
+    st.session_state["hydromet_hyetograph_data"] = None
+    st.session_state["init_met_pilot"] = False
+    st.session_state["storm_cache"] = {}
+    st.session_state["storm_center_x"] = None
+    st.session_state["storm_center_y"] = None
+    st.session_state["storm_center_lon"] = None
+    st.session_state["storm_center_lat"] = None
+    st.session_state["x_delta"] = None
+    st.session_state["y_delta"] = None
+    st.session_state["storm_bounds"] = None
+    st.session_state["hydromet_animation_html"] = None
