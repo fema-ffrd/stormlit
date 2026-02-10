@@ -21,6 +21,7 @@ import logging
 from enum import Enum
 
 # third party imports
+import yaml
 import streamlit as st
 from dotenv import load_dotenv
 import plotly.graph_objects as go
@@ -134,7 +135,9 @@ def hydro_met():
             if storm_meta[0]:
                 storm_meta = storm_meta[1]
                 storm_prop = storm_meta.get("properties", {})
-                metadata_tab.json(storm_prop, expanded=True)
+                storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
+                metadata_tab.text(storm_prop_yaml)
+                # metadata_tab.json(storm_prop, expanded=True)
             else:
                 metadata_tab.error(
                     f"Failed to retrieve metadata for Storm ID {storm_meta_id}: {storm_meta[1]}"
@@ -159,7 +162,6 @@ def hydro_met():
         st.markdown("## Map State")
         last_active_drawing = st.map_output.get("last_active_drawing", None)
         st.write(st.map_output["all_drawings"])
-        # st.write(last_active_drawing)
         if last_active_drawing:
             logger.debug("Map feature selected")
             geometry = last_active_drawing.get("geometry", {})
