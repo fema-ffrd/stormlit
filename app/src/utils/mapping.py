@@ -273,7 +273,6 @@ def prep_metmap(
         minimap_control=False,
         toolbar_control=False,
         layers_control=True,
-        zoom_start=zoom,
     )
 
     # Add the layers to the map
