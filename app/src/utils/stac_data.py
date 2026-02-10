@@ -54,6 +54,16 @@ def reset_selections():
             "stochastic_event": None,
             "stochastic_storm": None,
             "hms_element_id": None,
+            "hydromet_storm_id": None,
+            "hydromet_storm_data": None,
+            "hydromet_hyetograph_data": None,
+            "storm_cache": {},
+            "storm_bounds": None,
+            "storm_animation_payload": None,
+            "storm_animation_html": None,
+            "storm_max": None,
+            "storm_min": None,
+            "hyeto_cache": {},
         }
     )
 

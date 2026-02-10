@@ -13,7 +13,7 @@ from utils.storms import (
 )
 from utils.custom import about_popover_met, map_popover
 from utils.mapping import prep_metmap, get_map_pos
-from utils.stac_data import init_met_pilot, get_stac_meta
+from utils.stac_data import init_met_pilot, get_stac_meta, reset_selections
 
 # standard imports
 import os
@@ -94,6 +94,12 @@ def hydro_met():
 
     map_tab, session_tab = map_col.tabs(["Storm Map", "Session State"])
 
+    # Reset Selections
+    with st.sidebar:
+        if st.button("Reset Selections", type="primary", use_container_width=True):
+            reset_selections()
+            st.rerun()
+
     # Selection Panel
     with map_tab:
         st.markdown("## Storm Selection")
@@ -113,41 +119,41 @@ def hydro_met():
             image_path=os.path.join(assetsDir, "storm_icon.png"),
         )
 
+    # Compute storm data if a storm is selected
+    if st.session_state["hydromet_storm_id"] is not None:
+        compute_storm(ds, storm_id=st.session_state["hydromet_storm_id"], tab=info_col)
+
     metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
         ["Metadata", "Hyetographs", "Animation"]
     )
-
-    if ds is None:
-        st.sidebar.error("Failed to load Meteorology data. Dataset is None.")
-        metadata_tab.info("Unable to display metadata until the dataset loads.")
-    else:
-        st.sidebar.success("Meteorology data loaded successfully.")
-        storm_id = st.session_state["hydromet_storm_id"]
-        if storm_id is None:
-            metadata_tab.info(
-                "Select a Storm ID to visualize precipitation and metadata."
-            )
+    # Metadata Panel
+    with metadata_tab:
+        st.markdown("## Storm Metadata")
+        if ds is None:
+            st.sidebar.error("Failed to load Meteorology data. Dataset is None.")
+            st.info("Unable to display metadata until the dataset loads.")
         else:
-            metadata_tab.markdown("## Storm Metadata")
-            storm_meta_id = str(storm_id).zfill(3)
-            storm_meta = get_stac_meta(
-                f"https://stac-api.arc-apps.net/collections/72hr-events/items/{storm_meta_id}"
-            )
-            if storm_meta[0]:
-                storm_meta = storm_meta[1]
-                storm_prop = storm_meta.get("properties", {})
-                storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
-                metadata_tab.text(storm_prop_yaml)
-                # metadata_tab.json(storm_prop, expanded=True)
+            st.sidebar.success("Meteorology data loaded successfully.")
+            storm_id = st.session_state["hydromet_storm_id"]
+            if storm_id is None:
+                st.info("Please select a storm.")
             else:
-                metadata_tab.error(
-                    f"Failed to retrieve metadata for Storm ID {storm_meta_id}: {storm_meta[1]}"
+                storm_meta_id = str(storm_id).zfill(3)
+                storm_meta = get_stac_meta(
+                    f"https://stac-api.arc-apps.net/collections/72hr-events/items/{storm_meta_id}"
                 )
-            compute_storm(ds, storm_id=storm_id, tab=info_col)
-
+                if storm_meta[0]:
+                    storm_meta = storm_meta[1]
+                    storm_prop = storm_meta.get("properties", {})
+                    storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
+                    st.text(storm_prop_yaml)
+                else:
+                    st.error(
+                        f"Failed to retrieve metadata for Storm ID {storm_meta_id}: {storm_meta[1]}"
+                    )
     # Map Panel
-    c_lat, c_lon, zoom = get_map_pos("MET")
     with map_tab:
+        c_lat, c_lon, zoom = get_map_pos("MET")
         with st.spinner("Loading map..."):
             st.fmap = prep_metmap(
                 zoom,
@@ -180,7 +186,13 @@ def hydro_met():
     # Hyetograph Panel
     with hyeto_tab:
         st.markdown("## Storm Hyetographs")
-        if st.map_output.get("all_drawings") is not None:
+        if st.session_state["hydromet_storm_id"] is None:
+            st.info("Please select a storm.")
+        elif st.map_output.get("all_drawings") is None:
+            st.info(
+                "Drop one or multiple points as markers on the map to view hyetographs."
+            )
+        else:
             for drawing in st.map_output["all_drawings"]:
                 geometry = drawing.get("geometry", {})
                 if geometry.get("type") != "Point":
@@ -257,9 +269,8 @@ def hydro_met():
         if ds is None:
             st.info("Dataset not loaded yet.")
         else:
-            storm_id = st.session_state.get("hydromet_storm_id")
-            if storm_id is None:
-                st.info("Select a storm to enable animation.")
+            if st.session_state["hydromet_storm_id"] is None:
+                st.info("Please select a storm.")
             else:
                 if st.button(
                     "Generate Animation",
@@ -269,9 +280,11 @@ def hydro_met():
                     st.session_state["storm_animation_requested"] = True
                     st.session_state["storm_animation_html"] = None
                     with st.spinner("Computing animation frames..."):
-                        compute_storm_animation(ds, storm_id=storm_id)
+                        compute_storm_animation(
+                            ds, storm_id=st.session_state["hydromet_storm_id"]
+                        )
 
-                animation_payload = st.session_state.get("storm_animation")
+                animation_payload = st.session_state.get("storm_animation_payload")
                 if st.session_state.get("storm_animation_html"):
                     components_html(
                         st.session_state["storm_animation_html"],

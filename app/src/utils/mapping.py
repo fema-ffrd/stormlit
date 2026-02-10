@@ -305,6 +305,46 @@ def prep_metmap(
             vmax=st.session_state["storm_max"],
             vmin=st.session_state["storm_min"],
         )
+    if st.session_state["hyeto_cache"] is not None:
+        if storm_id is not None:
+            keys = st.session_state["hyeto_cache"].keys()
+            points = [
+                (lon, lat)
+                for (lat, lon, key_storm_id) in keys
+                if key_storm_id == storm_id
+            ]
+            if points:
+                hyeto_gdf = gpd.GeoDataFrame(
+                    geometry=[
+                        shape({"type": "Point", "coordinates": coords})
+                        for coords in points
+                    ],
+                    crs="EPSG:4326",
+                )
+                hyeto_gdf["lat"] = hyeto_gdf.geometry.y.round(4)
+                hyeto_gdf["lon"] = hyeto_gdf.geometry.x.round(4)
+                color = "#0a5edd"
+                hyeto_div_icon = folium.DivIcon(
+                    html=f"""
+                    <div style="
+                        background-color: {color};
+                        border: 1px solid black;
+                        width: 10px;
+                        height: 10px">
+                    </div>
+                    """
+                )
+                m.add_gdf(
+                    hyeto_gdf,
+                    layer_name="Hyetograph Locations",
+                    info_mode="on_hover",
+                    fields=["lat", "lon"],
+                    marker=folium.Marker(icon=hyeto_div_icon),
+                    highlight_function=highlight_function,
+                    zoom_on_click=True,
+                    show=True,
+                )
+
     m.clear_controls()
     m.set_center(c_lon, c_lat, zoom)
 

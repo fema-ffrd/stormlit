@@ -16,7 +16,7 @@ import geopandas as gpd
 from PIL import Image
 from matplotlib.animation import FuncAnimation
 
-TransformerGroup = None  # type: ignore[assignment]
+TransformerGroup = None
 WGS84 = CRS.from_epsg(4326)
 
 
@@ -42,7 +42,7 @@ def compute_storm(
     """
     last_anim_storm = st.session_state.get("storm_animation_storm_id")
     if last_anim_storm != storm_id:
-        st.session_state["storm_animation"] = None
+        st.session_state["storm_animation_payload"] = None
         st.session_state["storm_animation_html"] = None
         st.session_state["storm_animation_requested"] = False
         st.session_state["storm_animation_storm_id"] = storm_id
@@ -144,7 +144,9 @@ def compute_storm_animation(
         raise ValueError("'APCP_surface' variable does not have 'time' dimension.")
     precip_cube = _load_precip_cube(da_precip)
     precip_cube = _orient_cube_north_up(precip_cube)
-    st.session_state["storm_animation"] = _animation_payload_from_cube(precip_cube)
+    st.session_state["storm_animation_payload"] = _animation_payload_from_cube(
+        precip_cube
+    )
 
 
 def _coerce_crs_input(value: object) -> object | None:
