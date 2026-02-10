@@ -533,19 +533,29 @@ def _frame_to_png_data_url(
     overlay_rgba: np.ndarray | None = None,
 ) -> str:
     """Convert a single precipitation frame to a PNG data URL, applying colormap and overlay."""
-    masked = np.ma.masked_invalid(frame) # Mask invalid values for transparency
-    masked = np.flipud(masked) # Flip vertically to match image coordinate system
-    rgba = (cmap(norm(masked)) * 255).astype(np.uint8) # Apply colormap and convert to RGBA
-    rgba[..., 3] = np.where(np.isfinite(masked), rgba[..., 3], 0) # Set alpha to 0 for invalid values
+    masked = np.ma.masked_invalid(frame)  # Mask invalid values for transparency
+    masked = np.flipud(masked)  # Flip vertically to match image coordinate system
+    rgba = (cmap(norm(masked)) * 255).astype(
+        np.uint8
+    )  # Apply colormap and convert to RGBA
+    rgba[..., 3] = np.where(
+        np.isfinite(masked), rgba[..., 3], 0
+    )  # Set alpha to 0 for invalid values
 
-    base_img = Image.fromarray(rgba, mode="RGBA") # Create base image from RGBA array
+    base_img = Image.fromarray(rgba, mode="RGBA")  # Create base image from RGBA array
     if overlay_rgba is not None:
-        overlay_img = Image.fromarray(overlay_rgba, mode="RGBA") # Create overlay image from RGBA array
-        base_img = Image.alpha_composite(base_img, overlay_img) # Composite overlay onto base image
+        overlay_img = Image.fromarray(
+            overlay_rgba, mode="RGBA"
+        )  # Create overlay image from RGBA array
+        base_img = Image.alpha_composite(
+            base_img, overlay_img
+        )  # Composite overlay onto base image
 
-    buffer = io.BytesIO() # Save the final image to a bytes buffer in PNG format
-    base_img.save(buffer, format="PNG") # Save the image to the buffer
-    encoded = base64.b64encode(buffer.getvalue()).decode("ascii") # Encode the PNG bytes as a base64 string
+    buffer = io.BytesIO()  # Save the final image to a bytes buffer in PNG format
+    base_img.save(buffer, format="PNG")  # Save the image to the buffer
+    encoded = base64.b64encode(buffer.getvalue()).decode(
+        "ascii"
+    )  # Encode the PNG bytes as a base64 string
     return f"data:image/png;base64,{encoded}"
 
 
@@ -643,7 +653,7 @@ def build_storm_animation_maplibre(
     )
     with ThreadPoolExecutor() as executor:
         frame_urls = list(executor.map(frame_encoder, data))
-    
+
     map_id = f"maplibre-{uuid4().hex}"
     label_id = f"maplibre-label-{uuid4().hex}"
     error_id = f"maplibre-error-{uuid4().hex}"

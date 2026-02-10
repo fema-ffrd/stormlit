@@ -288,7 +288,7 @@ def hydro_met():
                             "Storm bounds not available yet. Try again after the map loads."
                         )
                     else:
-                        if st.session_state.get("storm_animation_html") is None:     
+                        if st.session_state.get("storm_animation_html") is None:
                             with st.spinner("Rendering animation..."):
                                 st.session_state["storm_animation_html"] = (
                                     build_storm_animation_maplibre(
