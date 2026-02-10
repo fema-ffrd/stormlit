@@ -415,41 +415,6 @@ def _bounds_to_extent(bounds):
         return None
 
 
-def _prepare_overlay_gdf(
-    gdf: gpd.GeoDataFrame | None,
-    extent: list[float] | None,
-) -> gpd.GeoDataFrame | None:
-    """Prepare an overlay GeoDataFrame by reprojecting and clipping to extent."""
-    if gdf is None or not hasattr(gdf, "geometry"):
-        return None
-
-    try:
-        gdf_local = gdf.copy()
-    except Exception:
-        return None
-
-    try:
-        if gdf_local.crs is not None and gdf_local.crs != WGS84:
-            gdf_local = gdf_local.to_crs(WGS84)
-    except Exception:
-        pass
-
-    if extent is None:
-        return gdf_local
-
-    west, east, south, north = extent
-    try:
-        bbox = box(west, south, east, north)
-        try:
-            gdf_local = gdf_local.clip(bbox)
-        except Exception:
-            gdf_local = gdf_local[gdf_local.intersects(bbox)]
-    except Exception:
-        pass
-
-    return gdf_local
-
-
 @st.cache_data(show_spinner=True)
 def build_storm_animation(
     frames: np.ndarray, times: np.ndarray, bounds: list[tuple[float, float]]
@@ -519,6 +484,7 @@ def _render_overlay_rgba(
     extent: list[float] | None,
     shape: tuple[int, int],
 ) -> np.ndarray | None:
+    """Render overlay GeoDataFrames to an RGBA array for compositing."""
     if not overlays:
         return None
     height, width = shape
@@ -565,19 +531,20 @@ def _frame_to_png_data_url(
     cmap: plt.Colormap,
     overlay_rgba: np.ndarray | None = None,
 ) -> str:
-    masked = np.ma.masked_invalid(frame)
-    masked = np.flipud(masked)
-    rgba = (cmap(norm(masked)) * 255).astype(np.uint8)
-    rgba[..., 3] = np.where(np.isfinite(masked), rgba[..., 3], 0)
+    """Convert a single precipitation frame to a PNG data URL, applying colormap and overlay."""
+    masked = np.ma.masked_invalid(frame) # Mask invalid values for transparency
+    masked = np.flipud(masked) # Flip vertically to match image coordinate system
+    rgba = (cmap(norm(masked)) * 255).astype(np.uint8) # Apply colormap and convert to RGBA
+    rgba[..., 3] = np.where(np.isfinite(masked), rgba[..., 3], 0) # Set alpha to 0 for invalid values
 
-    base_img = Image.fromarray(rgba, mode="RGBA")
+    base_img = Image.fromarray(rgba, mode="RGBA") # Create base image from RGBA array
     if overlay_rgba is not None:
-        overlay_img = Image.fromarray(overlay_rgba, mode="RGBA")
-        base_img = Image.alpha_composite(base_img, overlay_img)
+        overlay_img = Image.fromarray(overlay_rgba, mode="RGBA") # Create overlay image from RGBA array
+        base_img = Image.alpha_composite(base_img, overlay_img) # Composite overlay onto base image
 
-    buffer = io.BytesIO()
-    base_img.save(buffer, format="PNG")
-    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    buffer = io.BytesIO() # Save the final image to a bytes buffer in PNG format
+    base_img.save(buffer, format="PNG") # Save the image to the buffer
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii") # Encode the PNG bytes as a base64 string
     return f"data:image/png;base64,{encoded}"
 
 
@@ -635,11 +602,10 @@ def build_storm_animation_maplibre(
 
     overlays: list[tuple[gpd.GeoDataFrame, dict]] = []
 
-    transpo_gdf = _prepare_overlay_gdf(st.session_state.get("transpo_gdf"), extent)
-    if transpo_gdf is not None and not transpo_gdf.empty:
+    if st.transpo is not None and not st.transpo.empty:
         overlays.append(
             (
-                transpo_gdf,
+                st.transpo,
                 {
                     "facecolor": "none",
                     "edgecolor": "#ff0404",
@@ -649,11 +615,10 @@ def build_storm_animation_maplibre(
                 },
             )
         )
-    models_gdf = _prepare_overlay_gdf(st.session_state.get("models_gdf"), extent)
-    if models_gdf is not None and not models_gdf.empty:
+    if st.models is not None and not st.models.empty:
         overlays.append(
             (
-                models_gdf,
+                st.models,
                 {
                     "facecolor": "none",
                     "edgecolor": "#162fbe",
