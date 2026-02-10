@@ -1,6 +1,8 @@
 import base64
 import io
 import json
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from uuid import uuid4
 
 import numpy as np
@@ -11,7 +13,6 @@ from pyproj import CRS, Transformer
 from pyproj.exceptions import ProjError
 import matplotlib.pyplot as plt
 import geopandas as gpd
-from shapely.geometry import box
 from PIL import Image
 from matplotlib.animation import FuncAnimation
 
@@ -110,7 +111,7 @@ def compute_hyetograph(
                     "'APCP_surface' variable does not have 'time' dimension."
                 )
             precip_point = da_precip / 1000 * 39.3701
-            st.session_state["hyeto_cache"][(lat, lon)] = precip_point
+            st.session_state["hyeto_cache"][(lat, lon, storm_id)] = precip_point
 
 
 def compute_storm_animation(
@@ -600,8 +601,8 @@ def build_storm_animation_maplibre(
     labels = _format_time_labels(times, data.shape[0])
     labels_serializable = [str(label) for label in labels]
 
+    # Prepare overlay geometries and styles if available in session state
     overlays: list[tuple[gpd.GeoDataFrame, dict]] = []
-
     if st.transpo is not None and not st.transpo.empty:
         overlays.append(
             (
@@ -633,15 +634,16 @@ def build_storm_animation_maplibre(
     norm = plt.Normalize(vmin=vmin, vmax=vmax)
     cmap = plt.get_cmap("Spectral_r")
 
-    frame_urls = [
-        _frame_to_png_data_url(
-            frame,
-            norm=norm,
-            cmap=cmap,
-            overlay_rgba=overlay_rgba,
-        )
-        for frame in data
-    ]
+    # Encode frames to PNG data URLs in parallel using ThreadPoolExecutor
+    frame_encoder = partial(
+        _frame_to_png_data_url,
+        norm=norm,
+        cmap=cmap,
+        overlay_rgba=overlay_rgba,
+    )
+    with ThreadPoolExecutor() as executor:
+        frame_urls = list(executor.map(frame_encoder, data))
+    
     map_id = f"maplibre-{uuid4().hex}"
     label_id = f"maplibre-label-{uuid4().hex}"
     error_id = f"maplibre-error-{uuid4().hex}"
