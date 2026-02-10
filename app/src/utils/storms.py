@@ -12,6 +12,7 @@ from pyproj.exceptions import ProjError
 import matplotlib.pyplot as plt
 import geopandas as gpd
 from shapely.geometry import box
+from PIL import Image
 from matplotlib.animation import FuncAnimation
 
 TransformerGroup = None  # type: ignore[assignment]
@@ -380,6 +381,7 @@ def _orient_cube_north_up(cube: xr.DataArray) -> xr.DataArray:
 
 
 def _format_time_labels(times, frame_count: int) -> list[str]:
+    """Format time labels for each frame based on provided times."""
     labels = []
     times_arr = np.asarray(times) if times is not None else None
     for idx in range(frame_count):
@@ -400,6 +402,7 @@ def _format_time_labels(times, frame_count: int) -> list[str]:
 
 
 def _bounds_to_extent(bounds):
+    """Convert bounds to extent [west, east, south, north]."""
     if not bounds:
         return None
     try:
@@ -410,6 +413,41 @@ def _bounds_to_extent(bounds):
         return [west, east, south, north]
     except Exception:
         return None
+
+
+def _prepare_overlay_gdf(
+    gdf: gpd.GeoDataFrame | None,
+    extent: list[float] | None,
+) -> gpd.GeoDataFrame | None:
+    """Prepare an overlay GeoDataFrame by reprojecting and clipping to extent."""
+    if gdf is None or not hasattr(gdf, "geometry"):
+        return None
+
+    try:
+        gdf_local = gdf.copy()
+    except Exception:
+        return None
+
+    try:
+        if gdf_local.crs is not None and gdf_local.crs != WGS84:
+            gdf_local = gdf_local.to_crs(WGS84)
+    except Exception:
+        pass
+
+    if extent is None:
+        return gdf_local
+
+    west, east, south, north = extent
+    try:
+        bbox = box(west, south, east, north)
+        try:
+            gdf_local = gdf_local.clip(bbox)
+        except Exception:
+            gdf_local = gdf_local[gdf_local.intersects(bbox)]
+    except Exception:
+        pass
+
+    return gdf_local
 
 
 @st.cache_data(show_spinner=True)
@@ -476,76 +514,69 @@ def build_storm_animation(
     return html_anim
 
 
-def _prepare_overlay_gdf(
-    gdf: gpd.GeoDataFrame | None,
+def _render_overlay_rgba(
+    overlays: list[tuple[gpd.GeoDataFrame, dict]] | None,
     extent: list[float] | None,
-) -> gpd.GeoDataFrame | None:
-    if gdf is None or not hasattr(gdf, "geometry"):
+    shape: tuple[int, int],
+) -> np.ndarray | None:
+    if not overlays:
+        return None
+    height, width = shape
+    if height <= 0 or width <= 0:
         return None
 
-    try:
-        gdf_local = gdf.copy()
-    except Exception:
-        return None
+    fig_w = max(width / 120, 1)
+    fig_h = max(height / 120, 1)
+    fig, ax = plt.subplots(
+        figsize=(fig_w, fig_h),
+        dpi=120,
+        facecolor=(0, 0, 0, 0),
+    )
+    ax.set_axis_off()
+    ax.set_position([0, 0, 1, 1])
+    ax.set_facecolor((0, 0, 0, 0))
+    if extent:
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
 
-    try:
-        if gdf_local.crs is not None and gdf_local.crs != WGS84:
-            gdf_local = gdf_local.to_crs(WGS84)
-    except Exception:
-        pass
-
-    if extent is None:
-        return gdf_local
-
-    west, east, south, north = extent
-    try:
-        bbox = box(west, south, east, north)
+    for overlay_gdf, style in overlays:
+        if overlay_gdf is None or overlay_gdf.empty:
+            continue
         try:
-            gdf_local = gdf_local.clip(bbox)
+            overlay_gdf.plot(ax=ax, **style)
         except Exception:
-            gdf_local = gdf_local[gdf_local.intersects(bbox)]
-    except Exception:
-        pass
+            continue
 
-    return gdf_local
+    fig.canvas.draw()
+    overlay_rgba = np.asarray(fig.canvas.buffer_rgba())
+    plt.close(fig)
+    if overlay_rgba.ndim != 3 or overlay_rgba.shape[2] != 4:
+        return None
+    if overlay_rgba.shape[0] != height or overlay_rgba.shape[1] != width:
+        overlay_rgba = np.array(
+            Image.fromarray(overlay_rgba).resize((width, height), Image.NEAREST)
+        )
+    return overlay_rgba
 
 
 def _frame_to_png_data_url(
     frame: np.ndarray,
-    vmin: float,
-    vmax: float,
-    cmap_name: str = "Spectral_r",
-    extent: list[float] | None = None,
-    overlays: list[tuple[gpd.GeoDataFrame, dict]] | None = None,
+    norm: plt.Normalize,
+    cmap: plt.Colormap,
+    overlay_rgba: np.ndarray | None = None,
 ) -> str:
     masked = np.ma.masked_invalid(frame)
+    masked = np.flipud(masked)
+    rgba = (cmap(norm(masked)) * 255).astype(np.uint8)
+    rgba[..., 3] = np.where(np.isfinite(masked), rgba[..., 3], 0)
+
+    base_img = Image.fromarray(rgba, mode="RGBA")
+    if overlay_rgba is not None:
+        overlay_img = Image.fromarray(overlay_rgba, mode="RGBA")
+        base_img = Image.alpha_composite(base_img, overlay_img)
+
     buffer = io.BytesIO()
-    fig, ax = plt.subplots(figsize=(7, 5), dpi=120)
-    ax.imshow(
-        masked,
-        cmap=cmap_name,
-        vmin=vmin,
-        vmax=vmax,
-        origin="lower",
-        extent=extent,
-    )
-    if extent:
-        ax.set_xlim(extent[0], extent[1])
-        ax.set_ylim(extent[2], extent[3])
-    ax.set_axis_off()
-    ax.set_position([0, 0, 1, 1])
-
-    if overlays:
-        for overlay_gdf, style in overlays:
-            if overlay_gdf is None or overlay_gdf.empty:
-                continue
-            try:
-                overlay_gdf.plot(ax=ax, **style)
-            except Exception:
-                continue
-
-    fig.savefig(buffer, format="png", transparent=True, dpi=120)
-    plt.close(fig)
+    base_img.save(buffer, format="PNG")
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
@@ -603,7 +634,8 @@ def build_storm_animation_maplibre(
     labels_serializable = [str(label) for label in labels]
 
     overlays: list[tuple[gpd.GeoDataFrame, dict]] = []
-    transpo_gdf = _prepare_overlay_gdf(getattr(st, "transpo", None), extent)
+
+    transpo_gdf = _prepare_overlay_gdf(st.session_state.get("transpo_gdf"), extent)
     if transpo_gdf is not None and not transpo_gdf.empty:
         overlays.append(
             (
@@ -612,13 +644,12 @@ def build_storm_animation_maplibre(
                     "facecolor": "none",
                     "edgecolor": "#ff0404",
                     "linewidth": 1.5,
-                    "linestyle": "--",
                     "alpha": 0.9,
                     "zorder": 3,
                 },
             )
         )
-    models_gdf = _prepare_overlay_gdf(getattr(st, "models", None), extent)
+    models_gdf = _prepare_overlay_gdf(st.session_state.get("models_gdf"), extent)
     if models_gdf is not None and not models_gdf.empty:
         overlays.append(
             (
@@ -633,13 +664,16 @@ def build_storm_animation_maplibre(
             )
         )
 
+    overlay_rgba = _render_overlay_rgba(overlays, extent, data.shape[1:3])
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    cmap = plt.get_cmap("Spectral_r")
+
     frame_urls = [
         _frame_to_png_data_url(
             frame,
-            vmin=vmin,
-            vmax=vmax,
-            extent=extent,
-            overlays=overlays,
+            norm=norm,
+            cmap=cmap,
+            overlay_rgba=overlay_rgba,
         )
         for frame in data
     ]
