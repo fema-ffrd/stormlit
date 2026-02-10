@@ -94,6 +94,7 @@ def hydro_met():
 
     map_tab, session_tab = map_col.tabs(["Storm Map", "Session State"])
 
+    # Selection Panel
     with map_tab:
         st.markdown("## Storm Selection")
         map_popover(
@@ -144,7 +145,7 @@ def hydro_met():
                 )
             compute_storm(ds, storm_id=storm_id, tab=info_col)
 
-    # Map Position (render after potential overlay computation)
+    # Map Panel
     c_lat, c_lon, zoom = get_map_pos("MET")
     with map_tab:
         with st.spinner("Loading map..."):
@@ -155,7 +156,7 @@ def hydro_met():
                 storm_id=st.session_state["hydromet_storm_id"],
             )
             st.map_output = st.fmap.to_streamlit(height=500, bidirectional=True)
-
+    # Session State Panel
     with session_tab:
         st.markdown("## Storm Cache")
         st.json(st.session_state["storm_cache"], expanded=False)
@@ -176,7 +177,7 @@ def hydro_met():
                             "single_event_focus_map_click": True,
                         }
                     )
-
+    # Hyetograph Panel
     with hyeto_tab:
         st.markdown("## Storm Hyetographs")
         if st.map_output.get("all_drawings") is not None:
@@ -199,7 +200,9 @@ def hydro_met():
             if st.session_state.get("hyeto_cache"):
                 fig = go.Figure()
                 for key, hyeto_da in st.session_state["hyeto_cache"].items():
-                    lat, lon = key
+                    lat, lon, storm_id = key
+                    if storm_id != st.session_state["hydromet_storm_id"]:
+                        continue
                     hyeto_df = hyeto_da.to_dataframe(name="precip_in").reset_index()
                     time_cols = [
                         col for col in ("abs_time", "time") if col in hyeto_df.columns
@@ -230,7 +233,9 @@ def hydro_met():
         with st.expander("Tables", expanded=False, icon="🔢"):
             if st.session_state.get("hyeto_cache"):
                 for key, hyeto_da in st.session_state["hyeto_cache"].items():
-                    lat, lon = key
+                    lat, lon, storm_id = key
+                    if storm_id != st.session_state["hydromet_storm_id"]:
+                        continue
                     hyeto_df = hyeto_da.to_dataframe(name="precip_in").reset_index()
                     hyeto_df_display = hyeto_df.copy()
                     time_cols = [
@@ -244,7 +249,7 @@ def hydro_met():
 
                     st.markdown(f"### Lat {lat:.4f}, Lon {lon:.4f}")
                     st.dataframe(hyeto_df_display, use_container_width=True)
-
+    # Animation Panel
     with anime_tab:
         st.markdown("## Storm Animation")
         st.session_state.setdefault("storm_animation_requested", False)
@@ -283,7 +288,7 @@ def hydro_met():
                             "Storm bounds not available yet. Try again after the map loads."
                         )
                     else:
-                        if st.session_state.get("storm_animation_html") is None:
+                        if st.session_state.get("storm_animation_html") is None:     
                             with st.spinner("Rendering animation..."):
                                 st.session_state["storm_animation_html"] = (
                                     build_storm_animation_maplibre(
