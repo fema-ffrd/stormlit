@@ -1,5 +1,10 @@
 # module imports
 from utils.session import init_session_state
+from db.pull import (
+    query_storms_by_threshold,
+    query_storms_by_rank,
+    query_storms_by_date,
+)
 from db.utils import create_pg_connection, create_s3_connection
 from db.icechunk import (
     open_repo,
@@ -11,7 +16,7 @@ from utils.storms import (
     compute_storm_animation,
     build_storm_animation_maplibre,
 )
-from utils.custom import about_popover_met, map_popover
+from utils.custom import about_popover_met
 from utils.mapping import prep_metmap, get_map_pos
 from utils.stac_data import init_met_pilot, get_stac_meta, reset_selections
 
@@ -40,7 +45,49 @@ class FeatureType(Enum):
     STORM = "Storm"
 
 
-def hydro_met():
+def _get_selected_row(event, table_key):
+    if event is not None:
+        selection = getattr(event, "selection", None)
+        rows = getattr(selection, "rows", []) if selection is not None else []
+    else:
+        table_state = st.session_state.get(table_key, {})
+        selection = table_state.get("selection", {})
+        rows = selection.get("rows", [])
+    return rows[0] if rows else None
+
+
+def _update_selected_storm(storms_df, row_idx, id_column):
+    if storms_df is None or row_idx is None or row_idx >= len(storms_df):
+        return
+    storm_id = int(storms_df.iloc[row_idx][id_column])
+    st.session_state.update(
+        {
+            "hydromet_storm_id": storm_id,
+            "single_event_focus_feature_type": FeatureType.STORM.value,
+            "single_event_focus_feature_id": storm_id,
+        }
+    )
+
+
+def _handle_rank_select(event=None):
+    row_idx = _get_selected_row(event, "storms_table_rank")
+    storms_df = st.session_state.get("storms_df_rank")
+    _update_selected_storm(storms_df, row_idx, "rank")
+
+
+def _handle_precip_select(event=None):
+    row_idx = _get_selected_row(event, "storms_table_precip")
+    storms_df = st.session_state.get("storms_df_precip")
+    _update_selected_storm(storms_df, row_idx, "rank")
+
+
+def _handle_date_select(event=None):
+    row_idx = _get_selected_row(event, "storms_table_date")
+    storms_df = st.session_state.get("storms_df_date")
+    _update_selected_storm(storms_df, row_idx, "rank")
+
+
+def met():
     st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
     if "session_id" not in st.session_state:
         init_session_state()
@@ -92,7 +139,7 @@ def hydro_met():
 
     map_col, info_col = st.columns(2)
 
-    map_tab, session_tab = map_col.tabs(["Storm Map", "Session State"])
+    map_tab, session_tab = map_col.tabs(["Map", "Session State"])
 
     # Reset Selections
     with st.sidebar:
@@ -100,32 +147,108 @@ def hydro_met():
             reset_selections()
             st.rerun()
 
+    selections_tab, metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
+        ["Selections", "Metadata", "Hyetographs", "Animation"]
+    )
+
     # Selection Panel
-    with map_tab:
+    with selections_tab:
         st.markdown("## Storm Selection")
-        map_popover(
-            "🌧️ Storms",
-            range(1, 441),
-            lambda storm: storm,
-            get_item_id=lambda storm: storm,
-            callback=lambda storm: st.session_state.update(
-                {
-                    "hydromet_storm_id": storm,
-                    "single_event_focus_feature_type": FeatureType.STORM.value,
-                    "single_event_focus_feature_id": storm,
-                }
-            ),
-            feature_type=None,
-            image_path=os.path.join(assetsDir, "storm_icon.png"),
+        rank_tab, precip_tab, date_tab = st.tabs(
+            ["By Rank", "By Precipitation", "By Date"]
         )
+        with rank_tab:
+            st.info("Query the top N ranked storms from the catalog.")
+
+            st.session_state["rank_threshold"] = st.number_input(
+                "Select a Minimum Rank Threshold (1 = highest rank = largest storm)",
+                min_value=1,
+                max_value=440,
+                value=10,
+                step=10,
+            )
+            if st.session_state["rank_threshold"] is not None:
+                st.session_state["storms_df_rank"] = query_storms_by_rank(
+                    st.session_state["s3_conn"],
+                    st.session_state["pilot"],
+                    st.pilot_layers["Storms"],
+                    rank=st.session_state["rank_threshold"],
+                )
+                st.info(
+                    "Click on a row to select a storm and view its details, map location, and hyetograph."
+                )
+                st.dataframe(
+                    st.session_state["storms_df_rank"],
+                    use_container_width=True,
+                    selection_mode="single-row",
+                    on_select=_handle_rank_select,
+                    key="storms_table_rank",
+                )
+        with precip_tab:
+            st.info(
+                "Query storms from the catalog that exceed a specified precipitation threshold."
+            )
+            st.session_state["precip_threshold"] = st.number_input(
+                "Select a Minimum Precipitation Threshold (inches)",
+                min_value=0.0,
+                max_value=20.0,
+                value=7.0,
+                step=0.5,
+            )
+            if st.session_state["precip_threshold"] is not None:
+                st.session_state["storms_df_precip"] = query_storms_by_threshold(
+                    st.session_state["s3_conn"],
+                    st.session_state["pilot"],
+                    st.pilot_layers["Storms"],
+                    threshold=st.session_state["precip_threshold"],
+                )
+                st.info(
+                    "Click on a row to select a storm and view its details, map location, and hyetograph."
+                )
+                st.dataframe(
+                    st.session_state["storms_df_precip"],
+                    use_container_width=True,
+                    selection_mode="single-row",
+                    on_select=_handle_precip_select,
+                    key="storms_table_precip",
+                )
+        with date_tab:
+            st.info(
+                "Query storms from the catalog that occurred within a specified date range."
+            )
+            start_date_col, end_date_col = st.columns(2)
+            st.session_state["storm_start_date"] = start_date_col.date_input(
+                "Start Date"
+            )
+            st.session_state["storm_end_date"] = end_date_col.date_input("End Date")
+            if (
+                st.session_state["storm_start_date"]
+                and st.session_state["storm_end_date"]
+                and st.session_state["storm_start_date"]
+                <= st.session_state["storm_end_date"]
+            ):
+                st.session_state["storms_df_date"] = query_storms_by_date(
+                    st.session_state["s3_conn"],
+                    st.session_state["pilot"],
+                    st.pilot_layers["Storms"],
+                    start_date=st.session_state["storm_start_date"],
+                    end_date=st.session_state["storm_end_date"],
+                )
+                st.info(
+                    "Click on a row to select a storm and view its details, map location, and hyetograph."
+                )
+                st.dataframe(
+                    st.session_state["storms_df_date"],
+                    use_container_width=True,
+                    selection_mode="single-row",
+                    on_select=_handle_date_select,
+                    key="storms_table_date",
+                )
 
     # Compute storm data if a storm is selected
     if st.session_state["hydromet_storm_id"] is not None:
         compute_storm(ds, storm_id=st.session_state["hydromet_storm_id"], tab=info_col)
 
-    metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
-        ["Metadata", "Hyetographs", "Animation"]
-    )
     # Metadata Panel
     with metadata_tab:
         st.markdown("## Storm Metadata")
@@ -138,9 +261,8 @@ def hydro_met():
             if storm_id is None:
                 st.info("Please select a storm.")
             else:
-                storm_meta_id = str(storm_id).zfill(3)
                 storm_meta = get_stac_meta(
-                    f"https://stac-api.arc-apps.net/collections/72hr-events/items/{storm_meta_id}"
+                    st.pilot_layers["Metadata"] + f"{storm_id}" + f"/{storm_id}.json"
                 )
                 if storm_meta[0]:
                     storm_meta = storm_meta[1]
@@ -149,10 +271,15 @@ def hydro_met():
                     st.text(storm_prop_yaml)
                 else:
                     st.error(
-                        f"Failed to retrieve metadata for Storm ID {storm_meta_id}: {storm_meta[1]}"
+                        f"Failed to retrieve metadata for Storm ID {storm_id}: {storm_meta[1]}"
                     )
     # Map Panel
     with map_tab:
+        if st.session_state["hydromet_storm_id"] is not None:
+            st.markdown(
+                f"## Selected Storm ID: {st.session_state['hydromet_storm_id']}"
+            )
+            st.markdown("### 72-hour Accumulated Precipitation")
         c_lat, c_lon, zoom = get_map_pos("MET")
         with st.spinner("Loading map..."):
             st.fmap = prep_metmap(
@@ -323,4 +450,4 @@ def hydro_met():
 
 
 if __name__ == "__main__":
-    hydro_met()
+    met()
