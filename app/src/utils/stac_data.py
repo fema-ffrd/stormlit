@@ -161,19 +161,21 @@ def init_met_pilot(s3_conn, pilot: str):
         The name of the pilot study to initialize data for
     """
     if pilot == "trinity-pilot":
-        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/prod-support"
+        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/stormlit"
         st.pilot_layers = {
-            "Gages": f"{st.pilot_base_url}/gages/gages.geojson",
-            "Storms": "https://stac-api.arc-apps.net/collections/72hr-events/items/",
+            "Storms": f"{st.pilot_base_url}/storms-db/72hr-events/collection.json",
+            "Metadata": f"{st.pilot_base_url}/storms-db/72hr-events/",
         }
     else:
         raise ValueError(f"Error: invalid pilot study {pilot}")
 
     pilot_name = pilot.split("-")[0].lower()
-    st.models = query_s3_model_bndry(s3_conn, pilot, "all")
-    st.models["geometry"] = st.models["geometry"].simplify(tolerance=0.001)
     st.transpo = query_s3_geojson(
         f"s3://{pilot}/stac/prod-support/storms/hydro_domains/{pilot_name}_transpo_area_v01_valid.geojson",
+        pilot_name,
+    )
+    st.study_area = query_s3_geojson(
+        f"s3://{pilot}/stac/stormlit/storms-db/hydro_domains/Trinity.json",
         pilot_name,
     )
 
