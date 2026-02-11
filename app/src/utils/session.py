@@ -71,6 +71,7 @@ def init_session_state():
     st.junctions = None
     st.reservoirs = None
     st.hms_storms = None
+    st.study_area = None
 
     st.session_state["dams_filtered"] = None
     st.session_state["ref_points_filtered"] = None
@@ -94,6 +95,14 @@ def init_session_state():
 
     # Hydro-Met
     st.session_state["hydromet_storm_id"] = None
+    st.session_state["storms_df_rank"] = None
+    st.session_state["storms_df_precip"] = None
+    st.session_state["storms_df_date"] = None
+    st.session_state["rank_threshold"] = None
+    st.session_state["precip_threshold"] = None
+    st.session_state["storm_start_date"] = None
+    st.session_state["storm_end_date"] = None
+    st.session_state["storm_type"] = None
     st.session_state["hydromet_storm_data"] = None
     st.session_state["hydromet_hyetograph_data"] = None
     st.session_state["init_met_pilot"] = False
