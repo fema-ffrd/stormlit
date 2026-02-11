@@ -18,7 +18,7 @@ from utils.storms import (
 )
 from utils.custom import about_popover_met
 from utils.mapping import prep_metmap, get_map_pos
-from utils.stac_data import init_met_pilot, get_stac_meta, reset_selections
+from utils.stac_data import init_met_pilot, get_stac_meta
 
 # standard imports
 import os
@@ -141,12 +141,6 @@ def met():
 
     map_tab, session_tab = map_col.tabs(["Map", "Session State"])
 
-    # Reset Selections
-    with st.sidebar:
-        if st.button("Reset Selections", type="primary", use_container_width=True):
-            reset_selections()
-            st.rerun()
-
     selections_tab, metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
         ["Selections", "Metadata", "Hyetographs", "Animation"]
     )
@@ -179,7 +173,7 @@ def met():
                 )
                 st.dataframe(
                     st.session_state["storms_df_rank"],
-                    use_container_width=True,
+                    width="stretch",
                     selection_mode="single-row",
                     on_select=_handle_rank_select,
                     key="storms_table_rank",
@@ -207,7 +201,7 @@ def met():
                 )
                 st.dataframe(
                     st.session_state["storms_df_precip"],
-                    use_container_width=True,
+                    width="stretch",
                     selection_mode="single-row",
                     on_select=_handle_precip_select,
                     key="storms_table_precip",
@@ -239,7 +233,7 @@ def met():
                 )
                 st.dataframe(
                     st.session_state["storms_df_date"],
-                    use_container_width=True,
+                    width="stretch",
                     selection_mode="single-row",
                     on_select=_handle_date_select,
                     key="storms_table_date",
@@ -368,7 +362,7 @@ def met():
                     margin=dict(l=20, r=20, t=40, b=20),
                     legend_title_text="Locations",
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
         with st.expander("Tables", expanded=False, icon="🔢"):
             if st.session_state.get("hyeto_cache"):
                 for key, hyeto_da in st.session_state["hyeto_cache"].items():
@@ -387,7 +381,7 @@ def met():
                         hyeto_df_display["timestep"] = range(len(hyeto_df_display))
 
                     st.markdown(f"### Lat {lat:.4f}, Lon {lon:.4f}")
-                    st.dataframe(hyeto_df_display, use_container_width=True)
+                    st.dataframe(hyeto_df_display, width="stretch")
     # Animation Panel
     with anime_tab:
         st.markdown("## Storm Animation")
