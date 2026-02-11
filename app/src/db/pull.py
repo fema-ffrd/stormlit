@@ -1,6 +1,8 @@
+import datetime as dt
 import io
 import pandas as pd
 import geopandas as gpd
+import pystac
 import streamlit as st
 import shapely.wkb
 import duckdb
@@ -466,11 +468,42 @@ def query_s3_geojson(s3_path: str, name: str) -> gpd.GeoDataFrame:
         logger.error(msg)
         raise StormlitQueryException(msg) from exc
     gdf = gdf.to_crs(epsg=4326)
+    _ensure_json_friendly_columns(gdf)
     centroids = gdf.geometry.centroid
     gdf["lat"] = centroids.y.astype(float)
     gdf["lon"] = centroids.x.astype(float)
     gdf["layer"] = name
     return gdf
+
+
+def _ensure_json_friendly_columns(gdf: gpd.GeoDataFrame) -> None:
+    """Transform datetime-like columns into ISO strings for JSON serialization."""
+    for column in gdf.columns:
+        if column == "geometry":
+            continue
+        series = gdf[column]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            gdf[column] = series.astype(str)
+            continue
+        if series.dtype == object:
+            if series.map(_contains_timestamp).any():
+                gdf[column] = series.map(_timestamp_to_iso)
+
+
+def _contains_timestamp(value) -> bool:
+    """Check if a value is a timestamp or datetime."""
+    return isinstance(value, (pd.Timestamp, dt.datetime))
+
+
+def _timestamp_to_iso(value):
+    """Convert a timestamp or datetime value to an ISO format string."""
+    if isinstance(value, pd.Timestamp):
+        if pd.isna(value):
+            return None
+        value = value.to_pydatetime()
+    if isinstance(value, dt.datetime):
+        return value.isoformat()
+    return value
 
 
 @st.cache_data
@@ -725,3 +758,168 @@ def query_s3_gage_ams(_conn, pilot: str, gage_id: str) -> pd.DataFrame:
         msg = f"S3 path does not exist. Please verify the path and its contents: {s3_path}"
         logger.error(msg)
         raise StormlitQueryException(msg)
+
+
+def query_s3_parquet(
+    _conn: duckdb.DuckDBPyConnection,
+    query_string=None,
+    parquet_file=None,
+    where_clause=None,
+    select_columns="*",
+    order_by=None,
+    limit=None,
+):
+    """
+    Generic function to query any Parquet file with custom filtering.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        query_string (str): Full SQL query string (takes precedence if provided)
+        parquet_file (str): Path to the Parquet file (used if query_string is None)
+        where_clause (str): Optional WHERE clause (e.g., '"aorc:statistics"."mean" > 10')
+        select_columns (str): Columns to select (default: '*' for all)
+        order_by (str): Optional ORDER BY clause
+        limit (int): Maximum number of results (default: None)
+
+    Returns:
+        Results in requested format
+    """
+    # Use provided query string or build one from components
+    if query_string:
+        query = query_string
+    else:
+        query = f"SELECT {select_columns} FROM '{parquet_file}'"
+
+        if where_clause:
+            query += f" WHERE {where_clause}"
+
+        if order_by:
+            query += f" ORDER BY {order_by}"
+
+        if limit:
+            query += f" LIMIT {limit}"
+
+    result = _conn.execute(query)
+    output = result.df()
+    return output
+
+
+@st.cache_data
+def query_storms_by_threshold(
+    _conn: duckdb.DuckDBPyConnection,
+    pilot: str,
+    collection_file: str,
+    threshold: float = 5.0,
+) -> pd.DataFrame:
+    """
+    Query storm events from a collection of Parquet files in S3 based on a threshold filter.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        collection_file (str): Path to the collection of Parquet files.
+        threshold (float): Threshold value for filtering storm events.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the query results.
+    """
+    collection = pystac.read_file(collection_file)
+    for asset_key in collection.assets.keys():
+        if asset_key == "all-items-geoparquet":
+            parquet_items_file = collection.assets[asset_key].href.replace(
+                f"s3://{pilot}", f"https://{pilot}.s3.amazonaws.com"
+            )
+    sql_query = f"""
+        SELECT
+                start_datetime,
+                CAST(id AS INTEGER) as rank,
+                storm_type, "aorc:statistics"."mean" as mean_precip_inches,
+                "aorc:max_precip_location"."latitude" as lat,
+                "aorc:max_precip_location"."longitude" as lon
+        FROM '{parquet_items_file}'
+        WHERE "aorc:statistics"."mean" >= {threshold}
+        --ORDER BY "aorc:statistics"."mean" DESC
+        ORDER BY CAST(id AS INTEGER) ASC
+        """.format(parquet_items_file=parquet_items_file, threshold=threshold)
+    df = query_s3_parquet(_conn, query_string=sql_query)
+    return df
+
+
+@st.cache_data
+def query_storms_by_rank(
+    _conn: duckdb.DuckDBPyConnection, pilot: str, collection_file: str, rank: int = 10
+) -> pd.DataFrame:
+    """
+    Query top N storm events from a collection of Parquet files in S3 based on rank.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        collection_file (str): Path to the collection of Parquet files.
+        rank (int): Number of top-ranked storm events to retrieve.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the query results.
+    """
+    collection = pystac.read_file(collection_file)
+    for asset_key in collection.assets.keys():
+        if asset_key == "all-items-geoparquet":
+            parquet_items_file = collection.assets[asset_key].href.replace(
+                f"s3://{pilot}", f"https://{pilot}.s3.amazonaws.com"
+            )
+    sql_query = f"""
+        SELECT
+                start_datetime,
+                CAST(id AS INTEGER) as rank,
+                storm_type, "aorc:statistics"."mean" as mean_precip_inches,
+                "aorc:max_precip_location"."latitude" as lat,
+                "aorc:max_precip_location"."longitude" as lon
+        FROM '{parquet_items_file}'
+        WHERE CAST(id AS INTEGER) <= {rank}
+        ORDER BY CAST(id AS INTEGER) ASC
+        """.format(parquet_items_file=parquet_items_file, rank=rank)
+    df = query_s3_parquet(_conn, query_string=sql_query)
+    return df
+
+
+@st.cache_data
+def query_storms_by_date(
+    _conn: duckdb.DuckDBPyConnection,
+    pilot: str,
+    collection_file: str,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    """
+    Query storm events from a collection of Parquet files in S3 based on a date range.
+
+    Parameters:
+        _conn (connection): A DuckDB connection object.
+        pilot (str): The pilot name for the S3 bucket.
+        collection_file (str): Path to the collection of Parquet files.
+        start_date (str): Start date in 'YYYY-MM-DD' format.
+        end_date (str): End date in 'YYYY-MM-DD' format.
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the query results.
+    """
+    collection = pystac.read_file(collection_file)
+    for asset_key in collection.assets.keys():
+        if asset_key == "all-items-geoparquet":
+            parquet_items_file = collection.assets[asset_key].href.replace(
+                f"s3://{pilot}", f"https://{pilot}.s3.amazonaws.com"
+            )
+    sql_query = f"""
+        SELECT
+                start_datetime,
+                CAST(id AS INTEGER) as rank,
+                storm_type, "aorc:statistics"."mean" as mean_precip_inches,
+                "aorc:max_precip_location"."latitude" as lat,
+                "aorc:max_precip_location"."longitude" as lon
+        FROM '{parquet_items_file}'
+        WHERE start_datetime >= '{start_date}' AND start_datetime <= '{end_date}'
+        ORDER BY start_datetime ASC
+        """.format(
+        parquet_items_file=parquet_items_file, start_date=start_date, end_date=end_date
+    )
+    df = query_s3_parquet(_conn, query_string=sql_query)
+    return df
