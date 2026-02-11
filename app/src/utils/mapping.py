@@ -286,12 +286,12 @@ def prep_metmap(
             zoom_on_click=True,
             show=True,
         )
-    if st.models is not None:
+    if st.study_area is not None:
         m.add_gdf(
-            st.models,
-            layer_name="Models",
+            st.study_area,
+            layer_name="Study Area",
             info_mode="on_hover",
-            fields=["model"],
+            fields=["id"],
             style_function=style_models,
             highlight_function=highlight_function,
             zoom_on_click=False,
