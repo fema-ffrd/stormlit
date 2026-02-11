@@ -314,6 +314,9 @@ def met():
                 "Drop one or multiple points as markers on the map to view hyetographs."
             )
         else:
+            storm_id = st.session_state["hydromet_storm_id"]
+            hyeto_cache = st.session_state.setdefault("hyeto_cache", {})
+            added_points = False
             for drawing in st.map_output["all_drawings"]:
                 geometry = drawing.get("geometry", {})
                 if geometry.get("type") != "Point":
@@ -322,13 +325,19 @@ def met():
                 if len(coordinates) != 2:
                     continue
                 lon, lat = coordinates
+                cache_key = (lat, lon, storm_id)
+                if cache_key in hyeto_cache:
+                    continue
                 compute_hyetograph(
                     ds,
-                    storm_id=st.session_state["hydromet_storm_id"],
+                    storm_id=storm_id,
                     lat=lat,
                     lon=lon,
                     tab=hyeto_tab,
                 )
+                added_points = True
+            if added_points:
+                st.rerun()
         with st.expander("Plots", expanded=True, icon="📈"):
             if st.session_state.get("hyeto_cache"):
                 fig = go.Figure()
