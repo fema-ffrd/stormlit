@@ -102,7 +102,6 @@ def init_session_state():
     st.session_state["precip_threshold"] = None
     st.session_state["storm_start_date"] = None
     st.session_state["storm_end_date"] = None
-    st.session_state["storm_type"] = None
     st.session_state["hydromet_storm_data"] = None
     st.session_state["hydromet_hyetograph_data"] = None
     st.session_state["init_met_pilot"] = False
