@@ -628,10 +628,10 @@ def build_storm_animation_maplibre(
                 },
             )
         )
-    if st.models is not None and not st.models.empty:
+    if st.study_area is not None and not st.study_area.empty:
         overlays.append(
             (
-                st.models,
+                st.study_area,
                 {
                     "facecolor": "none",
                     "edgecolor": "#162fbe",
