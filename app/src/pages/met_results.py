@@ -91,9 +91,7 @@ def met():
     st.set_page_config(page_title="stormlit", page_icon=":rain_cloud:", layout="wide")
     if "session_id" not in st.session_state:
         init_session_state()
-
     st.title("Meteorology")
-
     # Sidebar configuration
     st.sidebar.markdown("# Page Navigation")
     st.sidebar.page_link("main.py", label="Home 🏠")
@@ -102,11 +100,9 @@ def met():
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
     st.sidebar.page_link("pages/met_results.py", label="Meteorology")
     # st.sidebar.page_link("pages/all_results.py", label="All Results")
-
     st.sidebar.markdown("## Getting Started")
     with st.sidebar:
         about_popover_met()
-
     st.sidebar.markdown("## Select Study")
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
@@ -115,12 +111,10 @@ def met():
         ],
         index=0,
     )
-
     if st.session_state["pg_connected"] is False:
         st.session_state["pg_conn"] = create_pg_connection()
     if st.session_state["s3_connected"] is False:
         st.session_state["s3_conn"] = create_s3_connection()
-
     # Initialize session state variables if not already set
     if st.session_state["init_met_pilot"] is False:
         with st.spinner("Initializing Meteorology datasets..."):
@@ -131,20 +125,15 @@ def met():
             st.session_state["init_met_pilot"] = True
     st.session_state.setdefault("storm_cache", {})
     st.session_state.setdefault("hyeto_cache", {})
-
     repo = open_repo(
         bucket=st.session_state["pilot"], prefix="test/trinity-storms.icechunk"
     )
     ds = open_session(repo=repo, branch="main")
-
     map_col, info_col = st.columns(2)
-
     map_tab, session_tab = map_col.tabs(["Map", "Session State"])
-
     selections_tab, metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
         ["Selections", "Metadata", "Hyetographs", "Animation"]
     )
-
     # Selection Panel
     with selections_tab:
         st.markdown("## Storm Selection")
@@ -238,11 +227,9 @@ def met():
                     on_select=_handle_date_select,
                     key="storms_table_date",
                 )
-
     # Compute storm data if a storm is selected
     if st.session_state["hydromet_storm_id"] is not None:
         compute_storm(ds, storm_id=st.session_state["hydromet_storm_id"], tab=info_col)
-
     # Metadata Panel
     with metadata_tab:
         st.markdown("## Storm Metadata")
@@ -261,6 +248,9 @@ def met():
                 if storm_meta[0]:
                     storm_meta = storm_meta[1]
                     storm_prop = storm_meta.get("properties", {})
+                    st.session_state["aorc:transform"] = storm_prop.get(
+                        "aorc:transform", None
+                    )
                     storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
                     st.text(storm_prop_yaml)
                 else:
