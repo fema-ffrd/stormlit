@@ -183,10 +183,12 @@ def init_met_pilot(s3_conn, pilot: str):
         f"s3://{pilot}/stac/prod-support/storms/hydro_domains/{pilot_name}_transpo_area_v01_valid.geojson",
         pilot_name,
     )
+    st.transpo["layer"] = "Transposition Domain"
     st.study_area = query_s3_geojson(
         f"s3://{pilot}/stac/stormlit/storms-db/hydro_domains/Trinity.json",
         pilot_name,
     )
+    st.study_area["layer"] = "Study Area"
 
 
 def init_ras_pilot(s3_conn, pilot: str):

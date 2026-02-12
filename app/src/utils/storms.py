@@ -110,7 +110,7 @@ def compute_hyetograph(
                 raise ValueError(
                     "'APCP_surface' variable does not have 'time' dimension."
                 )
-            precip_point = da_precip / 1000 * 39.3701
+            precip_point = _load_precip_cube(da_precip)
             st.session_state["hyeto_cache"][(lat, lon, storm_id)] = precip_point
 
 
@@ -622,7 +622,7 @@ def build_storm_animation_maplibre(
                 {
                     "facecolor": "none",
                     "edgecolor": "#ff0404",
-                    "linewidth": 1.5,
+                    "linewidth": 2,
                     "alpha": 0.9,
                     "zorder": 3,
                 },
@@ -635,7 +635,20 @@ def build_storm_animation_maplibre(
                 {
                     "facecolor": "none",
                     "edgecolor": "#162fbe",
-                    "linewidth": 1.0,
+                    "linewidth": 2.0,
+                    "alpha": 0.8,
+                    "zorder": 2,
+                },
+            )
+        )
+    if st.transposed_study_area is not None and not st.transposed_study_area.empty:
+        overlays.append(
+            (
+                st.transposed_study_area,
+                {
+                    "facecolor": "none",
+                    "edgecolor": "#32cd32",
+                    "linewidth": 2.0,
                     "alpha": 0.8,
                     "zorder": 2,
                 },

@@ -2,6 +2,7 @@ import folium
 import streamlit as st
 import leafmap.foliumap as leafmap
 import geopandas as gpd
+from shapely.affinity import affine_transform
 from shapely.geometry import shape
 import xarray as xr
 import numpy as np
@@ -281,6 +282,7 @@ def prep_metmap(
             st.transpo,
             layer_name="Transposition Domain",
             info_mode="on_hover",
+            fields=["layer"],
             style_function=lambda feature: {"fillColor": "#ff381e", "color": "#ff1e1e"},
             highlight_function=highlight_function,
             zoom_on_click=True,
@@ -291,12 +293,52 @@ def prep_metmap(
             st.study_area,
             layer_name="Study Area",
             info_mode="on_hover",
-            fields=["id"],
+            fields=["layer"],
             style_function=style_models,
             highlight_function=highlight_function,
             zoom_on_click=False,
             show=True,
         )
+    if st.study_area is not None:
+        aorc_transform = st.session_state.get("aorc:transform")
+        if aorc_transform is not None:
+            st.transposed_study_area = st.study_area.copy()
+            st.transposed_study_area["layer"] = "Transposed Study Area"
+            transform_params = None
+            if isinstance(aorc_transform, dict):
+                try:
+                    a = aorc_transform["a"]
+                    b = aorc_transform["b"]
+                    c = aorc_transform["c"]
+                    d = aorc_transform["d"]
+                    e = aorc_transform["e"]
+                    f = aorc_transform["f"]
+                    transform_params = [a, b, d, e, c, f]
+                except KeyError as exc:
+                    st.warning(f"Missing AORC transform parameter: {exc}")
+            else:
+                st.warning(
+                    "Unexpected format for AORC transform parameters. Expected a dict with keys 'a', 'b', 'c', 'd', 'e', 'f'."
+                )
+            if transform_params is not None:
+                st.transposed_study_area.geometry = (
+                    st.transposed_study_area.geometry.apply(
+                        lambda geom: affine_transform(geom, transform_params)
+                    )
+                )
+                m.add_gdf(
+                    st.transposed_study_area,
+                    layer_name="Transposed Study Area",
+                    info_mode="on_hover",
+                    fields=["layer"],
+                    style_function=lambda feature: {
+                        "fillColor": "#32cd32",
+                        "color": "#32cd32",
+                    },
+                    highlight_function=highlight_function,
+                    zoom_on_click=False,
+                    show=True,
+                )
     if st.session_state["hydromet_storm_data"] is not None:
         add_storm_layer(m, storm_id)
         m.add_colorbar(
@@ -802,7 +844,9 @@ def get_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
         The gage ID if a gage is found within the subbasin, otherwise None
     """
     # Combine all subbasin geometries into one (if multiple)
-    subbasin_geom = subbasin_geom.union_all
+    subbasin_geom = subbasin_geom.union_all()
+    if subbasin_geom is None or subbasin_geom.is_empty:
+        return None
     # Get centroids of all gages
     gage_centroids = st.gages.centroid
     # Find which gage centroids are within the subbasin geometry

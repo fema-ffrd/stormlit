@@ -72,6 +72,7 @@ def init_session_state():
     st.reservoirs = None
     st.hms_storms = None
     st.study_area = None
+    st.transposed_study_area = None
 
     st.session_state["dams_filtered"] = None
     st.session_state["ref_points_filtered"] = None
@@ -113,3 +114,4 @@ def init_session_state():
     st.session_state["storm_max"] = None
     st.session_state["storm_min"] = None
     st.session_state["hyeto_cache"] = {}
+    st.session_state["aorc:transform:"] = None
