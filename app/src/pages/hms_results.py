@@ -533,7 +533,7 @@ def hms_results():
                         # st.markdown(f"##### {plot_type}")
                         plot_status_ok, plot_img = get_stac_img(plot_url)
                         if plot_status_ok:
-                            st.image(plot_img, use_container_width=True)
+                            st.image(plot_img, width="stretch")
                         else:
                             st.error(f"Error retrieving {plot_type} image.")
         # HEC-HMS Model Objects

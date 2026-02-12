@@ -292,7 +292,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                                 gage_flow_metrics = calc_metrics(gage_flow_ts, "flow")
                                 eval_flow_df = eval_metrics(gage_flow_metrics)
                                 st.markdown("#### Calibration Metrics")
-                                st.dataframe(eval_flow_df, use_container_width=True)
+                                st.dataframe(eval_flow_df, width="stretch")
                                 define_metrics()
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         if not gage_flow_ts.empty:
@@ -300,7 +300,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                             st.dataframe(gage_flow_ts)
                         else:
                             st.markdown("#### Reference Line Flow Data")
-                            st.dataframe(ref_line_flow_ts)
+                            st.dataframe(ref_line_flow_ts, width="stretch")
 
                     info_col.markdown("### Observed vs Modeled WSE")
                     if feature_gage_status and not gage_stage_ts.empty:
@@ -340,12 +340,12 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                                 gage_wse_metrics = calc_metrics(gage_stage_ts, "wse")
                                 eval_wse_df = eval_metrics(gage_wse_metrics)
                                 st.markdown("#### Calibration Metrics")
-                                st.dataframe(eval_wse_df, use_container_width=True)
+                                st.dataframe(eval_wse_df, width="stretch")
                                 define_metrics()
                     with info_col.expander("Tables", expanded=False, icon="🔢"):
                         if not gage_stage_ts.empty:
                             st.markdown("#### Gage WSE Data")
-                            st.dataframe(gage_stage_ts)
+                            st.dataframe(gage_stage_ts, width="stretch")
                         else:
                             st.markdown("#### Reference Line WSE Data")
                             st.dataframe(ref_line_wse_ts)
@@ -374,45 +374,14 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                         st.dataframe(ref_line_wse_ts)
 
 
-def stochastic_events(col_event_id, info_col, feature_label):
+def stochastic_events():
     """Handle stochastic events selection and display."""
-    stochastic_events = query_s3_folder_names(
-        st.session_state["s3_conn"],
-        s3_path=f"s3://{st.session_state['pilot']}/stac/prod-support/conformance/hydraulics/",
-        folder_name="event_id=",
-    )
-    st.session_state["stochastic_event"] = col_event_id.selectbox(
-        "Select Event ID", stochastic_events, index=None
-    )
-    if st.session_state["stochastic_event"] is None:
-        st.warning("Please select a stochastic event to view time series data.")
-    else:
-        stochastic_flow_ts = query_s3_stochastic_ras_flow(
-            st.session_state["s3_conn"],
-            st.session_state["pilot"],
-            event_id=st.session_state["stochastic_event"],
-            model_id=st.session_state["model_id"],
-            col_id=feature_label,
-        )
-        if stochastic_flow_ts.empty:
-            st.warning("No stochastic flow data found for this event and feature.")
-        else:
-            with info_col.expander("Plots", expanded=False, icon="📈"):
-                plot_ts(
-                    stochastic_flow_ts,
-                    pd.DataFrame(),
-                    "Hydrograph",
-                    "",
-                    dual_y_axis=False,
-                    plot_title=feature_label,
-                    y_axis01_title=FLOW_LABEL,
-                )
-            with info_col.expander("Tables", expanded=False, icon="🔢"):
-                st.markdown("#### Modeled Hydrograph")
-                st.dataframe(stochastic_flow_ts)
+    st.write("Coming soon...")
+    st.session_state["calibration_event"] = None
 
 
 def multi_events():
+    """Handle multi-events selection and display."""
     st.write("Coming soon...")
     st.session_state["calibration_event"] = None
 
@@ -469,7 +438,7 @@ def ras_results():
     map_col, info_col = st.columns(2)
 
     with reset_col:
-        if st.button("Reset Selections", type="primary", use_container_width=True):
+        if st.button("Reset Selections", type="primary", width="stretch"):
             reset_selections()
             st.rerun()
 
@@ -555,7 +524,7 @@ def ras_results():
                 st.image(
                     model_thumbnail_img,
                     caption=f"Model Thumbnail for {feature_label}",
-                    use_container_width=False,
+                    width="content",
                 )
             else:
                 st.warning("No thumbnail available for this model.")
@@ -611,7 +580,7 @@ def ras_results():
                         # st.markdown(f"##### {plot_type}")
                         plot_status_ok, plot_img = get_stac_img(plot_url)
                         if plot_status_ok:
-                            st.image(plot_img, use_container_width=True)
+                            st.image(plot_img, width="stretch")
                         else:
                             st.error(f"Error retrieving {plot_type} image.")
         # HEC-RAS Model Objects
@@ -639,7 +608,7 @@ def ras_results():
             if st.session_state["event_type"] == CALIB_EVENTS:
                 calibration_events(col_event_id, feature_type, feature_label, info_col)
             elif st.session_state["event_type"] == STOCHASTIC_EVENTS:
-                stochastic_events(col_event_id, info_col, feature_label)
+                stochastic_events()
             elif st.session_state["event_type"] == MULTI_EVENTS:
                 multi_events()
             else:
