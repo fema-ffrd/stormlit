@@ -38,7 +38,7 @@ def test_r_plots():
 
         # Use st.plotly_chart for full interactivity (click events, etc.)
         plot_selection = st.plotly_chart(
-            fig, use_container_width=True, on_select="rerun", selection_mode="lasso"
+            fig, width="stretch", on_select="rerun", selection_mode="lasso"
         )
 
         # Handle plot selection

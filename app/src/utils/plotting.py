@@ -331,7 +331,7 @@ def plot_flow_aep(
 
     # Return point selection(s)
     plot_selection = st.plotly_chart(
-        fig, use_container_width=True, on_select="rerun", selection_mode="points"
+        fig, width="stretch", on_select="rerun", selection_mode="points"
     )
     if len(plot_selection["selection"]["points"]) > 0:
         points_dict = {}
@@ -479,4 +479,4 @@ def plot_multi_event_ts(df1: pd.DataFrame, df2: pd.DataFrame):
         showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1
     )
     # Set hovermode to unified
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")

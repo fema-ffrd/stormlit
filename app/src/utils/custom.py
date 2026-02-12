@@ -107,9 +107,9 @@ def map_popover(
             }}
         """,
     ):
-        with st.popover(label, use_container_width=True):
+        with st.popover(label, width="stretch"):
             if image_path:
-                st.image(image_path, use_container_width=False, width=200)
+                st.image(image_path, width="content")
             st.markdown(f"#### {label}")
             if download_url:
                 st.markdown(f"⬇️ [Download Data]({download_url})")
@@ -166,7 +166,7 @@ def about_popover(color: str = "white"):
             }}
         """,
     ):
-        with st.popover("READ ME ℹ️", use_container_width=True):
+        with st.popover("READ ME ℹ️", width="stretch"):
             st.markdown(
                 """
             1. Select a pilot study to initialize the dataset.
@@ -198,7 +198,7 @@ def about_popover_met(color: str = "white"):
             }}
         """,
     ):
-        with st.popover("READ ME ℹ️", use_container_width=True):
+        with st.popover("READ ME ℹ️", width="stretch"):
             st.markdown(
                 """
             1. Select a pilot study to initialize the storms catalog dataset.
