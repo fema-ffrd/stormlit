@@ -303,14 +303,14 @@ def get_production_config() -> EnvironmentConfig:
             ),
         ),
         ecs=EcsConfig(
-            instance_type="t3.xlarge",
+            instance_type="t3.2xlarge",
             instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
                 image_tag=None,
                 container_count=1,
-                cpu=2048,
-                memory=6144,
+                cpu=6144,
+                memory=22528,
                 container_port=8501,
             ),
             stac_api_config=EcsServiceConfig(
