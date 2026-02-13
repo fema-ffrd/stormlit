@@ -40,36 +40,31 @@ def compute_storm(
     -------
     None
     """
-    last_anim_storm = st.session_state.get("storm_animation_storm_id")
-    if last_anim_storm != storm_id:
-        st.session_state["storm_animation_payload"] = None
-        st.session_state["storm_animation_html"] = None
-        st.session_state["storm_animation_requested"] = False
-        st.session_state["storm_animation_storm_id"] = storm_id
-    if storm_id not in st.session_state["storm_cache"].keys():
-        parent_ctx = tab if tab is not None else nullcontext()
-        with parent_ctx:
-            with st.spinner(
-                f"Computing 72-hour total precipitation for Storm ID: {storm_id}..."
-            ):
-                ds_storm = ds.sel(storm_id=storm_id)
-                if "APCP_surface" not in ds_storm:
-                    raise ValueError(
-                        "Dataset does not contain 'APCP_surface' variable."
-                    )
-                da_precip = ds_storm["APCP_surface"]
-                if "time" not in da_precip.dims:
-                    raise ValueError(
-                        "'APCP_surface' variable does not have 'time' dimension."
-                    )
-                precip_cube = _load_precip_cube(da_precip)
-                total_precip = precip_cube.sum(dim="time")
-                st.session_state["hydromet_storm_data"] = total_precip
-                st.session_state["storm_cache"][storm_id] = total_precip
-    else:
-        st.session_state["hydromet_storm_data"] = st.session_state["storm_cache"][
-            storm_id
-        ]
+    st.session_state["storm_animation_payload"] = None
+    st.session_state["storm_animation_html"] = None
+    st.session_state["storm_animation_requested"] = False
+    st.session_state["storm_animation_storm_id"] = storm_id
+
+    parent_ctx = tab if tab is not None else nullcontext()
+    with parent_ctx:
+        with st.spinner(
+            f"Computing 72-hour total precipitation for Storm ID: {storm_id}..."
+        ):
+            ds_storm = ds.sel(storm_id=storm_id)
+            if "APCP_surface" not in ds_storm:
+                raise ValueError(
+                    "Dataset does not contain 'APCP_surface' variable."
+                )
+            da_precip = ds_storm["APCP_surface"]
+            if "time" not in da_precip.dims:
+                raise ValueError(
+                    "'APCP_surface' variable does not have 'time' dimension."
+                )
+            # Avoid loading the full 3D cube; reduce first, then load the 2D result.
+            total_precip = (da_precip / 1000 * 39.3701).astype("float32").sum(
+                dim="time"
+            )
+            st.session_state["hydromet_storm_data"] = total_precip.load()
 
 
 def compute_hyetograph(
@@ -756,4 +751,5 @@ def build_storm_animation_maplibre(
             }}
         </script>
         """
+    st.session_state["storm_animation_payload"] = None
     return html
