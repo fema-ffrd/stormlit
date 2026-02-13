@@ -65,7 +65,7 @@ def reset_selections():
             "hydromet_storm_data": None,
             "hydromet_hyetograph_data": None,
             "init_met_pilot": False,
-            "storm_cache": {},
+            "storm_cache": None,
             "storm_bounds": None,
             "storm_animation_payload": None,
             "storm_animation_requested": False,

@@ -22,6 +22,7 @@ from utils.stac_data import init_met_pilot, get_stac_meta
 
 # standard imports
 import os
+import time
 import logging
 from enum import Enum
 
@@ -123,7 +124,13 @@ def met():
                 st.session_state["pilot"],
             )
             st.session_state["init_met_pilot"] = True
-    st.session_state.setdefault("storm_cache", {})
+    elif "Storms" not in st.pilot_layers:
+        with st.spinner("Initializing Meteorology datasets..."):
+            init_met_pilot(
+                st.session_state["s3_conn"],
+                st.session_state["pilot"],
+            )
+            st.session_state["init_met_pilot"] = True
     st.session_state.setdefault("hyeto_cache", {})
     repo = open_repo(
         bucket=st.session_state["pilot"], prefix="test/trinity-storms.icechunk"
@@ -275,6 +282,8 @@ def met():
             st.map_output = st.fmap.to_streamlit(height=500, bidirectional=True)
     # Session State Panel
     with session_tab:
+        st.markdown("## Storm Cache")
+        st.write(st.session_state.get("hydromet_storm_data", None))
         st.markdown("## Map State")
         last_active_drawing = st.map_output.get("last_active_drawing", None)
         st.write(st.map_output["all_drawings"])
@@ -421,12 +430,18 @@ def met():
                     else:
                         if st.session_state.get("storm_animation_html") is None:
                             with st.spinner("Rendering animation..."):
+                                start_time = time.time()
                                 st.session_state["storm_animation_html"] = (
                                     build_storm_animation_maplibre(
                                         animation_payload.get("frames"),
                                         animation_payload.get("times"),
                                         st.session_state.get("storm_bounds"),
                                     )
+                                )
+                                end_time = time.time()
+                                elapsed_time = (end_time - start_time) / 60
+                                st.write(
+                                    f"Animation rendering took {elapsed_time:.2f} minutes."
                                 )
                         if st.session_state["storm_animation_html"]:
                             components_html(

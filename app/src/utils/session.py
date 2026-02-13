@@ -110,7 +110,9 @@ def init_session_state():
     st.session_state["storm_animation_payload"] = None
     st.session_state["storm_animation_requested"] = False
     st.session_state["storm_animation_html"] = None
+    st.session_state["storm_animation_storm_id"] = None
     st.session_state["storm_max"] = None
     st.session_state["storm_min"] = None
     st.session_state["hyeto_cache"] = {}
+    st.session_state["storm_cache"] = None
     st.session_state["aorc:transform:"] = None
