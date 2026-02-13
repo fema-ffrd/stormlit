@@ -123,7 +123,6 @@ def met():
                 st.session_state["pilot"],
             )
             st.session_state["init_met_pilot"] = True
-    st.session_state.setdefault("storm_cache", {})
     st.session_state.setdefault("hyeto_cache", {})
     repo = open_repo(
         bucket=st.session_state["pilot"], prefix="test/trinity-storms.icechunk"
@@ -275,6 +274,8 @@ def met():
             st.map_output = st.fmap.to_streamlit(height=500, bidirectional=True)
     # Session State Panel
     with session_tab:
+        st.markdown("## Storm Cache")
+        st.write(st.session_state.get("hydromet_storm_data", None))
         st.markdown("## Map State")
         last_active_drawing = st.map_output.get("last_active_drawing", None)
         st.write(st.map_output["all_drawings"])
