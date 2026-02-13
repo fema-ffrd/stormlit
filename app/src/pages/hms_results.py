@@ -362,6 +362,7 @@ def hms_results():
     st.sidebar.page_link("pages/model_qc.py", label="Model QC")
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
+    st.sidebar.page_link("pages/met_results.py", label="Meteorology")
     # st.sidebar.page_link("pages/all_results.py", label="All Results")
 
     st.sidebar.markdown("## Getting Started")
@@ -532,7 +533,7 @@ def hms_results():
                         # st.markdown(f"##### {plot_type}")
                         plot_status_ok, plot_img = get_stac_img(plot_url)
                         if plot_status_ok:
-                            st.image(plot_img, use_container_width=True)
+                            st.image(plot_img, width="stretch")
                         else:
                             st.error(f"Error retrieving {plot_type} image.")
         # HEC-HMS Model Objects

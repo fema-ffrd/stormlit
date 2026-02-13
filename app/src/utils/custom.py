@@ -2,7 +2,7 @@
 import re
 import streamlit as st
 import logging
-from typing import TYPE_CHECKING, Callable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
 
 # third party imports
 from streamlit.errors import StreamlitDuplicateElementKey
@@ -56,7 +56,7 @@ def stylable_container(key: str, css_styles: str | list[str]) -> "DeltaGenerator
 
 def map_popover(
     label: str,
-    items: List[dict],
+    items: Sequence[Any],
     get_item_label: Callable,
     get_item_id: Callable,
     color: str = "#f0f0f0",
@@ -75,14 +75,15 @@ def map_popover(
     ----------
     label: str
         The label for the popover
-    items: list
-        A list of dictionaries containing the button data
+    items: Sequence
+        An iterable containing the button data
     get_item_label: Callable
         A function that takes an item and returns the label for the button
     get_item_id: Callable
         A function that takes an item and returns the ID for the button
     callback: Optional[Callable]
-        A function to be called when the button is clicked. Accepts the item as an argument.
+        A function to be called when the button is clicked. Receives the raw item as
+        its only positional argument.
     feature_type: Optional[FeatureType]
         The type of feature (Basin, Gage, Dam, Reference Line, Reference Point)
     download_url: Optional[str]
@@ -106,9 +107,9 @@ def map_popover(
             }}
         """,
     ):
-        with st.popover(label, use_container_width=True):
+        with st.popover(label, width="stretch"):
             if image_path:
-                st.image(image_path, use_container_width=False, width=200)
+                st.image(image_path, width="content")
             st.markdown(f"#### {label}")
             if download_url:
                 st.markdown(f"⬇️ [Download Data]({download_url})")
@@ -117,7 +118,7 @@ def map_popover(
                     "Select a feature from the map or model from the dropdown to generate selections"
                 )
             for idx, item in enumerate(items):
-                item_label = get_item_label(item)
+                item_label = str(get_item_label(item))
                 item_id = get_item_id(item)
                 current_feature_id = st.session_state.get(
                     "single_event_focus_feature_id"
@@ -125,26 +126,28 @@ def map_popover(
                 if item_id == current_feature_id and item_id is not None:
                     item_label += " ✅"
                 button_key = f"btn_{label}_{item_id}_{idx}"
-
-                if label != "🌧️ Storms":
-                    try:
-                        st.button(
-                            label=item_label,
-                            key=button_key,
-                            on_click=focus_feature,
-                            args=(item, item_id, item_label, feature_type),
-                        )
-                    except StreamlitDuplicateElementKey as e:
-                        logger.warning(
-                            f"Duplicate button key detected ({button_key}): {e}.",
-                        )
-                        st.button(
-                            label=item_label,
-                            key=f"{button_key}_DUPE",
-                            on_click=focus_feature,
-                            args=(item, item_id, item_label, feature_type),
-                            disabled=True,
-                        )
+                on_click_fn = callback or focus_feature
+                on_click_args = (
+                    (item,) if callback else (item, item_id, item_label, feature_type)
+                )
+                try:
+                    st.button(
+                        label=item_label,
+                        key=button_key,
+                        on_click=on_click_fn,
+                        args=on_click_args,
+                    )
+                except StreamlitDuplicateElementKey as e:
+                    logger.warning(
+                        f"Duplicate button key detected ({button_key}): {e}.",
+                    )
+                    st.button(
+                        label=item_label,
+                        key=f"{button_key}_DUPE",
+                        on_click=on_click_fn,
+                        args=on_click_args,
+                        disabled=True,
+                    )
     st.map_output = None
 
 
@@ -163,7 +166,7 @@ def about_popover(color: str = "white"):
             }}
         """,
     ):
-        with st.popover("READ ME ℹ️", use_container_width=True):
+        with st.popover("READ ME ℹ️", width="stretch"):
             st.markdown(
                 """
             1. Select a pilot study to initialize the dataset.
@@ -176,5 +179,36 @@ def about_popover(color: str = "white"):
             - **Multi Event**: View probabilistic results across an ensemble of stochastic events.
             5. After making a selection, statistics and analytics for that selection will be displayed to the right of the map.
             6. To reset selections, click the "Reset Selections" button located in the upper corner of the page
+                """
+            )
+
+
+def about_popover_met(color: str = "white"):
+    """
+    Render the styled About popover section for Meteorology.
+    """
+    with stylable_container(
+        key="popover_container_about",
+        css_styles=f"""
+            button {{
+                background-color: {color};
+                color: black;
+                border-radius: 5px;
+                white-space: nowrap;
+            }}
+        """,
+    ):
+        with st.popover("READ ME ℹ️", width="stretch"):
+            st.markdown(
+                """
+            1. Select a pilot study to initialize the storms catalog dataset.
+            2. Turn map layers on and off using the layer toggle in the top right corner of the map.
+            2. Select storms by rank, time, accumulation, or seasonality from the dropdown.
+            3. Once a storm is selected, the following information can be viewed:
+            4. **Metadata**: View metadata about the storm, including its rank, seasonality, time range, and total accumulation.
+            5. **Hyetograph**: View the hyetograph for one or multiple point within the storm's footprint. 
+            Drop points on the map to compute the hyetograph for that location. The hyetograph will show the storm's precipitation intensity over time at that location.
+            6. **Animation**: View an animation of the storm's precipitation footprint over time. 
+            The animation will show how the storm's precipitation intensity changes over time across the entire footprint.
                 """
             )

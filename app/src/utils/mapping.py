@@ -2,7 +2,13 @@ import folium
 import streamlit as st
 import leafmap.foliumap as leafmap
 import geopandas as gpd
+from shapely.affinity import affine_transform
 from shapely.geometry import shape
+import xarray as xr
+import numpy as np
+import matplotlib.cm as cm
+from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 
 
 def highlight_function(feature):
@@ -36,6 +42,158 @@ def style_reaches(feature):
 
 def style_reservoirs(feature):
     return {"fillColor": "#0a0703", "weight": 4}
+
+
+@st.cache_data(show_spinner=False)
+def _prepare_rgba_image(
+    image_data: np.ndarray, cmap_name: str = "Spectral_r"
+) -> np.ndarray | None:
+    """Convert precipitation totals into an RGBA image for folium overlays.
+
+    Parameters
+    ----------
+    image_data : np.ndarray
+        The input image data array.
+    cmap_name : str, optional
+        The name of the matplotlib colormap to use. Default is "Spectral_r".
+
+    Returns
+    -------
+    np.ndarray | None
+        The RGBA image array or None if input is empty or invalid.
+    """
+    if image_data.size == 0:
+        return None
+    finite_mask = np.isfinite(image_data)
+    if not finite_mask.any():
+        return None
+    valid_data = image_data[finite_mask]
+    min_val = float(valid_data.min())
+    max_val = float(valid_data.max())
+    if np.isclose(max_val, min_val):
+        normalized = np.zeros_like(image_data, dtype=float)
+    else:
+        normalized = (image_data - min_val) / (max_val - min_val)
+    normalized = np.clip(np.nan_to_num(normalized, nan=0.0), 0.0, 1.0)
+    cmap = cm.get_cmap(cmap_name)
+    rgba = (cmap(normalized) * 255).astype(np.uint8)
+    rgba[..., 3] = np.where(finite_mask, rgba[..., 3], 0)
+    return rgba
+
+
+def _compute_overlay_bounds(da: xr.DataArray):
+    """Compute the bounding box for the storm overlay based on the coordinates of the DataArray.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The input DataArray for which to compute the overlay bounds.
+    Returns
+    -------
+    list | None
+        The bounding box [[south, west], [north, east]] or None if computation fails.
+    """
+    x_coord = _find_coord_name(da, ("lon", "longitude", "x"))
+    y_coord = _find_coord_name(da, ("lat", "latitude", "y"))
+    if x_coord is None or y_coord is None:
+        return None
+    x_vals = np.asarray(da[x_coord].values)
+    y_vals = np.asarray(da[y_coord].values)
+    if x_vals.size == 0 or y_vals.size == 0:
+        return None
+    if np.isnan(x_vals).all() or np.isnan(y_vals).all():
+        return None
+    min_x, max_x = float(np.nanmin(x_vals)), float(np.nanmax(x_vals))
+    min_y, max_y = float(np.nanmin(y_vals)), float(np.nanmax(y_vals))
+    source_bounds = (min_x, min_y, max_x, max_y)
+    crs = _extract_crs(da)
+    if crs is None or crs.to_epsg() == 4326:
+        return [[min_y, min_x], [max_y, max_x]]
+    try:
+        west, south, east, north = transform_bounds(
+            crs,
+            "EPSG:4326",
+            *source_bounds,
+            densify_pts=21,
+        )
+    except Exception as exc:
+        st.warning(f"Failed to transform storm bounds to WGS84: {exc}")
+        return None
+    return [[south, west], [north, east]]
+
+
+def _extract_crs(da: xr.DataArray):
+    """Extract the CRS (Coordinate Reference System) from a DataArray.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The input DataArray from which to extract the CRS.
+    Returns
+    -------
+    CRS | None
+        The extracted CRS object or None if extraction fails.
+    """
+    try:
+        crs = da.rio.crs  # type: ignore[attr-defined]
+        if crs:
+            return CRS.from_user_input(crs)
+    except Exception:
+        pass
+    candidate = da.attrs.get("crs") or da.attrs.get("spatial_ref")
+    if not candidate and "spatial_ref" in da.coords:
+        candidate = da.spatial_ref.attrs.get("spatial_ref")
+    if candidate:
+        try:
+            return CRS.from_user_input(candidate)
+        except Exception:
+            return None
+    return None
+
+
+def _find_coord_name(da: xr.DataArray, candidates) -> str | None:
+    for name in candidates:
+        if name in da.coords:
+            return name
+    return None
+
+
+def add_storm_layer(m: leafmap.Map, storm_id: int | None) -> None:
+    """Add storm overlay to the map from IceChunk dataset
+
+    Parameters
+    ----------
+        m (leafmap.Map): The leafmap map object to add the overlay to.
+        storm_id (int | None): The storm ID to retrieve the overlay for.
+    Returns
+    -------
+        None
+    """
+    storm_data = st.session_state.get("hydromet_storm_data")
+    if storm_id is None or storm_data is None:
+        return
+    bounds = st.session_state.get("storm_bounds")
+    st.session_state["storm_max"] = float(storm_data.values.max())
+    st.session_state["storm_min"] = float(storm_data.values.min())
+    if bounds is None:
+        bounds = _compute_overlay_bounds(storm_data)
+        if bounds is None:
+            return
+        st.session_state["storm_bounds"] = bounds
+
+    rgba_image = _prepare_rgba_image(storm_data.values.astype(float))
+    if rgba_image is None:
+        return
+
+    folium.raster_layers.ImageOverlay(
+        image=rgba_image,
+        bounds=bounds,
+        opacity=0.75,
+        name=f"Storm {storm_id}",
+        interactive=False,
+        cross_origin=False,
+        zindex=1000,
+    ).add_to(m)
 
 
 def get_map_pos(map_layer: str):
@@ -74,9 +232,165 @@ def get_map_pos(map_layer: str):
             c_df["lon"] = c_df.geometry.centroid.x
         c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
         c_zoom = 8
+    elif map_layer == "MET":
+        c_df = st.transpo.copy()
+        if "lat" not in c_df.columns or "lon" not in c_df.columns:
+            c_df["lat"] = c_df.geometry.centroid.y
+            c_df["lon"] = c_df.geometry.centroid.x
+        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+        c_zoom = 6
     else:
         raise ValueError(f"Invalid map layer {map_layer}. Choose 'HMS' or 'RAS'.")
     return c_lat, c_lon, c_zoom
+
+
+def prep_metmap(
+    zoom: int, c_lat: float, c_lon: float, storm_id: int | None
+) -> leafmap.Map:
+    """
+    Prepare the leafmap map object based on the selected map layer.
+
+    Parameters
+    ----------
+    zoom: int
+        The initial zoom level for the map
+    c_lat: float
+        The center latitude for the map
+    c_lon: float
+        The center longitude for the map
+    storm_id: int | None
+        The storm ID to retrieve the overlay for, if applicable
+
+    Returns
+    -------
+    leafmap.Map
+        The prepared leafmap map object
+    """
+    m = leafmap.Map(
+        locate_control=False,
+        atlon_control=False,
+        draw_export=False,
+        draw_control=True,
+        minimap_control=False,
+        toolbar_control=False,
+        layers_control=True,
+    )
+
+    # Add the layers to the map
+    if st.transpo is not None:
+        m.add_gdf(
+            st.transpo,
+            layer_name="Transposition Domain",
+            info_mode="on_hover",
+            fields=["layer"],
+            style_function=lambda feature: {"fillColor": "#ff381e", "color": "#ff1e1e"},
+            highlight_function=highlight_function,
+            zoom_on_click=True,
+            show=True,
+        )
+    if st.study_area is not None:
+        m.add_gdf(
+            st.study_area,
+            layer_name="Study Area",
+            info_mode="on_hover",
+            fields=["layer"],
+            style_function=style_models,
+            highlight_function=highlight_function,
+            zoom_on_click=False,
+            show=True,
+        )
+    if st.study_area is not None:
+        aorc_transform = st.session_state.get("aorc:transform")
+        if aorc_transform is not None:
+            st.transposed_study_area = st.study_area.copy()
+            st.transposed_study_area["layer"] = "Transposed Study Area"
+            transform_params = None
+            if isinstance(aorc_transform, dict):
+                try:
+                    a = aorc_transform["a"]
+                    b = aorc_transform["b"]
+                    c = aorc_transform["c"]
+                    d = aorc_transform["d"]
+                    e = aorc_transform["e"]
+                    f = aorc_transform["f"]
+                    transform_params = [a, b, d, e, c, f]
+                except KeyError as exc:
+                    st.warning(f"Missing AORC transform parameter: {exc}")
+            else:
+                st.warning(
+                    "Unexpected format for AORC transform parameters. Expected a dict with keys 'a', 'b', 'c', 'd', 'e', 'f'."
+                )
+            if transform_params is not None:
+                st.transposed_study_area.geometry = (
+                    st.transposed_study_area.geometry.apply(
+                        lambda geom: affine_transform(geom, transform_params)
+                    )
+                )
+                m.add_gdf(
+                    st.transposed_study_area,
+                    layer_name="Transposed Study Area",
+                    info_mode="on_hover",
+                    fields=["layer"],
+                    style_function=lambda feature: {
+                        "fillColor": "#32cd32",
+                        "color": "#32cd32",
+                    },
+                    highlight_function=highlight_function,
+                    zoom_on_click=False,
+                    show=True,
+                )
+    if st.session_state["hydromet_storm_data"] is not None:
+        add_storm_layer(m, storm_id)
+        m.add_colorbar(
+            colors=["blue", "cyan", "green", "yellow", "orange", "red"],
+            caption="72-Hour Accumulated Precipitation (inches)",
+            vmax=st.session_state["storm_max"],
+            vmin=st.session_state["storm_min"],
+        )
+    if st.session_state["hyeto_cache"] is not None:
+        if storm_id is not None:
+            keys = st.session_state["hyeto_cache"].keys()
+            points = [
+                (lon, lat)
+                for (lat, lon, key_storm_id) in keys
+                if key_storm_id == storm_id
+            ]
+            if points:
+                hyeto_gdf = gpd.GeoDataFrame(
+                    geometry=[
+                        shape({"type": "Point", "coordinates": coords})
+                        for coords in points
+                    ],
+                    crs="EPSG:4326",
+                )
+                hyeto_gdf["lat"] = hyeto_gdf.geometry.y.round(4)
+                hyeto_gdf["lon"] = hyeto_gdf.geometry.x.round(4)
+                color = "#0a5edd"
+                hyeto_div_icon = folium.DivIcon(
+                    html=f"""
+                    <div style="
+                        background-color: {color};
+                        border: 1px solid black;
+                        width: 10px;
+                        height: 10px">
+                    </div>
+                    """
+                )
+                m.add_gdf(
+                    hyeto_gdf,
+                    layer_name="Hyetograph Locations",
+                    info_mode="on_hover",
+                    fields=["lat", "lon"],
+                    marker=folium.Marker(icon=hyeto_div_icon),
+                    highlight_function=highlight_function,
+                    zoom_on_click=True,
+                    show=True,
+                )
+
+    m.clear_controls()
+    m.set_center(c_lon, c_lat, zoom)
+
+    return m
 
 
 def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.Map:
@@ -100,7 +414,7 @@ def prep_rasmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
         The prepared leafmap map object
     """
     m = leafmap.Map(
-        locate_control=True,
+        locate_control=False,
         atlon_control=False,
         draw_export=False,
         draw_control=False,
@@ -247,7 +561,7 @@ def prep_hmsmap(bounds: list, zoom: int, c_lat: float, c_lon: float) -> leafmap.
         The prepared leafmap map object
     """
     m = leafmap.Map(
-        locate_control=True,
+        locate_control=False,
         atlon_control=False,
         draw_export=False,
         draw_control=False,
@@ -530,7 +844,9 @@ def get_gage_from_subbasin(subbasin_geom: gpd.GeoSeries):
         The gage ID if a gage is found within the subbasin, otherwise None
     """
     # Combine all subbasin geometries into one (if multiple)
-    subbasin_geom = subbasin_geom.unary_union
+    subbasin_geom = subbasin_geom.union_all()
+    if subbasin_geom is None or subbasin_geom.is_empty:
+        return None
     # Get centroids of all gages
     gage_centroids = st.gages.centroid
     # Find which gage centroids are within the subbasin geometry
@@ -558,7 +874,7 @@ def get_gage_from_pt_ln(_geom: gpd.GeoSeries):
         The subbasin ID if a subbasin is found containing the point or line, otherwise None
     """
     # Combine all geometries into one (if multiple)
-    _geom = _geom.unary_union.centroid
+    _geom = _geom.union_all.centroid
     # Get all subbasin geometries
     subbasin_geoms = st.subbasins.geometry
     # Find which subbasins contain the ln/pt geometry

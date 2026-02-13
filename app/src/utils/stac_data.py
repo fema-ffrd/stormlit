@@ -10,6 +10,7 @@ from db.pull import (
     query_s3_ref_lines,
     query_s3_bc_lines,
     query_s3_model_bndry,
+    query_s3_geojson,
     query_s3_hms_storms,
 )
 
@@ -53,6 +54,25 @@ def reset_selections():
             "stochastic_event": None,
             "stochastic_storm": None,
             "hms_element_id": None,
+            "hydromet_storm_id": None,
+            "storms_df_rank": None,
+            "storms_df_precip": None,
+            "storms_df_date": None,
+            "rank_threshold": None,
+            "precip_threshold": None,
+            "storm_start_date": None,
+            "storm_end_date": None,
+            "hydromet_storm_data": None,
+            "hydromet_hyetograph_data": None,
+            "init_met_pilot": False,
+            "storm_cache": {},
+            "storm_bounds": None,
+            "storm_animation_payload": None,
+            "storm_animation_requested": False,
+            "storm_animation_html": None,
+            "storm_max": None,
+            "storm_min": None,
+            "hyeto_cache": {},
         }
     )
 
@@ -136,6 +156,39 @@ def init_hms_pilot(s3_conn, pilot: str):
     st.junctions = prep_gdf(df_junctions, "Junction", hms=True)
     df_reservoirs = gpd.read_file(st.pilot_layers["Reservoirs"])
     st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
+
+
+def init_met_pilot(s3_conn, pilot: str):
+    """
+    Initialize the map data for the selected Meteorology pilot study
+
+    Parameters
+    ----------
+    s3_conn: duckdb.DuckDBPyConnection
+        The connection to the S3 account
+    pilot: str
+        The name of the pilot study to initialize data for
+    """
+    if pilot == "trinity-pilot":
+        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/stormlit"
+        st.pilot_layers = {
+            "Storms": f"{st.pilot_base_url}/storms-db/72hr-events/collection.json",
+            "Metadata": f"{st.pilot_base_url}/storms-db/72hr-events/",
+        }
+    else:
+        raise ValueError(f"Error: invalid pilot study {pilot}")
+
+    pilot_name = pilot.split("-")[0].lower()
+    st.transpo = query_s3_geojson(
+        f"s3://{pilot}/stac/prod-support/storms/hydro_domains/{pilot_name}_transpo_area_v01_valid.geojson",
+        pilot_name,
+    )
+    st.transpo["layer"] = "Transposition Domain"
+    st.study_area = query_s3_geojson(
+        f"s3://{pilot}/stac/stormlit/storms-db/hydro_domains/Trinity.json",
+        pilot_name,
+    )
+    st.study_area["layer"] = "Study Area"
 
 
 def init_ras_pilot(s3_conn, pilot: str):
