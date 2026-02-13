@@ -426,6 +426,13 @@ def ras_results():
                 st.session_state["pilot"],
             )
             st.session_state["init_ras_pilot"] = True
+    elif "Gages" not in st.pilot_layers:
+        with st.spinner("Initializing RAS datasets..."):
+            init_ras_pilot(
+                st.session_state["s3_conn"],
+                st.session_state["pilot"],
+            )
+            st.session_state["init_ras_pilot"] = True
     dropdown_container = st.container(
         key="dropdown_container",
     )

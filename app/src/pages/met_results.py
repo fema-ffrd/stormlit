@@ -22,6 +22,7 @@ from utils.stac_data import init_met_pilot, get_stac_meta
 
 # standard imports
 import os
+import time
 import logging
 from enum import Enum
 
@@ -117,6 +118,13 @@ def met():
         st.session_state["s3_conn"] = create_s3_connection()
     # Initialize session state variables if not already set
     if st.session_state["init_met_pilot"] is False:
+        with st.spinner("Initializing Meteorology datasets..."):
+            init_met_pilot(
+                st.session_state["s3_conn"],
+                st.session_state["pilot"],
+            )
+            st.session_state["init_met_pilot"] = True
+    elif "Storms" not in st.pilot_layers:
         with st.spinner("Initializing Meteorology datasets..."):
             init_met_pilot(
                 st.session_state["s3_conn"],
@@ -422,12 +430,18 @@ def met():
                     else:
                         if st.session_state.get("storm_animation_html") is None:
                             with st.spinner("Rendering animation..."):
+                                start_time = time.time()
                                 st.session_state["storm_animation_html"] = (
                                     build_storm_animation_maplibre(
                                         animation_payload.get("frames"),
                                         animation_payload.get("times"),
                                         st.session_state.get("storm_bounds"),
                                     )
+                                )
+                                end_time = time.time()
+                                elapsed_time = (end_time - start_time) / 60
+                                st.write(
+                                    f"Animation rendering took {elapsed_time:.2f} minutes."
                                 )
                         if st.session_state["storm_animation_html"]:
                             components_html(
