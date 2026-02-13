@@ -158,6 +158,44 @@ def _find_coord_name(da: xr.DataArray, candidates) -> str | None:
     return None
 
 
+def _downsample_for_overlay(
+    da: xr.DataArray,
+    max_size: int = 1200,
+) -> xr.DataArray:
+    """Downsample large rasters for map overlays to limit memory usage."""
+    if da is None:
+        return da
+
+    dim_pairs = [
+        ("y", "x"),
+        ("lat", "lon"),
+        ("latitude", "longitude"),
+        ("projection_y_coordinate", "projection_x_coordinate"),
+    ]
+    y_dim = x_dim = None
+    for cand_y, cand_x in dim_pairs:
+        if cand_y in da.dims and cand_x in da.dims:
+            y_dim, x_dim = cand_y, cand_x
+            break
+    if y_dim is None or x_dim is None:
+        if len(da.dims) >= 2:
+            y_dim, x_dim = da.dims[-2], da.dims[-1]
+        else:
+            return da
+
+    size_y = int(da.sizes.get(y_dim, 0))
+    size_x = int(da.sizes.get(x_dim, 0))
+    if size_y == 0 or size_x == 0:
+        return da
+
+    scale = max(size_y, size_x) / max_size
+    if scale <= 1:
+        return da
+
+    step = int(np.ceil(scale))
+    return da.isel({y_dim: slice(None, None, step), x_dim: slice(None, None, step)})
+
+
 def add_storm_layer(m: leafmap.Map, storm_id: int | None) -> None:
     """Add storm overlay to the map from IceChunk dataset
 
@@ -173,15 +211,18 @@ def add_storm_layer(m: leafmap.Map, storm_id: int | None) -> None:
     if storm_id is None or storm_data is None:
         return
     bounds = st.session_state.get("storm_bounds")
-    st.session_state["storm_max"] = float(storm_data.values.max())
-    st.session_state["storm_min"] = float(storm_data.values.min())
+    st.session_state["storm_max"] = float(storm_data.max().item())
+    st.session_state["storm_min"] = float(storm_data.min().item())
     if bounds is None:
         bounds = _compute_overlay_bounds(storm_data)
         if bounds is None:
             return
         st.session_state["storm_bounds"] = bounds
 
-    rgba_image = _prepare_rgba_image(storm_data.values.astype(float))
+    storm_overlay = _downsample_for_overlay(storm_data)
+    rgba_image = _prepare_rgba_image(
+        storm_overlay.values.astype(np.float32, copy=False)
+    )
     if rgba_image is None:
         return
 

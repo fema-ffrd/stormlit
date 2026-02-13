@@ -275,8 +275,6 @@ def met():
             st.map_output = st.fmap.to_streamlit(height=500, bidirectional=True)
     # Session State Panel
     with session_tab:
-        st.markdown("## Storm Cache")
-        st.json(st.session_state["storm_cache"], expanded=False)
         st.markdown("## Map State")
         last_active_drawing = st.map_output.get("last_active_drawing", None)
         st.write(st.map_output["all_drawings"])
