@@ -106,7 +106,6 @@ def init_session_state():
     st.session_state["hydromet_storm_data"] = None
     st.session_state["hydromet_hyetograph_data"] = None
     st.session_state["init_met_pilot"] = False
-    st.session_state["storm_cache"] = {}
     st.session_state["storm_bounds"] = None
     st.session_state["storm_animation_payload"] = None
     st.session_state["storm_animation_requested"] = False
