@@ -106,7 +106,7 @@ def home_page():
         - **Model QC:** Run automated quality control checks for model compliance with standard operating procedures.
         - **HMS Results:** Visualize the HEC-HMS spatial modeling components for calibration and stochastic single and multi event simulations.
         - **RAS Results:** Visualize the HEC-RAS spatial modeling components for calibration and stochastic single and multi event simulations.
-        
+        - **Meteorology:** Visualize meteorological data relevant to flood risk modeling.
         """
     )
 
