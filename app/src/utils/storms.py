@@ -16,13 +16,18 @@ import geopandas as gpd
 from PIL import Image
 from matplotlib.animation import FuncAnimation
 
+from db.icechunk import (
+    open_repo,
+    open_session,
+)
+
 TransformerGroup = None
 WGS84 = CRS.from_epsg(4326)
 
 
 def compute_storm(
-    ds: xr.Dataset,
     storm_id: int,
+    aorc_storm_href: str,
     tab: st.delta_generator.DeltaGenerator | None = None,
 ) -> None:
     """
@@ -30,16 +35,20 @@ def compute_storm(
 
     Parameters
     ----------
-    ds: xr.Dataset
-        The input dataset containing storm data.
     storm_id: int
         The ID of the storm to compute.
+    aorc_storm_href: str
+        The icechunk s3 href for the storm to reference.
     tab: st.delta_generator.DeltaGenerator, optional
         The Streamlit tab to display progress (default is None).
     Returns
     -------
     None
     """
+    # split the aorc_storm_href into bucket and prefix
+    bucket, prefix = aorc_storm_href.replace("s3://", "").split("/", 1)
+    repo = open_repo(bucket=bucket, prefix=prefix)
+    ds = open_session(repo=repo, branch="main")
     last_anim_storm = st.session_state.get("storm_animation_storm_id")
     if last_anim_storm != storm_id:
         st.session_state["storm_animation_payload"] = None
@@ -69,8 +78,8 @@ def compute_storm(
 
 
 def compute_hyetograph(
-    ds: xr.Dataset,
     storm_id: int,
+    aorc_storm_href: str,
     lat: float,
     lon: float,
     tab: st.delta_generator.DeltaGenerator | None = None,
@@ -80,8 +89,8 @@ def compute_hyetograph(
 
     Parameters
     ----------
-        ds (xr.Dataset): The input gridded precipitation dataset.
         storm_id (int): The ID of the storm to compute.
+        aorc_storm_href (str): The icechunk s3 href for the storm to reference.
         lat (float): The latitude of the point.
         lon (float): The longitude of the point.
         tab (st.delta_generator.DeltaGenerator): The Streamlit tab to display progress.
@@ -91,7 +100,9 @@ def compute_hyetograph(
     """
     if lat is None or lon is None or storm_id is None:
         return
-
+    bucket, prefix = aorc_storm_href.replace("s3://", "").split("/", 1)
+    repo = open_repo(bucket=bucket, prefix=prefix)
+    ds = open_session(repo=repo, branch="main")
     parent_ctx = tab if tab is not None else nullcontext()
     with parent_ctx:
         with st.spinner(f"Computing hyetograph for point ({lat}, {lon})..."):
@@ -111,18 +122,18 @@ def compute_hyetograph(
 
 
 def compute_storm_animation(
-    ds: xr.Dataset,
     storm_id: int | None,
+    aorc_storm_href: str,
 ) -> None:
     """
     Compute per-timestep precipitation frames for animation.
 
     Parameters
     ----------
-    ds: xr.Dataset
-        The input dataset containing storm data.
     storm_id: int
         The ID of the storm to compute the animation for.
+    aorc_storm_href: str
+        The icechunk s3 href for the storm to reference.
 
     Returns
     -------
@@ -132,6 +143,9 @@ def compute_storm_animation(
         st.info("Select a storm before generating an animation.")
         return
 
+    bucket, prefix = aorc_storm_href.replace("s3://", "").split("/", 1)
+    repo = open_repo(bucket=bucket, prefix=prefix)
+    ds = open_session(repo=repo, branch="main")
     ds_storm = ds.sel(storm_id=storm_id)
     if "APCP_surface" not in ds_storm:
         raise ValueError("Dataset does not contain 'APCP_surface' variable.")

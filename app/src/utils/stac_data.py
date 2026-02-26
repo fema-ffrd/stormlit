@@ -3,6 +3,7 @@ import geopandas as gpd
 import streamlit as st
 import requests
 import json
+import yaml
 from PIL import Image
 from io import BytesIO
 from db.pull import (
@@ -158,37 +159,95 @@ def init_hms_pilot(s3_conn, pilot: str):
     st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
 
 
-def init_met_pilot(s3_conn, pilot: str):
+def _s3_to_https(s3_path: str) -> str:
+    if not s3_path:
+        return ""
+    if not s3_path.startswith("s3://"):
+        return s3_path
+    path = s3_path[5:]
+    if "/" in path:
+        bucket, key = path.split("/", 1)
+        return f"https://{bucket}.s3.amazonaws.com/{key}"
+    return f"https://{path}.s3.amazonaws.com"
+
+
+def _ensure_trailing_slash(path: str) -> str:
+    if not path:
+        return ""
+    return path if path.endswith("/") else f"{path}/"
+
+
+def init_met_pilot(pilot_name: str):
     """
     Initialize the map data for the selected Meteorology pilot study
 
     Parameters
     ----------
-    s3_conn: duckdb.DuckDBPyConnection
-        The connection to the S3 account
-    pilot: str
+    pilot_name: str
         The name of the pilot study to initialize data for
     """
-    if pilot == "trinity-pilot":
-        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/stormlit"
-        st.pilot_layers = {
-            "Storms": f"{st.pilot_base_url}/storms-db/72hr-events/collection.json",
-            "Metadata": f"{st.pilot_base_url}/storms-db/72hr-events/",
-        }
-    else:
-        raise ValueError(f"Error: invalid pilot study {pilot}")
+    cache = st.session_state.setdefault("met_pilot_cache", {})
+    cached = cache.get(pilot_name)
+    if cached:
+        st.pilot_base_url = cached["pilot_base_url"]
+        st.pilot_layers = cached["pilot_layers"]
+        st.transpo = cached["transpo"]
+        st.study_area = cached["study_area"]
+        st.session_state["active_met_pilot"] = pilot_name
+        st.session_state["pilot_bucket"] = cached.get("pilot_bucket")
+        return
 
-    pilot_name = pilot.split("-")[0].lower()
+    config_path = os.path.join(srcDir, "configs", "projects.yaml")
+    with open(config_path, "r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+
+    projects = data.get("projects", data)
+    project_entry = None
+    for entry in projects:
+        if not entry:
+            continue
+        if entry.get("bucket") == pilot_name or entry.get("name") == pilot_name:
+            project_entry = entry
+            break
+
+    if not project_entry:
+        raise ValueError(f"Error: invalid pilot study {pilot_name}")
+
+    bucket = project_entry.get("bucket") or pilot_name
+    st.session_state["pilot_bucket"] = bucket
+    pilot_short = bucket.split("-")[0].lower()
+
+    storm_metadata_path = project_entry.get("storm-metadata")
+    storm_collection_path = project_entry.get("storm-collection")
+    study_area_path = project_entry.get("study-area-json")
+    transpo_domain_path = project_entry.get("transpo-domain-json")
+
+    st.pilot_base_url = f"https://{bucket}.s3.amazonaws.com"
+    st.pilot_layers = {
+        "Storms": _s3_to_https(storm_collection_path),
+        "Metadata": _ensure_trailing_slash(_s3_to_https(storm_metadata_path)),
+    }
+
     st.transpo = query_s3_geojson(
-        f"s3://{pilot}/stac/prod-support/storms/hydro_domains/{pilot_name}_transpo_area_v01_valid.geojson",
-        pilot_name,
+        transpo_domain_path,
+        pilot_short,
     )
     st.transpo["layer"] = "Transposition Domain"
     st.study_area = query_s3_geojson(
-        f"s3://{pilot}/stac/stormlit/storms-db/hydro_domains/Trinity.json",
-        pilot_name,
+        study_area_path,
+        pilot_short,
     )
     st.study_area["layer"] = "Study Area"
+
+    cache[pilot_name] = {
+        "pilot_base_url": st.pilot_base_url,
+        "pilot_layers": st.pilot_layers,
+        "transpo": st.transpo,
+        "study_area": st.study_area,
+        "pilot_bucket": bucket,
+    }
+    st.session_state["active_met_pilot"] = pilot_name
+    st.session_state["pilot_bucket"] = bucket
 
 
 def init_ras_pilot(s3_conn, pilot: str):

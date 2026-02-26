@@ -1,15 +1,7 @@
 # module imports
 from utils.session import init_session_state
-from db.pull import (
-    query_storms_by_threshold,
-    query_storms_by_rank,
-    query_storms_by_date,
-)
+from db.iceberg.query_meta_tables import query_iceberg_table
 from db.utils import create_pg_connection, create_s3_connection
-from db.icechunk import (
-    open_repo,
-    open_session,
-)
 from utils.storms import (
     compute_storm,
     compute_hyetograph,
@@ -19,6 +11,7 @@ from utils.storms import (
 from utils.custom import about_popover_met
 from utils.mapping import prep_metmap, get_map_pos
 from utils.stac_data import init_met_pilot, get_stac_meta
+from utils.projects import load_projects
 
 # standard imports
 import os
@@ -57,7 +50,7 @@ def _get_selected_row(event, table_key):
     return rows[0] if rows else None
 
 
-def _update_selected_storm(storms_df, row_idx, id_column):
+def _update_selected_storm(storms_df, row_idx, id_column, aorc_storm_href):
     if storms_df is None or row_idx is None or row_idx >= len(storms_df):
         return
     storm_id = int(storms_df.iloc[row_idx][id_column])
@@ -66,6 +59,7 @@ def _update_selected_storm(storms_df, row_idx, id_column):
             "hydromet_storm_id": storm_id,
             "single_event_focus_feature_type": FeatureType.STORM.value,
             "single_event_focus_feature_id": storm_id,
+            "aorc_storm_href": aorc_storm_href,
         }
     )
 
@@ -73,19 +67,28 @@ def _update_selected_storm(storms_df, row_idx, id_column):
 def _handle_rank_select(event=None):
     row_idx = _get_selected_row(event, "storms_table_rank")
     storms_df = st.session_state.get("storms_df_rank")
-    _update_selected_storm(storms_df, row_idx, "rank")
+    aorc_storm_href = None
+    if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
+        aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
+    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
 
 
 def _handle_precip_select(event=None):
     row_idx = _get_selected_row(event, "storms_table_precip")
     storms_df = st.session_state.get("storms_df_precip")
-    _update_selected_storm(storms_df, row_idx, "rank")
+    aorc_storm_href = None
+    if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
+        aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
+    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
 
 
 def _handle_date_select(event=None):
     row_idx = _get_selected_row(event, "storms_table_date")
     storms_df = st.session_state.get("storms_df_date")
-    _update_selected_storm(storms_df, row_idx, "rank")
+    aorc_storm_href = None
+    if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
+        aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
+    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
 
 
 def met():
@@ -105,37 +108,48 @@ def met():
     with st.sidebar:
         about_popover_met()
     st.sidebar.markdown("## Select Study")
+    projects = load_projects()
+    project_names = [project.name for project in projects]
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
-        [
-            "trinity-pilot",
-        ],
-        index=0,
+        project_names,
+        index=None,
     )
     if st.session_state["pg_connected"] is False:
         st.session_state["pg_conn"] = create_pg_connection()
     if st.session_state["s3_connected"] is False:
         st.session_state["s3_conn"] = create_s3_connection()
-    # Initialize session state variables if not already set
-    if st.session_state["init_met_pilot"] is False:
+
+    if st.session_state["pilot"] is None:
+        st.warning("Please select a pilot study from the sidebar to begin.")
+        return
+
+    pilot_name = st.session_state["pilot"]
+    # get the pilot target bucket
+    active_pilot = st.session_state.get("active_met_pilot")
+    if active_pilot != pilot_name:
+        st.session_state["hydromet_storm_id"] = None
+        st.session_state["aorc_storm_href"] = None
+        st.session_state["storms_df_rank"] = None
+        st.session_state["hyeto_cache"] = {}
+        st.session_state["storm_cache"] = None
+        st.session_state["storm_bounds"] = None
+        st.session_state["storm_animation_payload"] = None
+        st.session_state["storm_animation_requested"] = False
+        st.session_state["storm_animation_html"] = None
+        st.session_state["storm_animation_storm_id"] = None
+        st.session_state["aorc:transform"] = None
+
+    if (
+        active_pilot != pilot_name
+        or not st.pilot_layers
+        or "Storms" not in st.pilot_layers
+    ):
         with st.spinner("Initializing Meteorology datasets..."):
-            init_met_pilot(
-                st.session_state["s3_conn"],
-                st.session_state["pilot"],
-            )
-            st.session_state["init_met_pilot"] = True
-    elif "Storms" not in st.pilot_layers:
-        with st.spinner("Initializing Meteorology datasets..."):
-            init_met_pilot(
-                st.session_state["s3_conn"],
-                st.session_state["pilot"],
-            )
-            st.session_state["init_met_pilot"] = True
+            init_met_pilot(pilot_name)
+
     st.session_state.setdefault("hyeto_cache", {})
-    repo = open_repo(
-        bucket=st.session_state["pilot"], prefix="test/trinity-storms.icechunk"
-    )
-    ds = open_session(repo=repo, branch="main")
+
     map_col, info_col = st.columns(2)
     map_tab, session_tab = map_col.tabs(["Map", "Session State"])
     selections_tab, metadata_tab, hyeto_tab, anime_tab = info_col.tabs(
@@ -144,29 +158,29 @@ def met():
     # Selection Panel
     with selections_tab:
         st.markdown("## Storm Selection")
-        rank_tab, precip_tab, date_tab = st.tabs(
-            ["By Rank", "By Precipitation", "By Date"]
+        st.info(
+            "Query the top N ranked storms from the catalog. Afterwards sort by rank, storm type, or date using the table headers."
         )
-        with rank_tab:
-            st.info("Query the top N ranked storms from the catalog.")
 
-            st.session_state["rank_threshold"] = st.number_input(
-                "Select a Minimum Rank Threshold (1 = highest rank = largest storm)",
-                min_value=1,
-                max_value=440,
-                value=10,
-                step=10,
+        st.session_state["rank_threshold"] = st.number_input(
+            "Select a Minimum Rank Threshold (1 = highest rank = largest storm)",
+            min_value=1,
+            max_value=440,
+            value=10,
+            step=10,
+        )
+        if st.session_state["rank_threshold"] is not None:
+            st.session_state["storms_df_rank"] = query_iceberg_table(
+                table_name="storms",
+                target_bucket=st.session_state["pilot_bucket"],
+                num_rows=st.session_state["rank_threshold"],
+                order_by_name="rank",
+                order_by="ASC",
             )
-            if st.session_state["rank_threshold"] is not None:
-                st.session_state["storms_df_rank"] = query_storms_by_rank(
-                    st.session_state["s3_conn"],
-                    st.session_state["pilot"],
-                    st.pilot_layers["Storms"],
-                    rank=st.session_state["rank_threshold"],
-                )
-                st.info(
-                    "Click on a row to select a storm and view its details, map location, and hyetograph."
-                )
+            st.info(
+                "Click on a row to select a storm and view its details, map location, and hyetograph."
+            )
+            if st.session_state["storms_df_rank"] is not None:
                 st.dataframe(
                     st.session_state["storms_df_rank"],
                     width="stretch",
@@ -174,96 +188,38 @@ def met():
                     on_select=_handle_rank_select,
                     key="storms_table_rank",
                 )
-        with precip_tab:
-            st.info(
-                "Query storms from the catalog that exceed a specified precipitation threshold."
-            )
-            st.session_state["precip_threshold"] = st.number_input(
-                "Select a Minimum Precipitation Threshold (inches)",
-                min_value=0.0,
-                max_value=20.0,
-                value=7.0,
-                step=0.5,
-            )
-            if st.session_state["precip_threshold"] is not None:
-                st.session_state["storms_df_precip"] = query_storms_by_threshold(
-                    st.session_state["s3_conn"],
-                    st.session_state["pilot"],
-                    st.pilot_layers["Storms"],
-                    threshold=st.session_state["precip_threshold"],
-                )
-                st.info(
-                    "Click on a row to select a storm and view its details, map location, and hyetograph."
-                )
-                st.dataframe(
-                    st.session_state["storms_df_precip"],
-                    width="stretch",
-                    selection_mode="single-row",
-                    on_select=_handle_precip_select,
-                    key="storms_table_precip",
-                )
-        with date_tab:
-            st.info(
-                "Query storms from the catalog that occurred within a specified date range."
-            )
-            start_date_col, end_date_col = st.columns(2)
-            st.session_state["storm_start_date"] = start_date_col.date_input(
-                "Start Date"
-            )
-            st.session_state["storm_end_date"] = end_date_col.date_input("End Date")
-            if (
-                st.session_state["storm_start_date"]
-                and st.session_state["storm_end_date"]
-                and st.session_state["storm_start_date"]
-                <= st.session_state["storm_end_date"]
-            ):
-                st.session_state["storms_df_date"] = query_storms_by_date(
-                    st.session_state["s3_conn"],
-                    st.session_state["pilot"],
-                    st.pilot_layers["Storms"],
-                    start_date=st.session_state["storm_start_date"],
-                    end_date=st.session_state["storm_end_date"],
-                )
-                st.info(
-                    "Click on a row to select a storm and view its details, map location, and hyetograph."
-                )
-                st.dataframe(
-                    st.session_state["storms_df_date"],
-                    width="stretch",
-                    selection_mode="single-row",
-                    on_select=_handle_date_select,
-                    key="storms_table_date",
-                )
+            else:
+                st.warning("No storms found for this study.")
+
     # Compute storm data if a storm is selected
     if st.session_state["hydromet_storm_id"] is not None:
-        compute_storm(ds, storm_id=st.session_state["hydromet_storm_id"], tab=info_col)
+        compute_storm(
+            storm_id=st.session_state["hydromet_storm_id"],
+            aorc_storm_href=st.session_state["aorc_storm_href"],
+            tab=info_col,
+        )
     # Metadata Panel
     with metadata_tab:
         st.markdown("## Storm Metadata")
-        if ds is None:
-            st.sidebar.error("Failed to load Meteorology data. Dataset is None.")
-            st.info("Unable to display metadata until the dataset loads.")
+        storm_id = st.session_state["hydromet_storm_id"]
+        if storm_id is None:
+            st.info("Please select a storm.")
         else:
-            st.sidebar.success("Meteorology data loaded successfully.")
-            storm_id = st.session_state["hydromet_storm_id"]
-            if storm_id is None:
-                st.info("Please select a storm.")
-            else:
-                storm_meta = get_stac_meta(
-                    st.pilot_layers["Metadata"] + f"{storm_id}" + f"/{storm_id}.json"
+            storm_meta = get_stac_meta(
+                st.pilot_layers["Metadata"] + f"{storm_id}" + f"/{storm_id}.json"
+            )
+            if storm_meta[0]:
+                storm_meta = storm_meta[1]
+                storm_prop = storm_meta.get("properties", {})
+                st.session_state["aorc:transform"] = storm_prop.get(
+                    "aorc:transform", None
                 )
-                if storm_meta[0]:
-                    storm_meta = storm_meta[1]
-                    storm_prop = storm_meta.get("properties", {})
-                    st.session_state["aorc:transform"] = storm_prop.get(
-                        "aorc:transform", None
-                    )
-                    storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
-                    st.text(storm_prop_yaml)
-                else:
-                    st.error(
-                        f"Failed to retrieve metadata for Storm ID {storm_id}: {storm_meta[1]}"
-                    )
+                storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
+                st.text(storm_prop_yaml)
+            else:
+                st.error(
+                    f"Failed to retrieve metadata for Storm ID {storm_id}: {storm_meta[1]}"
+                )
     # Map Panel
     with map_tab:
         if st.session_state["hydromet_storm_id"] is not None:
@@ -312,6 +268,7 @@ def met():
             )
         else:
             storm_id = st.session_state["hydromet_storm_id"]
+            aorc_storm_href = st.session_state["aorc_storm_href"]
             hyeto_cache = st.session_state.setdefault("hyeto_cache", {})
             added_points = False
             for drawing in st.map_output["all_drawings"]:
@@ -326,8 +283,8 @@ def met():
                 if cache_key in hyeto_cache:
                     continue
                 compute_hyetograph(
-                    ds,
                     storm_id=storm_id,
+                    aorc_storm_href=aorc_storm_href,
                     lat=lat,
                     lon=lon,
                     tab=hyeto_tab,
@@ -393,66 +350,65 @@ def met():
         st.markdown("## Storm Animation")
         st.session_state.setdefault("storm_animation_requested", False)
         st.session_state.setdefault("storm_animation_html", None)
-        if ds is None:
-            st.info("Dataset not loaded yet.")
-        else:
-            if st.session_state["hydromet_storm_id"] is None:
-                st.info("Please select a storm.")
-            else:
-                if st.button(
-                    "Generate Animation",
-                    type="primary",
-                    use_container_width=True,
-                ):
-                    st.session_state["storm_animation_requested"] = True
-                    st.session_state["storm_animation_html"] = None
-                    with st.spinner("Computing animation frames..."):
-                        compute_storm_animation(
-                            ds, storm_id=st.session_state["hydromet_storm_id"]
-                        )
 
-                animation_payload = st.session_state.get("storm_animation_payload")
-                if st.session_state.get("storm_animation_html"):
-                    components_html(
-                        st.session_state["storm_animation_html"],
-                        height=500,
-                        scrolling=False,
+        if st.session_state["hydromet_storm_id"] is None:
+            st.info("Please select a storm.")
+        else:
+            if st.button(
+                "Generate Animation",
+                type="primary",
+                use_container_width=True,
+            ):
+                st.session_state["storm_animation_requested"] = True
+                st.session_state["storm_animation_html"] = None
+                with st.spinner("Computing animation frames..."):
+                    compute_storm_animation(
+                        storm_id=st.session_state["hydromet_storm_id"],
+                        aorc_storm_href=st.session_state["aorc_storm_href"],
                     )
-                elif not st.session_state.get("storm_animation_requested"):
-                    st.info(
-                        "Click the button above to generate an animation for the selected storm."
+
+            animation_payload = st.session_state.get("storm_animation_payload")
+            if st.session_state.get("storm_animation_html"):
+                components_html(
+                    st.session_state["storm_animation_html"],
+                    height=500,
+                    scrolling=False,
+                )
+            elif not st.session_state.get("storm_animation_requested"):
+                st.info(
+                    "Click the button above to generate an animation for the selected storm."
+                )
+            elif animation_payload and animation_payload.get("frames") is not None:
+                if st.session_state.get("storm_bounds") is None:
+                    st.warning(
+                        "Storm bounds not available yet. Try again after the map loads."
                     )
-                elif animation_payload and animation_payload.get("frames") is not None:
-                    if st.session_state.get("storm_bounds") is None:
-                        st.warning(
-                            "Storm bounds not available yet. Try again after the map loads."
+                else:
+                    if st.session_state.get("storm_animation_html") is None:
+                        with st.spinner("Rendering animation..."):
+                            start_time = time.time()
+                            st.session_state["storm_animation_html"] = (
+                                build_storm_animation_maplibre(
+                                    animation_payload.get("frames"),
+                                    animation_payload.get("times"),
+                                    st.session_state.get("storm_bounds"),
+                                )
+                            )
+                            end_time = time.time()
+                            elapsed_time = (end_time - start_time) / 60
+                            st.write(
+                                f"Animation rendering took {elapsed_time:.2f} minutes."
+                            )
+                    if st.session_state["storm_animation_html"]:
+                        components_html(
+                            st.session_state["storm_animation_html"],
+                            height=650,
+                            scrolling=False,
                         )
                     else:
-                        if st.session_state.get("storm_animation_html") is None:
-                            with st.spinner("Rendering animation..."):
-                                start_time = time.time()
-                                st.session_state["storm_animation_html"] = (
-                                    build_storm_animation_maplibre(
-                                        animation_payload.get("frames"),
-                                        animation_payload.get("times"),
-                                        st.session_state.get("storm_bounds"),
-                                    )
-                                )
-                                end_time = time.time()
-                                elapsed_time = (end_time - start_time) / 60
-                                st.write(
-                                    f"Animation rendering took {elapsed_time:.2f} minutes."
-                                )
-                        if st.session_state["storm_animation_html"]:
-                            components_html(
-                                st.session_state["storm_animation_html"],
-                                height=650,
-                                scrolling=False,
-                            )
-                        else:
-                            st.warning("Unable to render animation for this storm.")
-                else:
-                    st.warning("Animation frames are not ready. Try again.")
+                        st.warning("Unable to render animation for this storm.")
+            else:
+                st.warning("Animation frames are not ready. Try again.")
 
 
 if __name__ == "__main__":
