@@ -59,7 +59,7 @@ def reset_selections():
             "storms_df_rank": None,
             "storms_df_precip": None,
             "storms_df_date": None,
-            "rank_threshold": None,
+            "num_storms": None,
             "precip_threshold": None,
             "storm_start_date": None,
             "storm_end_date": None,
@@ -68,6 +68,7 @@ def reset_selections():
             "init_met_pilot": False,
             "storm_cache": None,
             "storm_bounds": None,
+            "clipped_storm_bounds": None,
             "storm_animation_payload": None,
             "storm_animation_requested": False,
             "storm_animation_html": None,
@@ -177,7 +178,7 @@ def _ensure_trailing_slash(path: str) -> str:
     return path if path.endswith("/") else f"{path}/"
 
 
-def init_met_pilot(pilot_name: str):
+def init_met_pilot(pilot_name: str, config_path: str):
     """
     Initialize the map data for the selected Meteorology pilot study
 
@@ -185,6 +186,9 @@ def init_met_pilot(pilot_name: str):
     ----------
     pilot_name: str
         The name of the pilot study to initialize data for
+    config_path: str
+        The path to the configuration file for the pilot study
+
     """
     cache = st.session_state.setdefault("met_pilot_cache", {})
     cached = cache.get(pilot_name)
@@ -197,7 +201,6 @@ def init_met_pilot(pilot_name: str):
         st.session_state["pilot_bucket"] = cached.get("pilot_bucket")
         return
 
-    config_path = os.path.join(srcDir, "configs", "projects.yaml")
     with open(config_path, "r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
 
