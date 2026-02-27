@@ -1,7 +1,6 @@
 # module imports
 from utils.session import init_session_state
-from db.iceberg.query_meta_tables import query_iceberg_table
-from db.utils import create_pg_connection, create_s3_connection
+from db.query_meta_tables import query_iceberg_table
 from utils.storms import (
     compute_storm,
     compute_hyetograph,
@@ -64,27 +63,9 @@ def _update_selected_storm(storms_df, row_idx, id_column, aorc_storm_href):
     )
 
 
-def _handle_rank_select(event=None):
+def _handle_storm_select(event=None):
     row_idx = _get_selected_row(event, "storms_table_rank")
     storms_df = st.session_state.get("storms_df_rank")
-    aorc_storm_href = None
-    if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
-        aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
-    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
-
-
-def _handle_precip_select(event=None):
-    row_idx = _get_selected_row(event, "storms_table_precip")
-    storms_df = st.session_state.get("storms_df_precip")
-    aorc_storm_href = None
-    if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
-        aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
-    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
-
-
-def _handle_date_select(event=None):
-    row_idx = _get_selected_row(event, "storms_table_date")
-    storms_df = st.session_state.get("storms_df_date")
     aorc_storm_href = None
     if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
         aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
@@ -103,22 +84,22 @@ def met():
     st.sidebar.page_link("pages/hms_results.py", label="HMS Results")
     st.sidebar.page_link("pages/ras_results.py", label="RAS Results")
     st.sidebar.page_link("pages/met_results.py", label="Meteorology")
-    # st.sidebar.page_link("pages/all_results.py", label="All Results")
     st.sidebar.markdown("## Getting Started")
     with st.sidebar:
         about_popover_met()
+
     st.sidebar.markdown("## Select Study")
-    projects = load_projects()
+    config_path = os.path.join(srcDir, "configs", "projects.yaml")
+    if not os.path.exists(config_path):
+        st.error(f"Project configuration file not found: {config_path}")
+        return
+    projects = load_projects(config_path)
     project_names = [project.name for project in projects]
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
         project_names,
         index=None,
     )
-    if st.session_state["pg_connected"] is False:
-        st.session_state["pg_conn"] = create_pg_connection()
-    if st.session_state["s3_connected"] is False:
-        st.session_state["s3_conn"] = create_s3_connection()
 
     if st.session_state["pilot"] is None:
         st.warning("Please select a pilot study from the sidebar to begin.")
@@ -134,6 +115,7 @@ def met():
         st.session_state["hyeto_cache"] = {}
         st.session_state["storm_cache"] = None
         st.session_state["storm_bounds"] = None
+        st.session_state["clipped_storm_bounds"] = None
         st.session_state["storm_animation_payload"] = None
         st.session_state["storm_animation_requested"] = False
         st.session_state["storm_animation_html"] = None
@@ -146,7 +128,7 @@ def met():
         or "Storms" not in st.pilot_layers
     ):
         with st.spinner("Initializing Meteorology datasets..."):
-            init_met_pilot(pilot_name)
+            init_met_pilot(pilot_name, config_path)
 
     st.session_state.setdefault("hyeto_cache", {})
 
@@ -159,33 +141,31 @@ def met():
     with selections_tab:
         st.markdown("## Storm Selection")
         st.info(
-            "Query the top N ranked storms from the catalog. Afterwards sort by rank, storm type, or date using the table headers."
+            "Query storms from the catalog. Afterwards sort by rank, storm type, or date using the table headers."
         )
 
-        st.session_state["rank_threshold"] = st.number_input(
-            "Select a Minimum Rank Threshold (1 = highest rank = largest storm)",
+        st.session_state["num_storms"] = st.number_input(
+            "Select number of rows to return",
             min_value=1,
-            max_value=440,
+            max_value=450,
             value=10,
             step=10,
         )
-        if st.session_state["rank_threshold"] is not None:
+        if st.session_state["num_storms"] is not None:
             st.session_state["storms_df_rank"] = query_iceberg_table(
                 table_name="storms",
                 target_bucket=st.session_state["pilot_bucket"],
-                num_rows=st.session_state["rank_threshold"],
-                order_by_name="rank",
-                order_by="ASC",
+                num_rows=st.session_state["num_storms"],
             )
             st.info(
-                "Click on a row to select a storm and view its details, map location, and hyetograph."
+                "Select a single storm from the table below to view its metadata, map location, hyetographs, and animation."
             )
             if st.session_state["storms_df_rank"] is not None:
                 st.dataframe(
                     st.session_state["storms_df_rank"],
                     width="stretch",
                     selection_mode="single-row",
-                    on_select=_handle_rank_select,
+                    on_select=_handle_storm_select,
                     key="storms_table_rank",
                 )
             else:
