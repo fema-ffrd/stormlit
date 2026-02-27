@@ -2,7 +2,6 @@ import datetime as dt
 import io
 import pandas as pd
 import geopandas as gpd
-import pystac
 import streamlit as st
 import shapely.wkb
 import duckdb
