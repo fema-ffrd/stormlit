@@ -115,9 +115,7 @@ def query_storms(
             return None
 
 
-def query_storms_with_assets(
-    con, metadata_location, limit: int
-):
+def query_storms_with_assets(con, metadata_location, limit: int):
     """Query storms and extract asset hrefs, returning a list of storm records."""
     import json
 

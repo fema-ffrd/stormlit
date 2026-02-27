@@ -24,6 +24,7 @@ from db.icechunk import (
 TransformerGroup = None
 WGS84 = CRS.from_epsg(4326)
 
+
 def _project_cube(da: xr.DataArray) -> xr.DataArray:
     """Project a DataArray to WGS84.
 
@@ -124,14 +125,22 @@ def compute_storm(
                 total_precip = _project_cube(total_precip)
                 # Store the bounds of the storm. Format to [[south, west], [north, east]]
                 storm_bounds = total_precip.rio.bounds()
-                storm_bounds = [[storm_bounds[1], storm_bounds[0]], [storm_bounds[3], storm_bounds[2]]]
+                storm_bounds = [
+                    [storm_bounds[1], storm_bounds[0]],
+                    [storm_bounds[3], storm_bounds[2]],
+                ]
                 # Clip the storm to the transposition domain
                 target_crs = total_precip.rio.crs
                 transposed_geom = st.transpo.to_crs(target_crs).geometry.values[0]
-                clipped_precip = total_precip.rio.clip([transposed_geom], drop=True, all_touched=True)
+                clipped_precip = total_precip.rio.clip(
+                    [transposed_geom], drop=True, all_touched=True
+                )
                 # Store the bounds of the clipped storm. Format to [[south, west], [north, east]]
                 clipped_storm_bounds = clipped_precip.rio.bounds()
-                clipped_storm_bounds = [[clipped_storm_bounds[1], clipped_storm_bounds[0]], [clipped_storm_bounds[3], clipped_storm_bounds[2]]]
+                clipped_storm_bounds = [
+                    [clipped_storm_bounds[1], clipped_storm_bounds[0]],
+                    [clipped_storm_bounds[3], clipped_storm_bounds[2]],
+                ]
                 # Update session state
                 st.session_state["storm_bounds"] = storm_bounds
                 st.session_state["clipped_storm_bounds"] = clipped_storm_bounds

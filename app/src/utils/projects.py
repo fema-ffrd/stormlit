@@ -16,9 +16,9 @@ class ProjectConfig:
     study_area_json: str
     transpo_domain_json: str
 
+
 @st.cache_data
 def load_projects(config_path: str) -> List[ProjectConfig]:
-
     with open(config_path, "r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
 
