@@ -12,9 +12,6 @@ logging.basicConfig(level=logging.INFO)
 def get_duckdb_connection():
     """Initialize DuckDB with necessary extensions and S3/Postgres configuration."""
     load_dotenv()
-
-    S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")
-    S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY")
     S3_REGION = os.getenv("S3_REGION")
     POSTGRES_DB = os.getenv("POSTGRES_DB")
     POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -33,9 +30,13 @@ def get_duckdb_connection():
     con.execute("LOAD postgres_scanner;")
 
     # Configure S3
-    con.execute(f"SET s3_access_key_id='{S3_ACCESS_KEY_ID}';")
-    con.execute(f"SET s3_secret_access_key='{S3_SECRET_ACCESS_KEY}';")
-    con.execute(f"SET s3_region='{S3_REGION}';")
+    con.execute(f"""
+        CREATE OR REPLACE SECRET aws_secret (
+            TYPE s3,
+            PROVIDER credential_chain,
+            REGION '{S3_REGION}'
+        )
+    """)
     con.execute("SET s3_url_style='path';")
     con.execute("SET s3_use_ssl='true';")
 
@@ -57,7 +58,6 @@ def get_iceberg_metadata(con, pg_str, target_bucket: str, table_name="storms"):
                 'iceberg_tables'
             )
             WHERE table_name = '{table_name}'
-            LIMIT 20;
         """
         ).df()
         if not catalogs.empty:
@@ -79,37 +79,15 @@ def query_storms(
     con,
     metadata_location: str,
     limit: int,
-    order_by_name: str = "id",
-    order_by: str = "ASC",
 ):
     """Query and list all storms from the STAC items Iceberg table using metadata location."""
     try:
-        order_by_key = order_by_name.lower().strip()
-        order_by_direction = order_by.upper().strip()
-        if order_by_direction not in {"ASC", "DESC"}:
-            order_by_direction = "ASC"
-
-        # Map user-facing column names to safe SQL expressions.
-        order_by_expr_map = {
-            "id": "CAST(id AS INTEGER)",
-            "rank": "CAST(id AS INTEGER)",
-            "collection": "collection",
-            "storm_type": "storm_type",
-            "datetime": "CAST(datetime AS TIMESTAMP)",
-        }
-        order_by_expr = order_by_expr_map.get(order_by_key, "CAST(id AS INTEGER)")
-
         # Query the Iceberg table using the metadata location
         result = con.sql(
             f"""
-            SELECT 
-                CAST(id AS INTEGER) as rank,
-                collection,
-                storm_type,
-                CAST(datetime AS TIMESTAMP) as datetime,
-                assets
+            SELECT *
             FROM iceberg_scan('{metadata_location}')
-            ORDER BY {order_by_expr} {order_by_direction}
+            ORDER BY CAST(id AS INTEGER) ASC
             LIMIT {limit};
         """
         ).df()
@@ -138,7 +116,7 @@ def query_storms(
 
 
 def query_storms_with_assets(
-    con, metadata_location, limit: int, order_by_name: str = "id", order_by: str = "ASC"
+    con, metadata_location, limit: int
 ):
     """Query storms and extract asset hrefs, returning a list of storm records."""
     import json
@@ -149,8 +127,6 @@ def query_storms_with_assets(
             con,
             metadata_location,
             limit=limit,
-            order_by_name=order_by_name,
-            order_by=order_by,
         )
 
         if storms_df is None or len(storms_df) == 0:
@@ -159,11 +135,26 @@ def query_storms_with_assets(
         # Process results and extract asset hrefs
         storms_list = []
         for _, row in storms_df.iterrows():
-            storm_rank = row["rank"]
-            collection = row["collection"]
-            storm_type = row["storm_type"]
-            datetime = row["datetime"]
-            assets_str = row["assets"]
+            if "id" in row:
+                storm_rank = row["id"]
+            else:
+                storm_rank = None
+            if "collection" in row:
+                collection = row["collection"]
+            else:
+                collection = None
+            if "storm_type" in row:
+                storm_type = row["storm_type"]
+            else:
+                storm_type = None
+            if "datetime" in row:
+                datetime = row["datetime"]
+            else:
+                datetime = None
+            if "assets" in row:
+                assets_str = row["assets"]
+            else:
+                assets_str = None
 
             # Try to parse assets as JSON string
             aorc_storm_href = None
@@ -201,8 +192,6 @@ def query_iceberg_table(
     table_name: str,
     target_bucket: str,
     num_rows: int,
-    order_by_name: str = "rank",
-    order_by: str = "ASC",
 ):
     """Main function to query Iceberg metadata and storms data."""
     con, pg_str = get_duckdb_connection()
@@ -220,8 +209,6 @@ def query_iceberg_table(
                     con,
                     metadata_location,
                     limit=num_rows,
-                    order_by_name=order_by_name,
-                    order_by=order_by,
                 )
             else:
                 logging.info(f"Querying for table {table_name} is not implemented yet")
@@ -246,9 +233,7 @@ def query_iceberg_table(
 
 if __name__ == "__main__":
     query_iceberg_table(
-        "storms",
+        table_name="storms",
         target_bucket="trinity-pilot",
         num_rows=10,
-        order_by_name="rank",
-        order_by="ASC",
     )
