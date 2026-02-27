@@ -210,14 +210,14 @@ def add_storm_layer(m: leafmap.Map, storm_id: int | None) -> None:
     storm_data = st.session_state.get("hydromet_storm_data")
     if storm_id is None or storm_data is None:
         return
-    bounds = st.session_state.get("storm_bounds")
+    bounds = st.session_state.get("clipped_storm_bounds")
     st.session_state["storm_max"] = float(storm_data.max().item())
     st.session_state["storm_min"] = float(storm_data.min().item())
     if bounds is None:
         bounds = _compute_overlay_bounds(storm_data)
         if bounds is None:
             return
-        st.session_state["storm_bounds"] = bounds
+        st.session_state["clipped_storm_bounds"] = bounds
 
     storm_overlay = _downsample_for_overlay(storm_data)
     rgba_image = _prepare_rgba_image(
@@ -382,12 +382,21 @@ def prep_metmap(
                 )
     if st.session_state["hydromet_storm_data"] is not None:
         add_storm_layer(m, storm_id)
-        m.add_colorbar(
-            colors=["blue", "cyan", "green", "yellow", "orange", "red"],
-            caption="72-Hour Accumulated Precipitation (inches)",
-            vmax=st.session_state["storm_max"],
-            vmin=st.session_state["storm_min"],
-        )
+        storm_min = st.session_state.get("storm_min")
+        storm_max = st.session_state.get("storm_max")
+        if (
+            storm_min is not None
+            and storm_max is not None
+            and np.isfinite(storm_min)
+            and np.isfinite(storm_max)
+            and storm_min < storm_max
+        ):
+            m.add_colorbar(
+                colors=["blue", "cyan", "green", "yellow", "orange", "red"],
+                caption="72-Hour Accumulated Precipitation (inches)",
+                vmax=storm_max,
+                vmin=storm_min,
+            )
     if st.session_state["hyeto_cache"] is not None:
         if storm_id is not None:
             keys = st.session_state["hyeto_cache"].keys()

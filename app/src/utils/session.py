@@ -13,6 +13,7 @@ def init_session_state():
     st.session_state["s3_connected"] = False
     st.session_state["pg_conn"] = None
     st.session_state["s3_conn"] = None
+    st.session_state["pilot_bucket"] = None
 
     # single event session
     st.session_state["pilot"] = None
@@ -96,17 +97,16 @@ def init_session_state():
 
     # Hydro-Met
     st.session_state["hydromet_storm_id"] = None
+    st.session_state["aorc_storm_href"] = None
     st.session_state["storms_df_rank"] = None
-    st.session_state["storms_df_precip"] = None
-    st.session_state["storms_df_date"] = None
-    st.session_state["rank_threshold"] = None
-    st.session_state["precip_threshold"] = None
-    st.session_state["storm_start_date"] = None
-    st.session_state["storm_end_date"] = None
+    st.session_state["num_storms"] = None
     st.session_state["hydromet_storm_data"] = None
     st.session_state["hydromet_hyetograph_data"] = None
-    st.session_state["init_met_pilot"] = False
+    st.session_state["init_met_pilot"] = {}
+    st.session_state["met_pilot_cache"] = {}
+    st.session_state["active_met_pilot"] = None
     st.session_state["storm_bounds"] = None
+    st.session_state["clipped_storm_bounds"] = None
     st.session_state["storm_animation_payload"] = None
     st.session_state["storm_animation_requested"] = False
     st.session_state["storm_animation_html"] = None

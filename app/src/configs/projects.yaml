@@ -1,0 +1,13 @@
+projects:
+  - name: Trinity
+    bucket: trinity-pilot
+    storm-metadata: "s3://trinity-pilot/stac/stormlit/storms-db/72hr-events/"
+    storm-collection: "s3://trinity-pilot/stac/stormlit/storms-db/72hr-events/collection.json"
+    study-area-json: "s3://trinity-pilot/stac/stormlit/storms-db/hydro_domains/Trinity.json"
+    transpo-domain-json: "s3://trinity-pilot/stac/stormlit/storms-db/hydro_domains/trinity-transpo-area-v01_valid.json"
+  - name: South Platte
+    bucket: south-platte
+    storm-metadata: "s3://south-platte/stac/storms_hydromet/72hr-events/"
+    storm-collection: "s3://south-platte/stac/storms_hydromet/72hr-events/collection.json"
+    study-area-json: "s3://south-platte/stac/storms_hydromet/hydro_domains/SouthPlatte.json"
+    transpo-domain-json: "s3://south-platte/stac/storms_hydromet/hydro_domains/manual-transpo-area-v01_valid.json"
