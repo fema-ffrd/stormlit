@@ -24,6 +24,51 @@ from db.icechunk import (
 TransformerGroup = None
 WGS84 = CRS.from_epsg(4326)
 
+def _project_cube(da: xr.DataArray) -> xr.DataArray:
+    """Project a DataArray to WGS84.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The input DataArray to project.
+
+    Returns
+    -------
+    xr.DataArray
+        The projected DataArray.
+    """
+    # Assign the cube's native CRS and reproject to WGS84 for clipping
+    native_crs = da.rio.crs or _resolve_dataset_crs(da)
+    if native_crs is not None:
+        da = da.rio.write_crs(native_crs)
+    else:
+        native_crs = WGS84
+        da = da.rio.write_crs(native_crs)
+
+    if native_crs != WGS84:
+        res_x, res_y = da.rio.resolution()
+        bounds = da.rio.bounds()
+        sample_x = bounds[0]
+        sample_y = bounds[1]
+        try:
+            to_wgs84 = Transformer.from_crs(native_crs, WGS84, always_xy=True)
+            lon0, lat0 = to_wgs84.transform(sample_x, sample_y)
+            lon1, _ = to_wgs84.transform(sample_x + res_x, sample_y)
+            _, lat2 = to_wgs84.transform(sample_x, sample_y + res_y)
+            deg_res_x = abs(lon1 - lon0)
+            deg_res_y = abs(lat2 - lat0)
+            deg_res_x = deg_res_x if np.isfinite(deg_res_x) and deg_res_x > 0 else 0.01
+            deg_res_y = deg_res_y if np.isfinite(deg_res_y) and deg_res_y > 0 else 0.01
+            resolution = (min(deg_res_x, 1.0), min(deg_res_y, 1.0))
+        except Exception:
+            resolution = (0.01, 0.01)
+        da = da.rio.reproject(
+            "EPSG:4326",
+            resolution=resolution,
+            nodata=np.nan,
+        )
+        return da
+
 
 def compute_storm(
     storm_id: int,
@@ -71,9 +116,26 @@ def compute_storm(
                     raise ValueError(
                         "'APCP_surface' variable does not have 'time' dimension."
                     )
+                # Load cube into memory and convert mm to inches
                 precip_cube = _load_precip_cube(da_precip)
+                # Aggregate to 72-hour accumulated precip
                 total_precip = precip_cube.sum(dim="time")
-                st.session_state["hydromet_storm_data"] = total_precip
+                # Reproject the cube to EPSG:4326
+                total_precip = _project_cube(total_precip)
+                # Store the bounds of the storm. Format to [[south, west], [north, east]]
+                storm_bounds = total_precip.rio.bounds()
+                storm_bounds = [[storm_bounds[1], storm_bounds[0]], [storm_bounds[3], storm_bounds[2]]]
+                # Clip the storm to the transposition domain
+                target_crs = total_precip.rio.crs
+                transposed_geom = st.transpo.to_crs(target_crs).geometry.values[0]
+                clipped_precip = total_precip.rio.clip([transposed_geom], drop=True, all_touched=True)
+                # Store the bounds of the clipped storm. Format to [[south, west], [north, east]]
+                clipped_storm_bounds = clipped_precip.rio.bounds()
+                clipped_storm_bounds = [[clipped_storm_bounds[1], clipped_storm_bounds[0]], [clipped_storm_bounds[3], clipped_storm_bounds[2]]]
+                # Update session state
+                st.session_state["storm_bounds"] = storm_bounds
+                st.session_state["clipped_storm_bounds"] = clipped_storm_bounds
+                st.session_state["hydromet_storm_data"] = clipped_precip
                 st.session_state["storm_cache"] = storm_id
 
 
@@ -153,6 +215,7 @@ def compute_storm_animation(
     if "time" not in da_precip.dims:
         raise ValueError("'APCP_surface' variable does not have 'time' dimension.")
     precip_cube = _load_precip_cube(da_precip)
+    precip_cube = _project_cube(precip_cube)
     precip_cube = _orient_cube_north_up(precip_cube)
     st.session_state["storm_animation_payload"] = _animation_payload_from_cube(
         precip_cube
