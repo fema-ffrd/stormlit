@@ -9,10 +9,9 @@ import streamlit as st
 logging.basicConfig(level=logging.INFO)
 
 
-def get_duckdb_connection():
+def get_duckdb_connection(aws_region: str = "us-east-1"):
     """Initialize DuckDB with necessary extensions and S3/Postgres configuration."""
     load_dotenv()
-    S3_REGION = os.getenv("S3_REGION")
     POSTGRES_DB = os.getenv("POSTGRES_DB")
     POSTGRES_USER = os.getenv("POSTGRES_USER")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
@@ -34,7 +33,7 @@ def get_duckdb_connection():
         CREATE OR REPLACE SECRET aws_secret (
             TYPE s3,
             PROVIDER credential_chain,
-            REGION '{S3_REGION}'
+            REGION '{aws_region}'
         )
     """)
     con.execute("SET s3_url_style='path';")
