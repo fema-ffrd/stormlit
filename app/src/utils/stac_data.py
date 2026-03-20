@@ -11,9 +11,9 @@ from db.pull import (
     query_s3_ref_lines,
     query_s3_bc_lines,
     query_s3_model_bndry,
-    query_s3_geojson,
     query_s3_hms_storms,
 )
+from db.query_meta_tables import query_study_area, query_transpo_domain
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
 srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
@@ -218,33 +218,21 @@ def init_met_pilot(pilot_name: str, config_path: str):
 
     bucket = project_entry.get("bucket") or pilot_name
     st.session_state["pilot_bucket"] = bucket
-    pilot_short = bucket.split("-")[0].lower()
-
-    storm_metadata_path = project_entry.get("storm-metadata")
-    storm_collection_path = project_entry.get("storm-collection")
-    study_area_path = project_entry.get("study-area-json")
-    transpo_domain_path = project_entry.get("transpo-domain-json")
 
     st.pilot_base_url = f"https://{bucket}.s3.amazonaws.com"
-    st.pilot_layers = {
-        "Storms": _s3_to_https(storm_collection_path),
-        "Metadata": _ensure_trailing_slash(_s3_to_https(storm_metadata_path)),
-    }
 
-    st.transpo = query_s3_geojson(
-        transpo_domain_path,
-        pilot_short,
-    )
-    st.transpo["layer"] = "Transposition Domain"
-    st.study_area = query_s3_geojson(
-        study_area_path,
-        pilot_short,
-    )
-    st.study_area["layer"] = "Study Area"
+    # Derive the layer prefix from the project name (e.g. "Trinity" → "trinity",
+    # "South Platte" → "south_platte") to match the names used when loading
+    # GeoJSON into the Iceberg table via load_geojson_to_iceberg.py.
+    project_name = project_entry.get("name", "") or bucket
+    layer_prefix = project_name.lower().replace(" ", "_").replace("-", "_")
+
+    st.transpo = query_transpo_domain(bucket, layer_prefix=layer_prefix)
+    st.study_area = query_study_area(bucket, layer_prefix=layer_prefix)
 
     cache[pilot_name] = {
         "pilot_base_url": st.pilot_base_url,
-        "pilot_layers": st.pilot_layers,
+        "pilot_layers": getattr(st, "pilot_layers", None),
         "transpo": st.transpo,
         "study_area": st.study_area,
         "pilot_bucket": bucket,

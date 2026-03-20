@@ -9,7 +9,7 @@ from utils.storms import (
 )
 from utils.custom import about_popover_met
 from utils.mapping import prep_metmap, get_map_pos
-from utils.stac_data import init_met_pilot, get_stac_meta
+from utils.stac_data import init_met_pilot
 from utils.projects import load_projects
 
 # standard imports
@@ -19,7 +19,6 @@ import logging
 from enum import Enum
 
 # third party imports
-import yaml
 import streamlit as st
 from dotenv import load_dotenv
 import plotly.graph_objects as go
@@ -49,16 +48,20 @@ def _get_selected_row(event, table_key):
     return rows[0] if rows else None
 
 
-def _update_selected_storm(storms_df, row_idx, id_column, aorc_storm_href):
+def _update_selected_storm(storms_df, row_idx, aorc_storm_href):
     if storms_df is None or row_idx is None or row_idx >= len(storms_df):
         return
-    storm_id = int(storms_df.iloc[row_idx][id_column])
+    storm_id = int(storms_df.iloc[row_idx]["rank"])
+    storm_date = storms_df.iloc[row_idx]["datetime"]
     st.session_state.update(
         {
             "hydromet_storm_id": storm_id,
+            "hydromet_storm_date": storm_date,
             "single_event_focus_feature_type": FeatureType.STORM.value,
             "single_event_focus_feature_id": storm_id,
             "aorc_storm_href": aorc_storm_href,
+            "aorc:statistics": storms_df.iloc[row_idx].get("aorc_statistics", None),
+            "aorc:transform": storms_df.iloc[row_idx].get("aorc_transform", None),
         }
     )
 
@@ -69,7 +72,7 @@ def _handle_storm_select(event=None):
     aorc_storm_href = None
     if storms_df is not None and row_idx is not None and row_idx < len(storms_df):
         aorc_storm_href = storms_df.iloc[row_idx].get("aorc_storm_href")
-    _update_selected_storm(storms_df, row_idx, "rank", aorc_storm_href)
+    _update_selected_storm(storms_df, row_idx, aorc_storm_href)
 
 
 def met():
@@ -110,6 +113,7 @@ def met():
     active_pilot = st.session_state.get("active_met_pilot")
     if active_pilot != pilot_name:
         st.session_state["hydromet_storm_id"] = None
+        st.session_state["hydromet_storm_date"] = None
         st.session_state["aorc_storm_href"] = None
         st.session_state["storms_df_rank"] = None
         st.session_state["hyeto_cache"] = {}
@@ -121,12 +125,10 @@ def met():
         st.session_state["storm_animation_html"] = None
         st.session_state["storm_animation_storm_id"] = None
         st.session_state["aorc:transform"] = None
+        st.session_state["aorc:statistics"] = None
+        st.session_state["storm_log"] = None
 
-    if (
-        active_pilot != pilot_name
-        or not st.pilot_layers
-        or "Storms" not in st.pilot_layers
-    ):
+    if active_pilot != pilot_name:
         with st.spinner("Initializing Meteorology datasets..."):
             init_met_pilot(pilot_name, config_path)
 
@@ -160,6 +162,8 @@ def met():
             st.info(
                 "Select a single storm from the table below to view its metadata, map location, hyetographs, and animation."
             )
+            if st.session_state["storm_log"] is not None:
+                st.warning(st.session_state["storm_log"])
             if st.session_state["storms_df_rank"] is not None:
                 st.dataframe(
                     st.session_state["storms_df_rank"],
@@ -175,6 +179,7 @@ def met():
     if st.session_state["hydromet_storm_id"] is not None:
         compute_storm(
             storm_id=st.session_state["hydromet_storm_id"],
+            storm_date=st.session_state["hydromet_storm_date"],
             aorc_storm_href=st.session_state["aorc_storm_href"],
             tab=info_col,
         )
@@ -185,21 +190,10 @@ def met():
         if storm_id is None:
             st.info("Please select a storm.")
         else:
-            storm_meta = get_stac_meta(
-                st.pilot_layers["Metadata"] + f"{storm_id}" + f"/{storm_id}.json"
-            )
-            if storm_meta[0]:
-                storm_meta = storm_meta[1]
-                storm_prop = storm_meta.get("properties", {})
-                st.session_state["aorc:transform"] = storm_prop.get(
-                    "aorc:transform", None
-                )
-                storm_prop_yaml = yaml.dump(storm_prop, sort_keys=False)
-                st.text(storm_prop_yaml)
-            else:
-                st.error(
-                    f"Failed to retrieve metadata for Storm ID {storm_id}: {storm_meta[1]}"
-                )
+            st.markdown("### Storm Statistics")
+            st.json(st.session_state.get("aorc:statistics", {}))
+            st.markdown("### Storm Transform")
+            st.json(st.session_state.get("aorc:transform", {}))
     # Map Panel
     with map_tab:
         if st.session_state["hydromet_storm_id"] is not None:
@@ -248,6 +242,7 @@ def met():
             )
         else:
             storm_id = st.session_state["hydromet_storm_id"]
+            storm_date = st.session_state["hydromet_storm_date"]
             aorc_storm_href = st.session_state["aorc_storm_href"]
             hyeto_cache = st.session_state.setdefault("hyeto_cache", {})
             added_points = False
@@ -264,6 +259,7 @@ def met():
                     continue
                 compute_hyetograph(
                     storm_id=storm_id,
+                    storm_date=storm_date,
                     aorc_storm_href=aorc_storm_href,
                     lat=lat,
                     lon=lon,
@@ -333,6 +329,8 @@ def met():
 
         if st.session_state["hydromet_storm_id"] is None:
             st.info("Please select a storm.")
+        elif st.session_state["storm_log"] is not None:
+            st.warning(st.session_state["storm_log"])
         else:
             if st.button(
                 "Generate Animation",
@@ -344,6 +342,7 @@ def met():
                 with st.spinner("Computing animation frames..."):
                     compute_storm_animation(
                         storm_id=st.session_state["hydromet_storm_id"],
+                        storm_date=st.session_state["hydromet_storm_date"],
                         aorc_storm_href=st.session_state["aorc_storm_href"],
                     )
 

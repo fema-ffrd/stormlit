@@ -10,8 +10,6 @@ import yaml
 class ProjectConfig:
     name: str
     bucket: str
-    storm_metadata: str
-    storm_collection: str
     study_area_json: str
     transpo_domain_json: str
 
@@ -37,8 +35,6 @@ def load_projects(config_path: str) -> List[ProjectConfig]:
             ProjectConfig(
                 name=str(name),
                 bucket=str(bucket),
-                storm_metadata=str(entry.get("storm-metadata")),
-                storm_collection=str(entry.get("storm-collection")),
                 study_area_json=str(entry.get("study-area-json")),
                 transpo_domain_json=str(entry.get("transpo-domain-json")),
             )

@@ -6,6 +6,7 @@ from functools import partial
 from uuid import uuid4
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 import streamlit as st
 from contextlib import nullcontext
@@ -71,8 +72,53 @@ def _project_cube(da: xr.DataArray) -> xr.DataArray:
         return da
 
 
+def _select_storm_time_window(
+    ds: xr.Dataset,
+    storm_start: pd.Timestamp,
+) -> xr.Dataset:
+    """Select a storm by its start date and drop the singleton storm_id dimension."""
+    if "abs_time" not in ds.coords:
+        raise KeyError("No usable abs_time coordinate for storm window selection.")
+
+    abs_time = ds["abs_time"]
+    storm_date = pd.Timestamp(storm_start).date()
+
+    try:
+        if "storm_id" in abs_time.dims:
+            storm_start_dates = (
+                abs_time.isel(time=0, drop=True)
+                if "time" in abs_time.dims
+                else abs_time
+            )
+            matching_storms = storm_start_dates.dt.date == storm_date
+            matching_storm_ids = ds["storm_id"].where(matching_storms, drop=True)
+            ds_selected = ds.sel(storm_id=matching_storm_ids)
+        else:
+            ds_selected = ds.where(abs_time.dt.date == storm_date, drop=True)
+    except (AttributeError, TypeError, ValueError, IndexError) as e:
+        raise ValueError(
+            "Failed to subset storm data using the storm start date."
+        ) from e
+
+    if (
+        ds_selected.sizes.get("storm_id", 0) == 0
+        or ds_selected.sizes.get("time", 0) == 0
+    ):
+        raise KeyError(f"No storm found for start date {storm_date}.")
+
+    if "storm_id" in ds_selected.dims:
+        if ds_selected.sizes["storm_id"] != 1:
+            raise ValueError(
+                f"Storm start date {storm_date} matched multiple storms; expected one."
+            )
+        ds_selected = ds_selected.squeeze("storm_id", drop=True)
+
+    return ds_selected
+
+
 def compute_storm(
     storm_id: int,
+    storm_date: str,
     aorc_storm_href: str,
     tab: st.delta_generator.DeltaGenerator | None = None,
 ) -> None:
@@ -83,6 +129,8 @@ def compute_storm(
     ----------
     storm_id: int
         The ID of the storm to compute.
+    storm_date: str
+        The date of the storm to compute.
     aorc_storm_href: str
         The icechunk s3 href for the storm to reference.
     tab: st.delta_generator.DeltaGenerator, optional
@@ -101,13 +149,19 @@ def compute_storm(
         st.session_state["storm_animation_html"] = None
         st.session_state["storm_animation_requested"] = False
         st.session_state["storm_animation_storm_id"] = storm_id
+        st.session_state["storm_log"] = None
     if storm_id != st.session_state.get("storm_cache"):
         parent_ctx = tab if tab is not None else nullcontext()
         with parent_ctx:
             with st.spinner(
-                f"Computing 72-hour total precipitation for Storm ID: {storm_id}..."
+                f"Computing 72-hour total precipitation for Storm ID: {storm_id} on {storm_date}..."
             ):
-                ds_storm = ds.sel(storm_id=storm_id)
+                storm_log = None
+                storm_start = pd.to_datetime(storm_date)
+                ds_storm = _select_storm_time_window(
+                    ds,
+                    storm_start,
+                )
                 if "APCP_surface" not in ds_storm:
                     raise ValueError(
                         "Dataset does not contain 'APCP_surface' variable."
@@ -121,6 +175,9 @@ def compute_storm(
                 precip_cube = _load_precip_cube(da_precip)
                 # Aggregate to 72-hour accumulated precip
                 total_precip = precip_cube.sum(dim="time")
+                # Check if empty with all zeros
+                if (total_precip == 0).all():
+                    storm_log = f"IceChunk Error: Total precipitation for Storm ID: {storm_id} on {storm_date} is all zeros."
                 # Reproject the cube to EPSG:4326
                 total_precip = _project_cube(total_precip)
                 # Store the bounds of the storm. Format to [[south, west], [north, east]]
@@ -146,10 +203,12 @@ def compute_storm(
                 st.session_state["clipped_storm_bounds"] = clipped_storm_bounds
                 st.session_state["hydromet_storm_data"] = clipped_precip
                 st.session_state["storm_cache"] = storm_id
+                st.session_state["storm_log"] = storm_log
 
 
 def compute_hyetograph(
     storm_id: int,
+    storm_date: str,
     aorc_storm_href: str,
     lat: float,
     lon: float,
@@ -161,6 +220,7 @@ def compute_hyetograph(
     Parameters
     ----------
         storm_id (int): The ID of the storm to compute.
+        storm_date (str): The date of the storm to compute.
         aorc_storm_href (str): The icechunk s3 href for the storm to reference.
         lat (float): The latitude of the point.
         lon (float): The longitude of the point.
@@ -177,7 +237,11 @@ def compute_hyetograph(
     parent_ctx = tab if tab is not None else nullcontext()
     with parent_ctx:
         with st.spinner(f"Computing hyetograph for point ({lat}, {lon})..."):
-            ds_storm = ds.sel(storm_id=storm_id)
+            storm_start = pd.to_datetime(storm_date)
+            ds_storm = _select_storm_time_window(
+                ds,
+                storm_start,
+            )
             proj_x, proj_y = _project_lonlat_to_dataset(ds_storm, lon, lat)
             sel_kwargs = {"x": proj_x, "y": proj_y}
             ds_point = ds_storm.sel(sel_kwargs, method="nearest")
@@ -194,6 +258,7 @@ def compute_hyetograph(
 
 def compute_storm_animation(
     storm_id: int | None,
+    storm_date: str,
     aorc_storm_href: str,
 ) -> None:
     """
@@ -203,6 +268,8 @@ def compute_storm_animation(
     ----------
     storm_id: int
         The ID of the storm to compute the animation for.
+    storm_date: str
+        The date of the storm to compute the animation for.
     aorc_storm_href: str
         The icechunk s3 href for the storm to reference.
 
@@ -217,7 +284,11 @@ def compute_storm_animation(
     bucket, prefix = aorc_storm_href.replace("s3://", "").split("/", 1)
     repo = open_repo(bucket=bucket, prefix=prefix)
     ds = open_session(repo=repo, branch="main")
-    ds_storm = ds.sel(storm_id=storm_id)
+    storm_start = pd.to_datetime(storm_date)
+    ds_storm = _select_storm_time_window(
+        ds,
+        storm_start,
+    )
     if "APCP_surface" not in ds_storm:
         raise ValueError("Dataset does not contain 'APCP_surface' variable.")
     da_precip = ds_storm["APCP_surface"]

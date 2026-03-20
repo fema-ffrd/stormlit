@@ -97,6 +97,7 @@ def init_session_state():
 
     # Hydro-Met
     st.session_state["hydromet_storm_id"] = None
+    st.session_state["hydromet_storm_date"] = None
     st.session_state["aorc_storm_href"] = None
     st.session_state["storms_df_rank"] = None
     st.session_state["num_storms"] = None
@@ -115,4 +116,6 @@ def init_session_state():
     st.session_state["storm_min"] = None
     st.session_state["hyeto_cache"] = {}
     st.session_state["storm_cache"] = None
+    st.session_state["aorc:statistics"] = None
     st.session_state["aorc:transform:"] = None
+    st.session_state["storm_log"] = None

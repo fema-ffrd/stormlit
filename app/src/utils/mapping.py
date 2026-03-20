@@ -1,4 +1,6 @@
+import logging
 import folium
+import pandas as pd
 import streamlit as st
 import leafmap.foliumap as leafmap
 import geopandas as gpd
@@ -275,10 +277,32 @@ def get_map_pos(map_layer: str):
         c_zoom = 8
     elif map_layer == "MET":
         c_df = st.transpo.copy()
+        if c_df.empty:
+            # No transpo domain loaded yet — silently use fallback
+            return 37.5, -97.5, 5
+        has_geom = (
+            hasattr(c_df, "geometry")
+            and getattr(c_df, "_geometry_column_name", None) is not None
+        )
         if "lat" not in c_df.columns or "lon" not in c_df.columns:
-            c_df["lat"] = c_df.geometry.centroid.y
-            c_df["lon"] = c_df.geometry.centroid.x
-        c_lat, c_lon = c_df["lat"].mean(), c_df["lon"].mean()
+            if has_geom:
+                c_df["lat"] = c_df.geometry.centroid.y
+                c_df["lon"] = c_df.geometry.centroid.x
+            else:
+                logging.warning(
+                    "st.transpo has no geometry — using fallback map position"
+                )
+                return 37.5, -97.5, 5
+        c_lat = c_df["lat"].dropna().mean()
+        c_lon = c_df["lon"].dropna().mean()
+        if pd.isna(c_lat) or pd.isna(c_lon):
+            # lat/lon columns present but all NaN — derive from geometry
+            if has_geom:
+                c_lat = c_df.geometry.centroid.y.dropna().mean()
+                c_lon = c_df.geometry.centroid.x.dropna().mean()
+        if pd.isna(c_lat) or pd.isna(c_lon):
+            logging.warning("st.transpo lat/lon are NaN — using fallback map position")
+            return 37.5, -97.5, 5
         c_zoom = 6
     else:
         raise ValueError(f"Invalid map layer {map_layer}. Choose 'HMS' or 'RAS'.")
@@ -318,7 +342,11 @@ def prep_metmap(
     )
 
     # Add the layers to the map
-    if st.transpo is not None:
+    if (
+        st.transpo is not None
+        and not st.transpo.empty
+        and "layer" in st.transpo.columns
+    ):
         m.add_gdf(
             st.transpo,
             layer_name="Transposition Domain",
@@ -329,7 +357,11 @@ def prep_metmap(
             zoom_on_click=True,
             show=True,
         )
-    if st.study_area is not None:
+    if (
+        st.study_area is not None
+        and not st.study_area.empty
+        and "layer" in st.study_area.columns
+    ):
         m.add_gdf(
             st.study_area,
             layer_name="Study Area",
@@ -340,7 +372,11 @@ def prep_metmap(
             zoom_on_click=False,
             show=True,
         )
-    if st.study_area is not None:
+    if (
+        st.study_area is not None
+        and not st.study_area.empty
+        and "layer" in st.study_area.columns
+    ):
         aorc_transform = st.session_state.get("aorc:transform")
         if aorc_transform is not None:
             st.transposed_study_area = st.study_area.copy()
