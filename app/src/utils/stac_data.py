@@ -3,6 +3,7 @@ import geopandas as gpd
 import streamlit as st
 import requests
 import json
+import yaml
 from PIL import Image
 from io import BytesIO
 from db.pull import (
@@ -10,9 +11,9 @@ from db.pull import (
     query_s3_ref_lines,
     query_s3_bc_lines,
     query_s3_model_bndry,
-    query_s3_geojson,
     query_s3_hms_storms,
 )
+from db.query_meta_tables import query_study_area, query_transpo_domain
 
 rootDir = os.path.dirname(os.path.abspath(__file__))  # located within utils folder
 srcDir = os.path.abspath(os.path.join(rootDir, ".."))  # go up one level to src
@@ -58,7 +59,7 @@ def reset_selections():
             "storms_df_rank": None,
             "storms_df_precip": None,
             "storms_df_date": None,
-            "rank_threshold": None,
+            "num_storms": None,
             "precip_threshold": None,
             "storm_start_date": None,
             "storm_end_date": None,
@@ -67,6 +68,7 @@ def reset_selections():
             "init_met_pilot": False,
             "storm_cache": None,
             "storm_bounds": None,
+            "clipped_storm_bounds": None,
             "storm_animation_payload": None,
             "storm_animation_requested": False,
             "storm_animation_html": None,
@@ -158,37 +160,85 @@ def init_hms_pilot(s3_conn, pilot: str):
     st.reservoirs = prep_gdf(df_reservoirs, "Reservoir", hms=True)
 
 
-def init_met_pilot(s3_conn, pilot: str):
+def _s3_to_https(s3_path: str) -> str:
+    if not s3_path:
+        return ""
+    if not s3_path.startswith("s3://"):
+        return s3_path
+    path = s3_path[5:]
+    if "/" in path:
+        bucket, key = path.split("/", 1)
+        return f"https://{bucket}.s3.amazonaws.com/{key}"
+    return f"https://{path}.s3.amazonaws.com"
+
+
+def _ensure_trailing_slash(path: str) -> str:
+    if not path:
+        return ""
+    return path if path.endswith("/") else f"{path}/"
+
+
+def init_met_pilot(pilot_name: str, config_path: str):
     """
     Initialize the map data for the selected Meteorology pilot study
 
     Parameters
     ----------
-    s3_conn: duckdb.DuckDBPyConnection
-        The connection to the S3 account
-    pilot: str
+    pilot_name: str
         The name of the pilot study to initialize data for
-    """
-    if pilot == "trinity-pilot":
-        st.pilot_base_url = f"https://{pilot}.s3.amazonaws.com/stac/stormlit"
-        st.pilot_layers = {
-            "Storms": f"{st.pilot_base_url}/storms-db/72hr-events/collection.json",
-            "Metadata": f"{st.pilot_base_url}/storms-db/72hr-events/",
-        }
-    else:
-        raise ValueError(f"Error: invalid pilot study {pilot}")
+    config_path: str
+        The path to the configuration file for the pilot study
 
-    pilot_name = pilot.split("-")[0].lower()
-    st.transpo = query_s3_geojson(
-        f"s3://{pilot}/stac/prod-support/storms/hydro_domains/{pilot_name}_transpo_area_v01_valid.geojson",
-        pilot_name,
-    )
-    st.transpo["layer"] = "Transposition Domain"
-    st.study_area = query_s3_geojson(
-        f"s3://{pilot}/stac/stormlit/storms-db/hydro_domains/Trinity.json",
-        pilot_name,
-    )
-    st.study_area["layer"] = "Study Area"
+    """
+    cache = st.session_state.setdefault("met_pilot_cache", {})
+    cached = cache.get(pilot_name)
+    if cached:
+        st.pilot_base_url = cached["pilot_base_url"]
+        st.pilot_layers = cached["pilot_layers"]
+        st.transpo = cached["transpo"]
+        st.study_area = cached["study_area"]
+        st.session_state["active_met_pilot"] = pilot_name
+        st.session_state["pilot_bucket"] = cached.get("pilot_bucket")
+        return
+
+    with open(config_path, "r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+
+    projects = data.get("projects", data)
+    project_entry = None
+    for entry in projects:
+        if not entry:
+            continue
+        if entry.get("bucket") == pilot_name or entry.get("name") == pilot_name:
+            project_entry = entry
+            break
+
+    if not project_entry:
+        raise ValueError(f"Error: invalid pilot study {pilot_name}")
+
+    bucket = project_entry.get("bucket") or pilot_name
+    st.session_state["pilot_bucket"] = bucket
+
+    st.pilot_base_url = f"https://{bucket}.s3.amazonaws.com"
+
+    # Derive the layer prefix from the project name (e.g. "Trinity" → "trinity",
+    # "South Platte" → "south_platte") to match the names used when loading
+    # GeoJSON into the Iceberg table via load_geojson_to_iceberg.py.
+    project_name = project_entry.get("name", "") or bucket
+    layer_prefix = project_name.lower().replace(" ", "_").replace("-", "_")
+
+    st.transpo = query_transpo_domain(bucket, layer_prefix=layer_prefix)
+    st.study_area = query_study_area(bucket, layer_prefix=layer_prefix)
+
+    cache[pilot_name] = {
+        "pilot_base_url": st.pilot_base_url,
+        "pilot_layers": getattr(st, "pilot_layers", None),
+        "transpo": st.transpo,
+        "study_area": st.study_area,
+        "pilot_bucket": bucket,
+    }
+    st.session_state["active_met_pilot"] = pilot_name
+    st.session_state["pilot_bucket"] = bucket
 
 
 def init_ras_pilot(s3_conn, pilot: str):

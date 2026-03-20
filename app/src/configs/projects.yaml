@@ -1,0 +1,5 @@
+projects:
+  - name: Trinity
+    bucket: trinity-pilot
+  - name: South Platte
+    bucket: south-platte
