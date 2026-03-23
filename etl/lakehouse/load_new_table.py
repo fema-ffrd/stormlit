@@ -1,9 +1,3 @@
-import logging
-import os
-
-logging.basicConfig(level=logging.INFO)
-
-import pyarrow.parquet as pq
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
@@ -11,6 +5,7 @@ from connection import (
     postgres_connection_string,
     warehouse,
 )
+import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from pyiceberg.schema import Schema
 from pyiceberg.types import (
@@ -23,6 +18,10 @@ from pyiceberg.types import (
     TimestampType,
 )
 
+import logging
+import os
+
+logging.basicConfig(level=logging.INFO)
 
 def table_props():
     """Table properties"""

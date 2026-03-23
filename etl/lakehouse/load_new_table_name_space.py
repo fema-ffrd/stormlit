@@ -1,8 +1,3 @@
-import logging
-import os
-
-logging.basicConfig(level=logging.INFO)
-
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
@@ -11,6 +6,11 @@ from connection import (
     warehouse,
 )
 from dotenv import load_dotenv
+
+import logging
+import os
+
+logging.basicConfig(level=logging.INFO)
 
 
 def main(config: dict, table_name_space: str):
