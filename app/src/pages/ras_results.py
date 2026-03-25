@@ -101,7 +101,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
     else:
         calibration_events = query_s3_calibration_event_list(
             st.session_state["s3_conn"],
-            st.session_state["pilot"],
+            st.session_state["pilot_bucket"],
             st.session_state["model_id"],
         )
         if len(calibration_events) > 0:
@@ -123,7 +123,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
             if feature_type == FeatureType.REFERENCE_POINT:
                 ref_pt_wse_ts = query_s3_mod_wse(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "ref_point",
                     st.session_state["calibration_event"],
@@ -131,7 +131,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                 )
                 ref_pt_vel_ts = query_s3_mod_vel(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "ref_point",
                     st.session_state["calibration_event"],
@@ -158,7 +158,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
             elif feature_type == FeatureType.BC_LINE:
                 bc_line_flow_ts = query_s3_mod_flow(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "bc_line",
                     st.session_state["calibration_event"],
@@ -166,7 +166,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                 )
                 bc_line_stage_ts = query_s3_mod_stage(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "bc_line",
                     st.session_state["calibration_event"],
@@ -198,7 +198,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                 )
                 ref_line_flow_ts = query_s3_mod_flow(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "ref_line",
                     st.session_state["calibration_event"],
@@ -207,7 +207,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                 ref_line_flow_ts.rename(columns={"flow": "model_flow"}, inplace=True)
                 ref_line_wse_ts = query_s3_mod_wse(
                     st.session_state["s3_conn"],
-                    st.session_state["pilot"],
+                    st.session_state["pilot_bucket"],
                     feature_label,
                     "ref_line",
                     st.session_state["calibration_event"],
@@ -245,7 +245,7 @@ def calibration_events(col_event_id, feature_type, feature_label, info_col):
                     # Get the Flow Data
                     obs_flow_ts = query_s3_obs_flow(
                         st.session_state["s3_conn"],
-                        st.session_state["pilot"],
+                        st.session_state["pilot_bucket"],
                         feature_gage_id,
                         st.session_state["gage_event"],
                     )
@@ -530,7 +530,7 @@ def ras_results():
             )
             model_thumbnail_img = query_s3_model_thumbnail(
                 st.session_state["s3_conn"],
-                st.session_state["pilot"],
+                st.session_state["pilot_bucket"],
                 feature_label,
             )
             if model_thumbnail_img:

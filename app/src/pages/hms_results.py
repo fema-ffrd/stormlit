@@ -88,7 +88,7 @@ def stochastic_events(
     else:
         stochastic_storms = query_s3_folder_names(
             st.session_state["s3_conn"],
-            s3_path=f"s3://{st.session_state['pilot']}/cloud-hms-db/simulations/element={st.session_state['hms_element_id']}/",
+            s3_path=f"s3://{st.session_state['pilot_bucket']}/cloud-hms-db/simulations/element={st.session_state['hms_element_id']}/",
             folder_name="storm_id=",
         )
         st.session_state["stochastic_storm"] = col_storm_id.selectbox(
@@ -101,7 +101,7 @@ def stochastic_events(
         else:
             stochastic_events = query_s3_folder_names(
                 st.session_state["s3_conn"],
-                s3_path=f"s3://{st.session_state['pilot']}/cloud-hms-db/simulations/element={st.session_state['hms_element_id']}/storm_id={st.session_state['stochastic_storm']}/",
+                s3_path=f"s3://{st.session_state['pilot_bucket']}/cloud-hms-db/simulations/element={st.session_state['hms_element_id']}/storm_id={st.session_state['stochastic_storm']}/",
                 folder_name="event_id=",
             )
             st.session_state["stochastic_event"] = col_event_id.selectbox(
@@ -117,7 +117,7 @@ def stochastic_events(
     ):
         stochastic_flow_ts = query_s3_stochastic_hms_flow(
             st.session_state["s3_conn"],
-            st.session_state["pilot"],
+            st.session_state["pilot_bucket"],
             st.session_state["hms_element_id"],
             st.session_state["stochastic_storm"],
             st.session_state["stochastic_event"],
@@ -127,7 +127,7 @@ def stochastic_events(
         if feature_type == FeatureType.SUBBASIN:
             stochastic_baseflow_ts = query_s3_stochastic_hms_flow(
                 st.session_state["s3_conn"],
-                st.session_state["pilot"],
+                st.session_state["pilot_bucket"],
                 st.session_state["hms_element_id"],
                 st.session_state["stochastic_storm"],
                 st.session_state["stochastic_event"],
@@ -179,7 +179,7 @@ def multi_events(available_gage_ids, col_storm_id, info_col, feature_type):
 
         multi_event_ams_df = query_s3_ams_peaks_by_element(
             st.session_state["s3_conn"],
-            st.session_state["pilot"],
+            st.session_state["pilot_bucket"],
             st.session_state["hms_element_id"],
             realization_id=1,
         )
@@ -201,7 +201,7 @@ def multi_events(available_gage_ids, col_storm_id, info_col, feature_type):
         if st.session_state["multi_event_gage_id"] is not None:
             gage_ams_df = query_s3_gage_ams(
                 st.session_state["s3_conn"],
-                st.session_state["pilot"],
+                st.session_state["pilot_bucket"],
                 st.session_state["multi_event_gage_id"],
             )
             gage_ams_df["aep"] = gage_ams_df["rank"] / (len(gage_ams_df))
@@ -225,7 +225,7 @@ def multi_events(available_gage_ids, col_storm_id, info_col, feature_type):
                     if "gage_id" in selected_points[point]:
                         gage_flow_ts = query_s3_obs_flow(
                             st.session_state["s3_conn"],
-                            st.session_state["pilot"],
+                            st.session_state["pilot_bucket"],
                             selected_points[point]["gage_id"],
                             selected_points[point]["storm_id"],
                         )
@@ -273,7 +273,7 @@ def multi_events(available_gage_ids, col_storm_id, info_col, feature_type):
                         # Get the Stochastic Hydrographs
                         stochastic_flow_ts = query_s3_stochastic_hms_flow(
                             st.session_state["s3_conn"],
-                            st.session_state["pilot"],
+                            st.session_state["pilot_bucket"],
                             st.session_state["hms_element_id"],
                             selected_points[point]["storm_id"],
                             selected_points[point]["event_id"],
@@ -291,7 +291,7 @@ def multi_events(available_gage_ids, col_storm_id, info_col, feature_type):
                             # Get the Stochastic Baseflows
                             stochastic_baseflow_ts = query_s3_stochastic_hms_flow(
                                 st.session_state["s3_conn"],
-                                st.session_state["pilot"],
+                                st.session_state["pilot_bucket"],
                                 st.session_state["hms_element_id"],
                                 selected_points[point]["storm_id"],
                                 selected_points[point]["event_id"],

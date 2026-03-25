@@ -94,6 +94,10 @@ class EcsServicesConstruct(Construct):
                         {"name": "POSTGRES_PORT", "value": "5432"},
                         {"name": "POSTGRES_DB", "value": "postgres"},
                         {
+                            "name": "POSTGRES_LAKEHOUSE_DB",
+                            "value": f"{project_prefix}_{environment}_db",
+                        },
+                        {
                             "name": "STREAMLIT_SERVER_PORT",
                             "value": str(ecs_config.stormlit_config.container_port),
                         },
