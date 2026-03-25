@@ -14,8 +14,8 @@ logging.basicConfig(level=logging.INFO)
 
 def get_duckdb_connection(aws_region: str = "us-east-1"):
     """Initialize DuckDB with necessary extensions and S3/Postgres configuration."""
-    load_dotenv()
-    POSTGRES_DB = "stormlit_prod_db"
+    load_dotenv(override=True)
+    POSTGRES_LAKEHOUSE_DB = os.getenv("POSTGRES_LAKEHOUSE_DB")
     POSTGRES_USER = os.getenv("POSTGRES_USER")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
     POSTGRES_HOST = os.getenv("POSTGRES_HOST")
@@ -43,7 +43,7 @@ def get_duckdb_connection(aws_region: str = "us-east-1"):
     con.execute("SET s3_use_ssl='true';")
 
     # Postgres connection string
-    pg_str = f"dbname={POSTGRES_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD} host={POSTGRES_HOST} port={POSTGRES_PORT}"
+    pg_str = f"dbname={POSTGRES_LAKEHOUSE_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD} host={POSTGRES_HOST} port={POSTGRES_PORT}"
 
     return con, pg_str
 

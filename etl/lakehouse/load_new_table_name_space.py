@@ -28,7 +28,7 @@ def main(config: dict, table_name_space: str):
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            "stormlit_prod_db",
+            os.getenv("POSTGRES_DB")
         ),
         catalog_name=catalog_name,
         catalog_root=catalog_root,
@@ -50,9 +50,9 @@ def main(config: dict, table_name_space: str):
 
 if __name__ == "__main__":
     CONFIG_FILE = os.path.join(
-        os.getcwd(), "lakehouse/trinity/configs/datalake.config.json"
+        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
     )
-    load_dotenv()
+    load_dotenv(override=True)
     ensure_env_variables()
     config = load_config(CONFIG_FILE)
     new_table_name_space = "stac"

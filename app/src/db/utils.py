@@ -12,11 +12,11 @@ def get_pg_dsn():
     Construct a PostgreSQL DSN string from environment variables.
     """
     return (
-        f"host={os.getenv('PG_HOST')} "
-        f"port={os.getenv('PG_PORT')} "
-        f"user={os.getenv('PG_USER')} "
-        f"password={os.getenv('PG_PASSWORD')} "
-        f"dbname={os.getenv('PG_DATABASE')}"
+        f"host={os.getenv('POSTGRES_HOST')} "
+        f"port={os.getenv('POSTGRES_PORT')} "
+        f"user={os.getenv('POSTGRES_USER')} "
+        f"password={os.getenv('POSTGRES_PASSWORD')} "
+        f"dbname={os.getenv('POSTGRES_DB')}"
     )
 
 

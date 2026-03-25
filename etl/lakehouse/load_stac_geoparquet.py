@@ -212,7 +212,7 @@ def main(input_parquet_file: str, config: dict):
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            "stormlit_prod_db",
+            os.getenv("POSTGRES_DB")
         ),
         catalog_name=config.get("catalog_name"),
         catalog_root=catalog_root_path,
@@ -227,10 +227,10 @@ def main(input_parquet_file: str, config: dict):
 
 if __name__ == "__main__":
     CONFIG_FILE = os.path.join(
-        os.getcwd(), "lakehouse/trinity/configs/storm-catalog.config.json"
+        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
     )
-    load_dotenv()
+    load_dotenv(override=True)
     ensure_env_variables()
     config = load_config(CONFIG_FILE)
-    input_parquet_file = "s3://trinity-pilot/stac/stormlit/storms-db/72hr-events/all_items_geopq_v3.parquet"
+    input_parquet_file = "s3://bucket/file.parquet"
     main(input_parquet_file, config)

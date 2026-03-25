@@ -237,7 +237,7 @@ def main(
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            "stormlit_prod_db",
+            os.getenv("POSTGRES_DB")
         ),
         catalog_name=config.get("catalog_name"),
         catalog_root=catalog_root,
@@ -257,10 +257,10 @@ def main(
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    load_dotenv(override=True)
     ensure_env_variables()
     CONFIG_FILE = os.path.join(
-        os.getcwd(), "lakehouse/trinity/configs/storm-catalog.config.json"
+        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
     )
     config = load_config(CONFIG_FILE)
     main(

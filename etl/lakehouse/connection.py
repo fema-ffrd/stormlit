@@ -4,10 +4,10 @@ import json
 import logging
 import os
 
-import dotenv
+from dotenv import load_dotenv
 from pyiceberg.catalog.sql import SqlCatalog
 
-dotenv.load_dotenv(".env")
+load_dotenv(override=True)
 
 
 def load_config(config_file: str):
