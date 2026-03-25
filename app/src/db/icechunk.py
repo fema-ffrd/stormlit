@@ -1,3 +1,4 @@
+import rioxarray  # noqa: F401 - needed to ensure rioxarray is registered with xarray
 import icechunk
 import xarray as xr
 import streamlit as st

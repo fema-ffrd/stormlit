@@ -6,7 +6,6 @@ import json
 import time
 from dotenv import load_dotenv, find_dotenv
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
 import logging
 
 logging.basicConfig(

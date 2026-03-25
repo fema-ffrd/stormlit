@@ -4,13 +4,12 @@ import json
 import logging
 import os
 import re
-import traceback
 from typing import Union
 
 import pystac_client
 import requests
 from dotenv import load_dotenv
-from pystac import Catalog, CatalogType, TemporalExtent
+from pystac import Catalog, CatalogType
 
 
 class AdminClient:

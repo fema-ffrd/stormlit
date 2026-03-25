@@ -2,7 +2,6 @@ import json
 from urllib.parse import urljoin
 
 import fsspec
-import pystac
 import requests
 from pystac import Collection, Item, Asset
 from stac_admin_client import AdminClient
