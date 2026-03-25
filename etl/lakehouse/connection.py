@@ -4,10 +4,61 @@ import json
 import logging
 import os
 
+import yaml
 from dotenv import load_dotenv
 from pyiceberg.catalog.sql import SqlCatalog
 
 load_dotenv(override=True)
+
+
+PROJECTS_YAML = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "configs", "projects.yaml")
+)
+
+
+def load_project_config(project_name: str, config_path: str = PROJECTS_YAML) -> dict:
+    """Load project configuration from projects.yaml by project name.
+
+    Parameters
+    ----------
+    project_name : str
+        The name of the project to load (case-insensitive match).
+    config_path : str
+        Path to the projects.yaml file.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys ``catalog_name``, ``warehouse_prefix``, and ``s3_bucket``.
+    """
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    projects = data.get("projects", [])
+    for entry in projects:
+        if not entry:
+            continue
+        if entry.get("name", "").lower() == project_name.lower():
+            required = ["catalog_name", "warehouse_prefix", "bucket"]
+            missing = [k for k in required if not entry.get(k)]
+            if missing:
+                raise ValueError(
+                    f"Project '{project_name}' is missing required keys: {', '.join(missing)}"
+                )
+            return {
+                "catalog_name": entry["catalog_name"],
+                "warehouse_prefix": entry["warehouse_prefix"],
+                "s3_bucket": entry["bucket"],
+            }
+
+    available = [e.get("name", "?") for e in projects if e]
+    raise ValueError(
+        f"Project '{project_name}' not found in {config_path}. "
+        f"Available projects: {available}"
+    )
 
 
 def load_config(config_file: str):

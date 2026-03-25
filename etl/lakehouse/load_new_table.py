@@ -1,7 +1,7 @@
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
-    load_config,
+    load_project_config,
     postgres_connection_string,
     warehouse,
 )
@@ -18,6 +18,7 @@ from pyiceberg.types import (
     TimestampType,
 )
 
+import argparse
 import logging
 import os
 
@@ -235,36 +236,18 @@ def main(input_parquet_file: str, config: dict, table_name: str, table_name_spac
 
 
 if __name__ == "__main__":
-    CONFIG_FILE = os.path.join(
-        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
-    )
+    parser = argparse.ArgumentParser(description="Create and load an Iceberg table from Parquet.")
+    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
+    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
+    parser.add_argument("--input", required=True, help="S3 path to the input Parquet file")
+    parser.add_argument("--table-name", required=True, help="Name of the Iceberg table to create")
+    parser.add_argument("--namespace", default="stac", help="Table namespace (default: stac)")
+    args = parser.parse_args()
+
     load_dotenv(override=True)
     ensure_env_variables()
-    config = load_config(CONFIG_FILE)
-
-    # Events Table
-    # table_name = "events"
-    # table_name_space = "simulations"
-    # input_parquet_file = "s3://trinity-pilot/xfer/data-scripts/simulation_events/realization_block_events/part-00000.parquet"
-    # main(input_parquet_file, config, table_name=table_name, table_name_space=table_name_space)
-
-    # Fishnets Table
-    # table_name = "fishnets"
-    # table_name_space = "simulations"
-    # fishnets_folder = "/workspace/lakehouse/trinity/data-scripts/fishnets"
-    # for file in os.listdir(fishnets_folder):
-    #     if file.endswith(".parquet"):
-    #         input_parquet_file = os.path.join(fishnets_folder, file)
-    #         main(input_parquet_file, config, table_name=table_name, table_name_space=table_name_space)
-
-    # Seasonal Distribution Table
-    # table_name = "seasonal_distro"
-    # table_name_space = "simulations"
-    # input_parquet_file = "/workspace/lakehouse/trinity/data-scripts/seasonality_distributions/seasonality_distributions.parquet"
-    # main(input_parquet_file, config, table_name=table_name, table_name_space=table_name_space)
-
-    # Modeled Events Table
-    # table_name = "modeled_events"
-    # table_name_space = "simulations"
-    # input_parquet_file = "/workspace/lakehouse/trinity/data-scripts/storms/event_set.parquet"
-    # main(input_parquet_file, config, table_name=table_name, table_name_space=table_name_space)
+    kwargs = {"project_name": args.project}
+    if args.config:
+        kwargs["config_path"] = args.config
+    config = load_project_config(**kwargs)
+    main(args.input, config, table_name=args.table_name, table_name_space=args.namespace)

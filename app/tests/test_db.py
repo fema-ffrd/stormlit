@@ -16,6 +16,7 @@ from src.db.pull import (
     query_pg_table_all,
     query_pg_table_filter,
 )
+from src.utils.projects import load_projects
 
 testDir = os.path.dirname(
     os.path.realpath(__file__)
@@ -30,7 +31,9 @@ TEST_CSV = os.path.join(dataDir, "csv")
 PG_CONNECTION = create_pg_connection()
 S3_CONNECTION = create_s3_connection()
 DSN = get_pg_dsn()
-PILOT = "trinity-pilot"
+_config_path = os.path.join(testDir, "..", "src", "configs", "projects.yaml")
+_projects = load_projects(_config_path)
+PILOT = _projects[0].bucket  # first project's bucket (e.g. "trinity-pilot")
 TEST_MODEL = "blw-elkhart"
 TEST_REF_LINE_ID = "gage_usgs_08065350"
 EVENT_ID = "may2015"

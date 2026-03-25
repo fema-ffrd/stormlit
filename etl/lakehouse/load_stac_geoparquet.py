@@ -1,13 +1,7 @@
-import logging
-import os
-
-logging.basicConfig(level=logging.INFO)
-
-import pyarrow.parquet as pq
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
-    load_config,
+    load_project_config,
     postgres_connection_string,
     warehouse,
 )
@@ -22,6 +16,12 @@ from pyiceberg.types import (
     StringType,
     TimestampType,
 )
+import argparse
+import logging
+import os
+import pyarrow.parquet as pq
+
+logging.basicConfig(level=logging.INFO)
 
 
 def table_props():
@@ -226,11 +226,16 @@ def main(input_parquet_file: str, config: dict):
 
 
 if __name__ == "__main__":
-    CONFIG_FILE = os.path.join(
-        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
-    )
+    parser = argparse.ArgumentParser(description="Load a STAC GeoParquet file into Iceberg.")
+    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
+    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
+    parser.add_argument("--input", required=True, help="S3 path to the input Parquet file")
+    args = parser.parse_args()
+
     load_dotenv(override=True)
     ensure_env_variables()
-    config = load_config(CONFIG_FILE)
-    input_parquet_file = "s3://bucket/file.parquet"
-    main(input_parquet_file, config)
+    kwargs = {"project_name": args.project}
+    if args.config:
+        kwargs["config_path"] = args.config
+    config = load_project_config(**kwargs)
+    main(args.input, config)

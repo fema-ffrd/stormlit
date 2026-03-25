@@ -1,16 +1,4 @@
-"""
-Load a GeoJSON file from S3 into the ``model_source_data`` Iceberg table.
-
-Each GeoJSON feature is stored as a single row with the following fixed schema:
-
-    data_id  : unique identifier for the feature
-    data     : JSON string of the feature's properties
-    metadata : JSON string of source metadata (layer, s3_path, crs, lat, lon)
-    assets   : JSON string of asset references (e.g. source S3 path)
-    geometry : WKB binary of the feature geometry (EPSG:4326)
-
-"""
-
+import argparse
 import datetime as dt
 import io
 import json
@@ -25,7 +13,7 @@ import s3fs
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
-    load_config,
+    load_project_config,
     postgres_connection_string,
     warehouse,
 )
@@ -257,16 +245,25 @@ def main(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Load a GeoJSON file from S3 into an Iceberg table.")
+    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
+    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
+    parser.add_argument("--s3-path", required=True, help="S3 path to the GeoJSON file")
+    parser.add_argument("--layer-name", required=True, help="Layer name for the model_source_data table")
+    parser.add_argument("--table-name", default="model_source_data", help="Iceberg table name (default: model_source_data)")
+    parser.add_argument("--namespace", default="stac", help="Table namespace (default: stac)")
+    args = parser.parse_args()
+
     load_dotenv(override=True)
     ensure_env_variables()
-    CONFIG_FILE = os.path.join(
-        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
-    )
-    config = load_config(CONFIG_FILE)
+    kwargs = {"project_name": args.project}
+    if args.config:
+        kwargs["config_path"] = args.config
+    config = load_project_config(**kwargs)
     main(
-        s3_path="s3://south-platte/stac/storms_hydromet/hydro_domains/manual-transpo-area-v01_valid.json",
-        layer_name="south_platte_transpo_domain",
-        table_name="model_source_data",
-        namespace="stac",
+        s3_path=args.s3_path,
+        layer_name=args.layer_name,
+        table_name=args.table_name,
+        namespace=args.namespace,
         config=config,
     )

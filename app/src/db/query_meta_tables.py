@@ -53,7 +53,7 @@ def get_iceberg_metadata(
     pg_str,
     target_bucket: str,
     table_name: str = "storms",
-    catalog_name: str = "stormlit_dev",
+    catalog_name: str = "",
     table_namespace: str = "stac",
     check_bucket: bool = True,
 ):
@@ -227,6 +227,7 @@ def query_iceberg_table(
     table_name: str,
     target_bucket: str,
     num_rows: int,
+    catalog_name: str = "",
 ):
     """Main function to query Iceberg metadata and storms data."""
     con, pg_str = get_duckdb_connection()
@@ -237,7 +238,7 @@ def query_iceberg_table(
             pg_str,
             target_bucket,
             table_name,
-            catalog_name="stormlit_dev",
+            catalog_name=catalog_name,
             table_namespace="stac",
         )
 
@@ -277,7 +278,7 @@ def query_iceberg_table(
 def query_model_source_layer(
     layer_name: str,
     target_bucket: str,
-    catalog_name: str = "stormlit_dev",
+    catalog_name: str = "",
 ) -> gpd.GeoDataFrame:
     """
     Query rows from the ``model_source_data`` Iceberg table that match a given
@@ -392,7 +393,7 @@ def query_model_source_layer(
 
 def query_study_area(
     target_bucket: str,
-    catalog_name: str = "stormlit_dev",
+    catalog_name: str = "",
     layer_prefix: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Return the Study Area layer from the model_source_data Iceberg table."""
@@ -403,7 +404,7 @@ def query_study_area(
 
 def query_transpo_domain(
     target_bucket: str,
-    catalog_name: str = "stormlit_dev",
+    catalog_name: str = "",
     layer_prefix: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Return the Transposition Domain layer from the model_source_data Iceberg table."""
@@ -417,4 +418,5 @@ if __name__ == "__main__":
         table_name="storms",
         target_bucket="trinity-pilot",
         num_rows=10,
+        catalog_name="stormlit_dev",
     )

@@ -199,6 +199,8 @@ def init_met_pilot(pilot_name: str, config_path: str):
         st.study_area = cached["study_area"]
         st.session_state["active_met_pilot"] = pilot_name
         st.session_state["pilot_bucket"] = cached.get("pilot_bucket")
+        st.session_state["catalog_name"] = cached.get("catalog_name")
+        st.session_state["warehouse_prefix"] = cached.get("warehouse_prefix")
         return
 
     with open(config_path, "r", encoding="utf-8") as handle:
@@ -217,7 +219,11 @@ def init_met_pilot(pilot_name: str, config_path: str):
         raise ValueError(f"Error: invalid pilot study {pilot_name}")
 
     bucket = project_entry.get("bucket") or pilot_name
+    catalog_name = project_entry.get("catalog_name")
+    warehouse_prefix = project_entry.get("warehouse_prefix")
     st.session_state["pilot_bucket"] = bucket
+    st.session_state["catalog_name"] = catalog_name
+    st.session_state["warehouse_prefix"] = warehouse_prefix
 
     st.pilot_base_url = f"https://{bucket}.s3.amazonaws.com"
 
@@ -227,8 +233,12 @@ def init_met_pilot(pilot_name: str, config_path: str):
     project_name = project_entry.get("name", "") or bucket
     layer_prefix = project_name.lower().replace(" ", "_").replace("-", "_")
 
-    st.transpo = query_transpo_domain(bucket, layer_prefix=layer_prefix)
-    st.study_area = query_study_area(bucket, layer_prefix=layer_prefix)
+    st.transpo = query_transpo_domain(
+        bucket, catalog_name=catalog_name, layer_prefix=layer_prefix
+    )
+    st.study_area = query_study_area(
+        bucket, catalog_name=catalog_name, layer_prefix=layer_prefix
+    )
 
     cache[pilot_name] = {
         "pilot_base_url": st.pilot_base_url,
@@ -236,6 +246,8 @@ def init_met_pilot(pilot_name: str, config_path: str):
         "transpo": st.transpo,
         "study_area": st.study_area,
         "pilot_bucket": bucket,
+        "catalog_name": catalog_name,
+        "warehouse_prefix": warehouse_prefix,
     }
     st.session_state["active_met_pilot"] = pilot_name
     st.session_state["pilot_bucket"] = bucket

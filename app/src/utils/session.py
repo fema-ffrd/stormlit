@@ -14,6 +14,8 @@ def init_session_state():
     st.session_state["pg_conn"] = None
     st.session_state["s3_conn"] = None
     st.session_state["pilot_bucket"] = None
+    st.session_state["catalog_name"] = None
+    st.session_state["warehouse_prefix"] = None
 
     # single event session
     st.session_state["pilot"] = None

@@ -28,6 +28,7 @@ from utils.stac_data import (
     get_stac_img,
     get_stac_meta,
 )
+from utils.projects import load_projects
 from db.pull import (
     query_s3_mod_flow,
     query_s3_mod_wse,
@@ -405,13 +406,20 @@ def ras_results():
         about_popover()
 
     st.sidebar.markdown("## Select Study")
+    config_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "..", "configs", "projects.yaml"
+    )
+    projects = load_projects(config_path)
+    project_names = [p.name for p in projects]
     st.session_state["pilot"] = st.sidebar.selectbox(
         "Select a Pilot Study",
-        [
-            "trinity-pilot",
-        ],
+        project_names,
         index=0,
     )
+    _selected = next(p for p in projects if p.name == st.session_state["pilot"])
+    st.session_state["pilot_bucket"] = _selected.bucket
+    st.session_state["catalog_name"] = _selected.catalog_name
+    st.session_state["warehouse_prefix"] = _selected.warehouse_prefix
 
     if st.session_state["pg_connected"] is False:
         st.session_state["pg_conn"] = create_pg_connection()
@@ -423,14 +431,14 @@ def ras_results():
         with st.spinner("Initializing RAS datasets..."):
             init_ras_pilot(
                 st.session_state["s3_conn"],
-                st.session_state["pilot"],
+                st.session_state["pilot_bucket"],
             )
             st.session_state["init_ras_pilot"] = True
     elif "Gages" not in st.pilot_layers:
         with st.spinner("Initializing RAS datasets..."):
             init_ras_pilot(
                 st.session_state["s3_conn"],
-                st.session_state["pilot"],
+                st.session_state["pilot_bucket"],
             )
             st.session_state["init_ras_pilot"] = True
     dropdown_container = st.container(

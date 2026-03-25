@@ -158,6 +158,7 @@ def met():
                 table_name="storms",
                 target_bucket=st.session_state["pilot_bucket"],
                 num_rows=st.session_state["num_storms"],
+                catalog_name=st.session_state.get("catalog_name", ""),
             )
             st.info(
                 "Select a single storm from the table below to view its metadata, map location, hyetographs, and animation."

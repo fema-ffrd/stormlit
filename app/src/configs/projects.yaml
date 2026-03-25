@@ -1,5 +1,9 @@
 projects:
   - name: Trinity
     bucket: trinity-pilot
+    catalog_name: "stormlit_dev"
+    warehouse_prefix: "uatest"
   - name: South Platte
     bucket: south-platte
+    catalog_name: "stormlit_dev"
+    warehouse_prefix: "uatest"

@@ -1,12 +1,13 @@
 from connection import (
     connect_to_catalog,
     ensure_env_variables,
-    load_config,
+    load_project_config,
     postgres_connection_string,
     warehouse,
 )
 from dotenv import load_dotenv
 
+import argparse
 import logging
 import os
 
@@ -49,11 +50,16 @@ def main(config: dict, table_name_space: str):
 
 
 if __name__ == "__main__":
-    CONFIG_FILE = os.path.join(
-        os.getcwd(), "/workspace/etl/lakehouse/configs/datalake.config.json"
-    )
+    parser = argparse.ArgumentParser(description="Create an Iceberg table namespace.")
+    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
+    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
+    parser.add_argument("--namespace", default="stac", help="Table namespace to create (default: stac)")
+    args = parser.parse_args()
+
     load_dotenv(override=True)
     ensure_env_variables()
-    config = load_config(CONFIG_FILE)
-    new_table_name_space = "stac"
-    main(config, new_table_name_space)
+    kwargs = {"project_name": args.project}
+    if args.config:
+        kwargs["config_path"] = args.config
+    config = load_project_config(**kwargs)
+    main(config, args.namespace)

@@ -1,5 +1,0 @@
-{
-    "catalog_name": "stormlit_dev",
-    "warehouse_prefix": "uatest",
-    "s3_bucket": "trinity-pilot"
-}
