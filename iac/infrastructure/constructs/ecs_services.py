@@ -44,6 +44,7 @@ class EcsServicesConstruct(Construct):
         ecs_config: EcsConfig,
         rds_host: str,
         pgstac_admin_secret_arn: str,
+        db_admin_secret_arn: str,
         tags: dict,
         vpc_id: str,
     ) -> None:
@@ -87,6 +88,14 @@ class EcsServicesConstruct(Construct):
                         {
                             "name": "POSTGRES_PASSWORD",
                             "valueFrom": f"{pgstac_admin_secret_arn}:password::",
+                        },
+                        {
+                            "name": "POSTGRES_LAKEHOUSE_USER",
+                            "valueFrom": f"{db_admin_secret_arn}:username::",
+                        },
+                        {
+                            "name": "POSTGRES_LAKEHOUSE_PASSWORD",
+                            "valueFrom": f"{db_admin_secret_arn}:password::",
                         },
                     ],
                     "environment": [
