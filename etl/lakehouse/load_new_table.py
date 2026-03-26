@@ -24,6 +24,7 @@ import os
 
 logging.basicConfig(level=logging.INFO)
 
+
 def table_props():
     """Table properties"""
     return {}
@@ -236,12 +237,26 @@ def main(input_parquet_file: str, config: dict, table_name: str, table_name_spac
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create and load an Iceberg table from Parquet.")
-    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
-    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
-    parser.add_argument("--input", required=True, help="S3 path to the input Parquet file")
-    parser.add_argument("--table-name", required=True, help="Name of the Iceberg table to create")
-    parser.add_argument("--namespace", default="stac", help="Table namespace (default: stac)")
+    parser = argparse.ArgumentParser(
+        description="Create and load an Iceberg table from Parquet."
+    )
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project name from projects.yaml (e.g. Trinity)",
+    )
+    parser.add_argument(
+        "--config", default=None, help="Path to projects.yaml (default: auto-resolved)"
+    )
+    parser.add_argument(
+        "--input", required=True, help="S3 path to the input Parquet file"
+    )
+    parser.add_argument(
+        "--table-name", required=True, help="Name of the Iceberg table to create"
+    )
+    parser.add_argument(
+        "--namespace", default="stac", help="Table namespace (default: stac)"
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)
@@ -250,4 +265,6 @@ if __name__ == "__main__":
     if args.config:
         kwargs["config_path"] = args.config
     config = load_project_config(**kwargs)
-    main(args.input, config, table_name=args.table_name, table_name_space=args.namespace)
+    main(
+        args.input, config, table_name=args.table_name, table_name_space=args.namespace
+    )

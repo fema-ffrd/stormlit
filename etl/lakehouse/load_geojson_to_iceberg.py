@@ -225,7 +225,7 @@ def main(
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            os.getenv("POSTGRES_DB")
+            os.getenv("POSTGRES_DB"),
         ),
         catalog_name=config.get("catalog_name"),
         catalog_root=catalog_root,
@@ -245,13 +245,29 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Load a GeoJSON file from S3 into an Iceberg table.")
-    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
-    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
+    parser = argparse.ArgumentParser(
+        description="Load a GeoJSON file from S3 into an Iceberg table."
+    )
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project name from projects.yaml (e.g. Trinity)",
+    )
+    parser.add_argument(
+        "--config", default=None, help="Path to projects.yaml (default: auto-resolved)"
+    )
     parser.add_argument("--s3-path", required=True, help="S3 path to the GeoJSON file")
-    parser.add_argument("--layer-name", required=True, help="Layer name for the model_source_data table")
-    parser.add_argument("--table-name", default="model_source_data", help="Iceberg table name (default: model_source_data)")
-    parser.add_argument("--namespace", default="stac", help="Table namespace (default: stac)")
+    parser.add_argument(
+        "--layer-name", required=True, help="Layer name for the model_source_data table"
+    )
+    parser.add_argument(
+        "--table-name",
+        default="model_source_data",
+        help="Iceberg table name (default: model_source_data)",
+    )
+    parser.add_argument(
+        "--namespace", default="stac", help="Table namespace (default: stac)"
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)

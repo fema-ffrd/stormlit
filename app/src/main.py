@@ -1,4 +1,4 @@
-# module imports
+# module imports #
 from utils.particles import particles_js
 from utils.session import init_session_state
 from components.layout import render_footer

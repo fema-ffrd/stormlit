@@ -29,7 +29,7 @@ def main(config: dict, table_name_space: str):
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            os.getenv("POSTGRES_DB")
+            os.getenv("POSTGRES_DB"),
         ),
         catalog_name=catalog_name,
         catalog_root=catalog_root,
@@ -51,9 +51,17 @@ def main(config: dict, table_name_space: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create an Iceberg table namespace.")
-    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
-    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
-    parser.add_argument("--namespace", default="stac", help="Table namespace to create (default: stac)")
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project name from projects.yaml (e.g. Trinity)",
+    )
+    parser.add_argument(
+        "--config", default=None, help="Path to projects.yaml (default: auto-resolved)"
+    )
+    parser.add_argument(
+        "--namespace", default="stac", help="Table namespace to create (default: stac)"
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)
