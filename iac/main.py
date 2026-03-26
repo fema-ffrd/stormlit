@@ -110,6 +110,7 @@ def main():
         pgstac_admin_secret_arn=Token.as_string(
             database_stack.secrets.pgstac_admin_secret.arn
         ),
+        db_admin_secret_arn=Token.as_string(database_stack.secrets.db_admin_secret.arn),
     )
 
     database_stack.add_dependency(network_stack)

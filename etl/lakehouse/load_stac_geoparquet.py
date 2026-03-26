@@ -212,7 +212,7 @@ def main(input_parquet_file: str, config: dict):
             os.getenv("POSTGRES_PORT"),
             os.getenv("POSTGRES_USER"),
             os.getenv("POSTGRES_PASSWORD"),
-            os.getenv("POSTGRES_DB")
+            os.getenv("POSTGRES_DB"),
         ),
         catalog_name=config.get("catalog_name"),
         catalog_root=catalog_root_path,
@@ -226,10 +226,20 @@ def main(input_parquet_file: str, config: dict):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Load a STAC GeoParquet file into Iceberg.")
-    parser.add_argument("--project", required=True, help="Project name from projects.yaml (e.g. Trinity)")
-    parser.add_argument("--config", default=None, help="Path to projects.yaml (default: auto-resolved)")
-    parser.add_argument("--input", required=True, help="S3 path to the input Parquet file")
+    parser = argparse.ArgumentParser(
+        description="Load a STAC GeoParquet file into Iceberg."
+    )
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project name from projects.yaml (e.g. Trinity)",
+    )
+    parser.add_argument(
+        "--config", default=None, help="Path to projects.yaml (default: auto-resolved)"
+    )
+    parser.add_argument(
+        "--input", required=True, help="S3 path to the input Parquet file"
+    )
     args = parser.parse_args()
 
     load_dotenv(override=True)

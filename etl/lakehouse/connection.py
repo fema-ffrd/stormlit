@@ -12,7 +12,9 @@ load_dotenv(override=True)
 
 
 PROJECTS_YAML = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "configs", "projects.yaml")
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "app", "src", "configs", "projects.yaml"
+    )
 )
 
 

@@ -30,6 +30,7 @@ class ApplicationStack(BaseStack):
         ecs_security_group_id: str,
         rds_host: str,
         pgstac_admin_secret_arn: str,
+        db_admin_secret_arn: str,
     ) -> None:
         super().__init__(scope, id, config)
 
@@ -68,6 +69,7 @@ class ApplicationStack(BaseStack):
                         }
                     ],
                     "execution_role_statements": [],
+                    "secret_arns": [pgstac_admin_secret_arn, db_admin_secret_arn],
                 },
                 "stac-api": {
                     "task_role_statements": [],
@@ -181,6 +183,7 @@ class ApplicationStack(BaseStack):
             ecs_config=config.ecs,
             rds_host=rds_host,
             pgstac_admin_secret_arn=pgstac_admin_secret_arn,
+            db_admin_secret_arn=db_admin_secret_arn,
             tags=config.tags,
             vpc_id=vpc_id,
         )
