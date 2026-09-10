@@ -21,7 +21,7 @@ class RdsConstruct(Construct):
     5. Security and monitoring settings
 
     Database Configuration:
-    - PostgreSQL 17.4 engine
+    - PostgreSQL 17 engine
     - Custom parameter group settings:
         * max_connections: 100
         * shared_buffers: 16MB
@@ -150,7 +150,7 @@ class RdsConstruct(Construct):
             "db-instance",
             identifier=f"{resource_prefix}-postgres",
             engine="postgres",
-            engine_version="17.4",
+            engine_version="17",
             instance_class=db_config.instance_class,
             allocated_storage=db_config.allocated_storage,
             max_allocated_storage=db_config.max_allocated_storage,
