@@ -316,7 +316,7 @@ def get_production_config() -> EnvironmentConfig:
             stac_api_config=EcsServiceConfig(
                 image_repository="ghcr.io/stac-utils/stac-fastapi-pgstac",
                 image_tag="4.0.0",
-                container_count=0,
+                container_count=1,
                 cpu=1024,
                 memory=2048,
                 container_port=8080,
