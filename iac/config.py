@@ -281,7 +281,7 @@ def get_production_config() -> EnvironmentConfig:
             dynamodb_table="cdktf-state-lock-fema-ffrd",
         ),
         database=DatabaseConfig(
-            instance_class="db.t4g.micro",
+            instance_class="db.t4g.medium",
             allocated_storage=20,
             max_allocated_storage=100,
             deletion_protection=False,
@@ -304,11 +304,11 @@ def get_production_config() -> EnvironmentConfig:
         ),
         ecs=EcsConfig(
             instance_type="t3.2xlarge",
-            instance_count=0,
+            instance_count=1,
             stormlit_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/stormlit",
                 image_tag=None,
-                container_count=0,
+                container_count=1,
                 cpu=6144,
                 memory=22528,
                 container_port=8501,
@@ -324,7 +324,7 @@ def get_production_config() -> EnvironmentConfig:
             flood_data_plotter_config=EcsServiceConfig(
                 image_repository="ghcr.io/fema-ffrd/flood-data-plotter",
                 image_tag="latest",
-                container_count=0,
+                container_count=1,
                 cpu=512,
                 memory=2048,
                 container_port=8080,
